@@ -47,6 +47,12 @@ const MODE_PRESETS = {
     targetLufs: -9,
     ceilingDbtp: -0.5,
     description: 'Máxima loudness para funk, trap, EDM'
+  },
+  EXTREME: {
+    label: 'Extreme (Máximo impacto)',
+    targetLufs: -9,
+    ceilingDbtp: -0.5,
+    description: 'Máxima loudness com teto mais agressivo'
   }
 };
 

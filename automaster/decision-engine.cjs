@@ -62,8 +62,8 @@ const MAX_LIMITER_STRESS = {
   STREAMING: 4.0,  // Moderado (pode processar qualquer input)
   LOW: 1.5,
   MEDIUM: 3.0,
-  HIGH: 4.5,
-  HIGH_EXTENDED: 5.2  // Para mixes com CF > 12 e headroom > 3 dB
+  HIGH: 7.5,        // ETAPA 1: aumentado 4.5→7.5 para permitir mais impacto no HIGH mode
+  HIGH_EXTENDED: 8.5  // ETAPA 1: aumentado 5.2→8.5 para mixes CF > 12 com headroom
 };
 
 /**
@@ -206,6 +206,30 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   // Apenas processar se for aumentar loudness
   // (Não há target pré-definido - sempre calculamos aumento seguro)
   
+  // ─── REFINE MODE: mix alta + headroom insuficiente para loudness push ──────
+  // Condição: LUFS > -13 E headroom < 1.0 dB
+  // Ação: não abortar — ativar REFINE (EQ tonal + compressão leve, zero loudness push)
+  if (currentLUFS > -13.0 && headroom < 1.0) {
+    console.error('🔬 REFINE MODE ATIVADO: Mix alta com pouco headroom');
+    console.error(`   LUFS: ${currentLUFS.toFixed(1)} > -13.0 | Headroom: ${headroom.toFixed(2)} < 1.0 dB`);
+    console.error('   Estratégia: EQ tonal + compressão leve | Sem ganho de loudness');
+    console.error('═══════════════════════════════════════════════════════════');
+    return {
+      targetLUFS: currentLUFS,
+      gainDB: 0,
+      shouldProcess: true,
+      strategy: 'REFINE',
+      reason: 'Mix alta com headroom insuficiente — REFINE MODE ativado',
+      safe: true,
+      confidenceScore: 1.0,
+      confidenceLabel: 'REFINE',
+      offsetApplied: 0,
+      mode: modeKey,
+      modeApplied: modeKey,
+      metrics: { currentLUFS, truePeak, crestFactor, headroom }
+    };
+  }
+
   // Headroom crítico (<0.8 dB) - evitar processamento por segurança
   if (headroom < 0.8) {
     console.error('🚨 Headroom crítico (<0.8 dB) - risco de clipping');
@@ -489,10 +513,11 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   if (stressEstimate > maxStress) {
     console.error('');
     console.error(`⚠️ ESTRESSE EXCESSIVO: ${stressEstimate.toFixed(1)} dB > ${maxStress} dB`);
-    console.error('   Reduzindo offset para proteger qualidade...');
+    console.error('   Redução mínima (30% do excesso) para preservar impacto...');  // ETAPA 2
     
-    // Reduzir offset para caber no limite de estresse
-    const reduction = stressEstimate - maxStress;
+    // ETAPA 2: Reduzir apenas 30% do excesso — prioriza impacto sobre conservadorismo
+    const excess = stressEstimate - maxStress;
+    const reduction = excess * 0.3;
     safeOffset -= reduction;
     
     // Recalcular target
@@ -501,7 +526,8 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
     
     stressAdjusted = true;
     
-    console.error(`   Offset reduzido: ${safeOffset.toFixed(1)} LU`);
+    console.error(`   Excesso: ${excess.toFixed(2)} dB → redução aplicada: ${reduction.toFixed(2)} dB (30%)`);
+    console.error(`   Offset ajustado: ${safeOffset.toFixed(1)} LU`);
     console.error(`   Novo target: ${targetLUFS.toFixed(1)} LUFS`);
     console.error(`   Novo ganho: ${finalGainNeeded.toFixed(1)} dB ✅`);
     console.error('');
@@ -809,14 +835,407 @@ function applyGlobalCaps(decision, metrics) {
   };
 }
 
-module.exports = { 
-  decideGainWithinRange, 
-  analyzeAudioMetrics, 
+// ═══════════════════════════════════════════════════════════════
+// BUILD MASTERING PLAN
+// ═══════════════════════════════════════════════════════════════
+//
+// Função central que unifica toda a lógica de decisão:
+//   1. decideGainWithinRange  — target LUFS base
+//   2. applyGlobalCaps        — caps de segurança
+//   3. Mix Classification     — POOR / MEDIUM / GOOD
+//   4. EQ Plan                — boosts dinâmicos (requer bands)
+//   5. Highpass Plan          — frequência de corte (requer bands)
+//
+// Contrato de entrada (metrics):
+//   { lufs, truePeak, crestFactor,
+//     bands: { sub, bass, mid, highMid, air } | null }
+//
+// Contrato de saída (MasteringPlan):
+//   {
+//     targetLUFS,     mixClass,   shouldProcess,
+//     eq: { sub_boost, mud_cut, presence_boost, air_boost },
+//     highpass_hz,    highpass_poles
+//   }
+//
+// REGRA DE SEGURANÇA: se bands for null ou inválido, todos os
+// valores de EQ e highpass usam exatamente os mesmos defaults
+// das Fases 7–11. Resultado idêntico ao comportamento anterior.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Thresholds de energia por banda (dBFS).
+ * Calibrados para material musical típico medido via FFmpeg.
+ * Bandas estreitas (sub/air) têm valores naturalmente mais baixos.
+ *
+ * Usados apenas para ajustar EQ em ±0.3–0.5 dB (conservador).
+ * Se banda for null → default (comportamento anterior).
+ */
+const BAND_THRESHOLDS = {
+  // sub (20–60 Hz): material típico entre -30 e -20 dBFS
+  sub: { high: -22, low: -36 },         // > -22 = sub forte; < -36 = sub fraco
+
+  // bass (60–150 Hz): entre -22 e -14 dBFS
+  bass: { high: -15, low: -27 },        // > -15 = bass forte; < -27 = bass fraco
+
+  // mid (150–2000 Hz): faixa mais energética, entre -18 e -10 dBFS
+  mid: { high: -12, low: -22 },         // > -12 = mids acumulados
+
+  // highMid (2000–10000 Hz): entre -24 e -16 dBFS
+  highMid: { high: -18, low: -30 },     // > -18 = presença ok; < -30 = presença baixa
+
+  // air (10000–20000 Hz): banda mais fraca, entre -40 e -24 dBFS
+  air: { high: -26, low: -42 },         // > -26 = ar ok; < -42 = ar fraco
+};
+
+/**
+ * Determina o plano de EQ para HIGH mode baseado nas bandas.
+ *
+ * Ajustes máximos conservadores: ±0.5 dB por banda.
+ * Se uma banda for null, o campo retorna o valor default (Fase 11).
+ *
+ * @param {Object|null} bands  Bandas do mini-analyzer (ou null)
+ * @returns {Object}           Plano de EQ com 4 campos
+ */
+function buildEQPlan(bands, strategy = null) {
+  // Defaults (Fase 11 preservados como fallback)
+  // Nota: presence e air agora aplicados APÓS saturação (post-sat EQ),
+  // permitindo ranges maiores sem risco de harshness da saturação.
+  let subBoost      = 0.5;   // 80 Hz  (pre-sat)
+  let mudCut        = -0.5;  // 300 Hz (pre-sat)
+  let presenceBoost = 1.5;   // 4 kHz  (post-sat) — default levemente aumentado
+  let airBoost      = 1.0;   // 12 kHz (post-sat) — default levemente aumentado
+
+  if (!bands) {
+    // Sem bandas → defaults preservados
+    console.error('[PLAN][EQ] bands=null — usando defaults');
+    return { sub_boost: subBoost, mud_cut: mudCut, presence_boost: presenceBoost, air_boost: airBoost, source: 'defaults' };
+  }
+
+  // ── SUB_BOOST (80 Hz) ──────────────────────────────────────
+  // bass forte → boost menor (não engrossar mais)
+  // bass fraco → boost maior (compensar carência)
+  if (bands.bass && bands.bass.energy_db !== null) {
+    const db = bands.bass.energy_db;
+    if (db > BAND_THRESHOLDS.bass.high) {
+      subBoost = 0.2;   // bass já forte
+    } else if (db < BAND_THRESHOLDS.bass.low) {
+      subBoost = 0.8;   // bass fraco
+    }
+  }
+
+  // ── MUD_CUT (300 Hz) ───────────────────────────────────────
+  // mid muito acumulado → corte maior para abrir espaço
+  if (bands.mid && bands.mid.energy_db !== null) {
+    const db = bands.mid.energy_db;
+    if (db > BAND_THRESHOLDS.mid.high) {
+      mudCut = -1.2;  // mids densos: corte mais efetivo
+    }
+  }
+
+  // ── PRESENCE_BOOST (4 kHz) — post-sat ─────────────────────
+  // Zonas graduadas para resposta proporcional à carência de presence:
+  //   > -18 dBFS  : presença ok → boost conservador
+  //   -18 a -24   : padrão → 1.5 dB
+  //   -24 a -30   : baixa → 2.0 dB
+  //   < -30 dBFS  : muito baixa → 2.5 dB
+  if (bands.highMid && bands.highMid.energy_db !== null) {
+    const db = bands.highMid.energy_db;
+    if (db > BAND_THRESHOLDS.highMid.high) {
+      presenceBoost = 0.8;   // presença ok
+    } else if (db < BAND_THRESHOLDS.highMid.low) {
+      presenceBoost = 2.5;   // presença muito baixa
+    } else if (db < -24) {
+      presenceBoost = 2.0;   // presença baixa
+    }
+    // entre -18 e -24 → default 1.5 dB
+  }
+
+  // ── AIR_BOOST (12 kHz) — post-sat ─────────────────────────
+  // Zonas graduadas para resposta proporcional à carência de ar:
+  //   > -26 dBFS  : ar ok → boost conservador
+  //   -26 a -36   : padrão → 1.0 dB
+  //   -36 a -42   : escuro → 2.0 dB
+  //   < -42 dBFS  : muito escuro → 2.5 dB
+  if (bands.air && bands.air.energy_db !== null) {
+    const db = bands.air.energy_db;
+    if (db > BAND_THRESHOLDS.air.high) {
+      airBoost = 0.5;   // ar ok
+    } else if (db < BAND_THRESHOLDS.air.low) {
+      airBoost = 2.5;   // escuridão extrema
+    } else if (db < -36) {
+      airBoost = 2.0;   // escuro
+    }
+    // entre -26 e -36 → default 1.0 dB
+  }
+
+  // Regra de segurança: presence + air não somam mais que 4.0 dB
+  // Para evitar excesso de brilho quando ambas as bandas são muito baixas
+  if (presenceBoost + airBoost > 4.0) {
+    const excess = (presenceBoost + airBoost) - 4.0;
+    airBoost = Math.max(0.5, airBoost - excess);
+    console.error(`[PLAN][EQ] soma presence+air limitada a 4.0 dB (excesso=${excess.toFixed(1)}dB)`);
+  }
+
+  // REFINE: limitar EQ a valores conservadores para não destruir transientes
+  if (strategy === 'REFINE') {
+    subBoost      = Math.min(subBoost, 0.3);
+    mudCut        = Math.max(mudCut, -0.8);
+    presenceBoost = Math.min(Math.max(presenceBoost, 0.8), 1.2);
+    airBoost      = Math.min(Math.max(airBoost, 0.5), 1.0);
+    console.error(`[PLAN][EQ] REFINE caps → sub=${subBoost} mud=${mudCut} presence=${presenceBoost} air=${airBoost}`);
+  }
+
+  console.error(`[PLAN][EQ] sub_boost=${subBoost} mud_cut=${mudCut} presence=${presenceBoost} air=${airBoost} (from bands)`);
+  return { sub_boost: subBoost, mud_cut: mudCut, presence_boost: presenceBoost, air_boost: airBoost, source: 'bands' };
+}
+
+/**
+ * Determina intensidade de saturação suave baseada na mixClass.
+ *
+ * Princípio: mixes mais quietas (POOR) precisam de maior densidade
+ * harmônica ao serem masterizadas. O threshold mais baixo aumenta o
+ * engajamento do softclipper, criando harmônicos que preenchem o som.
+ *
+ * Mixes GOOD já têm densidade — threshold conservador evita distorção.
+ *
+ * @param {string} mixClass  'POOR' | 'MEDIUM' | 'GOOD'
+ * @returns {{ threshold: number, output: number, oversample: number, source: string }}
+ */
+function buildSaturationPlan(mixClass) {
+  // HIGH v4 DOUBLE CLIP: dois estágios de saturação/ISP-control
+  // Clipper 1 (pré-EQ):  threshold adaptativo por mixClass, output=0.99, oversample=8 (v3 precision)
+  //   Trabalha os maiores picos antes do boost de presença/air
+  // Clipper 2 (pós-EQ):  threshold=0.96 FIXO, output=0.995, oversample=8 (safety net ISP)
+  //   Threshold alto (0.96) = captura apenas ISPs extremos gerados pelo postEQ boost
+  //   Não afeta o ganho médio de LUFS que o postEQ adiciona
+  const plans = {
+    POOR:   { threshold: 0.80, mustApply: true,  description: 'POOR — double-clip agressivo' },
+    MEDIUM: { threshold: 0.83, mustApply: false, description: 'MEDIUM — double-clip v3-baseline' },
+    GOOD:   { threshold: 0.83, mustApply: false, description: 'GOOD — double-clip v3-baseline' },
+  };
+  const p = plans[mixClass] || plans.GOOD;
+  console.error(`[PLAN][SAT] clip1: threshold=${p.threshold} output=0.99 oversample=8 | clip2: threshold=0.96 output=0.995 oversample=8 (${p.description})`);
+  return {
+    // Clipper 1 — v3 baseline (threshold 0.83 + high oversample para ISP controle antes do EQ)
+    threshold:  p.threshold,
+    mustApply:  p.mustApply ?? false,
+    output:     0.99,
+    oversample: 8,
+    // Clipper 2 — safety net ISP após EQ (threshold alto = não mata loudness do postEQ)
+    threshold2:  0.96,
+    output2:     0.995,
+    oversample2: 8,
+    source:     'mixClass',
+    description: p.description,
+  };
+}
+
+/**
+ * Determina a frequência de corte do highpass baseada nas bandas e mixClass.
+ *
+ * Lógica:
+ *   POOR class → 30 Hz (comportamento Fase 8 preservado)
+ *   sub forte  → 35 Hz (liberar mais headroom do infra)
+ *   sub fraco  → 22 Hz (preservar o pouco sub disponível)
+ *   default    → 25 Hz (comportamento anterior não-POOR)
+ *
+ * @param {Object|null} bands       Bandas do mini-analyzer
+ * @param {string}      mixClass    'POOR' | 'MEDIUM' | 'GOOD'
+ * @returns {{ hz: number, poles: number }}
+ */
+function buildHighpassPlan(bands, mixClass) {
+  // POOR class: sempre 30 Hz 2-pole (Fase 8, inviolável)
+  if (mixClass === 'POOR') {
+    return { hz: 30, poles: 2 };
+  }
+
+  // Sem bandas → padrão não-POOR
+  if (!bands || !bands.sub || bands.sub.energy_db === null) {
+    return { hz: 25, poles: 1 };
+  }
+
+  const subDb = bands.sub.energy_db;
+  if (subDb > BAND_THRESHOLDS.sub.high) {
+    // Sub muito forte: corte levemente mais alto para liberar headroom
+    console.error(`[PLAN][HP] sub forte (${subDb.toFixed(1)} dBFS) → highpass 35 Hz`);
+    return { hz: 35, poles: 1 };
+  } else if (subDb < BAND_THRESHOLDS.sub.low) {
+    // Sub fraco: preservar o que existe
+    console.error(`[PLAN][HP] sub fraco (${subDb.toFixed(1)} dBFS) → highpass 22 Hz`);
+    return { hz: 22, poles: 1 };
+  }
+
+  return { hz: 25, poles: 1 };
+}
+
+/**
+ * Função central de decisão de masterização.
+ *
+ * Recebe métricas completas (com ou sem bandas) e retorna
+ * um plano determinístico que descreve TODOS os parâmetros
+ * de processamento que o DSP deve executar.
+ *
+ * O DSP (builders no automaster-v1.cjs) passa a ser EXECUTOR PURO
+ * do plano — não toma mais nenhuma decisão própria.
+ *
+ * @param {Object} metrics  Contrato de métricas (lufs, truePeak, crestFactor, bands?)
+ * @param {string} mode     Modo: 'STREAMING' | 'LOW' | 'MEDIUM' | 'HIGH'
+ * @returns {Object}        MasteringPlan completo
+ */
+function buildMasteringPlan(metrics, mode) {
+  const modeKey = (mode || 'MEDIUM').toUpperCase();
+
+  console.error('');
+  console.error('════════════════════════════════════════════════════════════');
+  console.error('🗺️  BUILD MASTERING PLAN');
+  console.error(`    Mode: ${modeKey} | bands: ${metrics.bands ? 'YES' : 'NULL'}`);
+  console.error('════════════════════════════════════════════════════════════');
+
+  // ─── 1. TARGET LUFS via decision engine ────────────────────
+  const decision = decideGainWithinRange(metrics, modeKey);
+
+  if (!decision.shouldProcess) {
+    console.error('[PLAN] Motor decidiu NÃO processar:', decision.reason);
+    return {
+      shouldProcess: false,
+      abortReason: decision.reason,
+      targetLUFS: metrics.lufs,
+      mixClass: null,
+      eq: null,
+      highpass_hz: 25,
+      highpass_poles: 1,
+      raw_decision: decision
+    };
+  }
+
+  // ─── 2. Global Caps ────────────────────────────────────────
+  const cappedDecision = applyGlobalCaps(decision, metrics);
+
+  // ─── 3. Mix Classification (centralizada aqui) ─────────────
+  const inputLufs = metrics.lufs;
+  let mixClass;
+  if (inputLufs < -20) mixClass = 'POOR';
+  else if (inputLufs < -14) mixClass = 'MEDIUM';
+  else mixClass = 'GOOD';
+
+  const MIX_CLASS_TARGETS = { POOR: -14.0, MEDIUM: -11.5, GOOD: -10.0 };
+
+  // REFINE: target = input (zero loudness push)
+  const isRefine = decision.strategy === 'REFINE';
+
+  // HIGH v4: target dinâmico baseado em mixClass + Crest Factor
+  //
+  // POOR: mantém v3 target (-14.0) — material problemático, push agressivo causa distorção
+  //
+  // MEDIUM/GOOD: CF-based bracketing, respeitando o target v3 como piso (sem regressão)
+  //   CF >= 14  (muito dinâmico) → v3 class target (MEDIUM=-11.5, GOOD=-10.0) — garantia de convergência
+  //   CF 12-14  (moderado)      → -10.5 LUFS  (+1 LU vs MEDIUM v3, mesmo nível GOOD v3)
+  //   CF < 12   (denso)         → -9.5 LUFS   (+2 LU vs MEDIUM, agressivo possível)
+  let highModeTarget = MIX_CLASS_TARGETS[mixClass];  // fallback = v3 behavior
+  if (modeKey === 'HIGH' && !isRefine) {
+    const cf = metrics.crestFactor;
+    if (mixClass === 'POOR') {
+      highModeTarget = MIX_CLASS_TARGETS.POOR;  // -14.0 — v3 baseline para material muito dinâmico/silencioso
+      console.error(`   🔥 HIGH v4 (POOR class, CF=${cf.toFixed(1)}): Target ${highModeTarget} LUFS (v3 baseline)`);
+    } else if (cf >= 14) {
+      highModeTarget = MIX_CLASS_TARGETS[mixClass];  // v3 sem regressão: MEDIUM=-11.5, GOOD=-10.0
+      console.error(`   🔥 HIGH v4 (${mixClass}, CF=${cf.toFixed(1)}≥14): Target ${highModeTarget} LUFS (v3 baseline)`);
+    } else if (cf >= 12) {
+      highModeTarget = -10.5;
+      console.error(`   🔥 HIGH v4 (${mixClass}, CF=${cf.toFixed(1)} 12-14): Target ${highModeTarget} LUFS (+1 LU vs MEDIUM v3)`);
+    } else {
+      highModeTarget = -9.5;
+      console.error(`   🔥 HIGH v4 (${mixClass}, CF=${cf.toFixed(1)}<12, denso): Target ${highModeTarget} LUFS (agressivo)`);
+    }
+  }
+
+  // EXTREME MODE: target mais agressivo que HIGH
+  // Objettivo: -10 a -8 LUFS — loudness de competição
+  // POOR: target conservador (-13.0) para não destruir material problemático
+  // CF >= 14 (muito dinâmico): -10.5 — precisa de mais headroom para o pipeline agressivo
+  // CF 12-14 (moderado):       -9.5
+  // CF < 12  (denso):          -8.5 — material já comprimido aguenta o pipeline
+  let extremeModeTarget = MIX_CLASS_TARGETS[mixClass];  // fallback
+  if (modeKey === 'EXTREME' && !isRefine) {
+    const cf = metrics.crestFactor;
+    if (mixClass === 'POOR') {
+      extremeModeTarget = -13.0;
+      console.error(`   ⚡ EXTREME (POOR class, CF=${cf.toFixed(1)}): Target ${extremeModeTarget} LUFS (conservador — material problemático)`);
+    } else if (cf >= 14) {
+      extremeModeTarget = -10.5;
+      console.error(`   ⚡ EXTREME (${mixClass}, CF=${cf.toFixed(1)}≥14): Target ${extremeModeTarget} LUFS (dinâmico — headroom necessário)`);
+    } else if (cf >= 12) {
+      extremeModeTarget = -9.5;
+      console.error(`   ⚡ EXTREME (${mixClass}, CF=${cf.toFixed(1)} 12-14): Target ${extremeModeTarget} LUFS`);
+    } else if (cf >= 8) {
+      extremeModeTarget = -9.0;
+      console.error(`   ⚡ EXTREME (${mixClass}, CF=${cf.toFixed(1)} 8-12): Target ${extremeModeTarget} LUFS (competição — loudness máximo)`);
+    } else {
+      // CF < 8: material já muito denso — ganho excessivo cria ISPs incontroláveis.
+      // -9.5 ainda é mais alto que HIGH (~-10.3) mantendo o benefício do modo EXTREME.
+      extremeModeTarget = -9.5;
+      console.error(`   ⚡ EXTREME (${mixClass}, CF=${cf.toFixed(1)}<8, ultra-denso): Target ${extremeModeTarget} LUFS (ISP-safe ceiling)`);
+    }
+  }
+
+  const mixClassTarget = modeKey === 'HIGH' ? highModeTarget
+    : modeKey === 'EXTREME' ? extremeModeTarget
+    : MIX_CLASS_TARGETS[mixClass];
+
+  // Override do target pelo mix class (Fase 7) — REFINE preserva target = input
+  const finalTarget = isRefine ? metrics.lufs
+    : (modeKey === 'HIGH' || modeKey === 'EXTREME') ? mixClassTarget : cappedDecision.targetLUFS;
+
+  console.error(`[PLAN] Mix Class: ${mixClass} → target ${finalTarget.toFixed(1)} LUFS`);
+
+  // ─── 4. EQ Plan ────────────────────────────────────────────
+  // Para HIGH e EXTREME: sub_boost, mud_cut (pre-sat) + presence_boost, air_boost (post-sat)
+  const eqPlan = (modeKey === 'HIGH' || modeKey === 'EXTREME')
+    ? buildEQPlan(metrics.bands || null, isRefine ? 'REFINE' : null)
+    : null;
+
+  // ─── 5. Highpass Plan ──────────────────────────────────────
+  // Para HIGH e EXTREME
+  const hpPlan = (modeKey === 'HIGH' || modeKey === 'EXTREME')
+    ? buildHighpassPlan(metrics.bands || null, mixClass)
+    : { hz: 25, poles: 1 };
+
+  console.error(`[PLAN] Highpass: ${hpPlan.hz} Hz (${hpPlan.poles}-pole) | MixClass: ${mixClass}`);
+
+  // ─── 6. Saturation Plan ────────────────────────────────────
+  // REFINE: NÃO usa softclip (evitar coloração e distorção)
+  // HIGH e EXTREME: threshold condicional por mixClass
+  const saturationPlan = ((modeKey === 'HIGH' || modeKey === 'EXTREME') && !isRefine)
+    ? buildSaturationPlan(mixClass)
+    : null;
+
+  return {
+    shouldProcess: true,
+    strategy: isRefine ? 'REFINE' : undefined,
+    targetLUFS: finalTarget,
+    mixClass,
+    mixClassStrategy: isRefine ? 'REFINE'
+      : ({ POOR: 'CONSERVATIVE', MEDIUM: 'MODERATE', GOOD: 'AGGRESSIVE' }[mixClass]),
+    eq: eqPlan,
+    saturation: saturationPlan,
+    highpass_hz: hpPlan.hz,
+    highpass_poles: hpPlan.poles,
+    raw_decision: cappedDecision,
+    mode: modeKey,
+    bandsSource: metrics.bands ? 'mini-analyzer' : 'none'
+  };
+}
+
+module.exports = {
+  decideGainWithinRange,
+  analyzeAudioMetrics,
   applyGlobalCaps,
-  MODES, 
-  MAX_GAIN_DB, 
+  buildMasteringPlan,
+  buildSaturationPlan,
+  MODES,
+  MAX_GAIN_DB,
   MAX_LIMITER_STRESS,
   MAX_DELTA_BY_MODE,
-  MAX_DELTA_LUFS, 
-  DEFAULT_CREST_FACTOR 
+  MAX_DELTA_LUFS,
+  DEFAULT_CREST_FACTOR
 };

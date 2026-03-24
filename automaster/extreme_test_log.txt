@@ -1,0 +1,373 @@
+﻿node : [MASTERING PLAN] Analisando m├®tricas e construindo plano...
+No linha:1 caractere:67
++ ... tomaster" ; node automaster-v1.cjs ..\musicas\hey.wav t_hey_extreme.w ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([MASTERING PLAN...ruindo plano... 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[MINI-ANALYZER] Iniciando an├ílise com bandas...
+[MINI-ANALYZER] P1: LUFS=-13.2 TP=-3.2 CF=6.3
+[MINI-ANALYZER] Band sub    : -15.5 dBFS
+[MINI-ANALYZER] Band bass   : -20.2 dBFS
+[MINI-ANALYZER] Band mid    : -23.0 dBFS
+[MINI-ANALYZER] Band highMid: -25.7 dBFS
+[MINI-ANALYZER] Band air    : -33.8 dBFS
+[MASTERING PLAN] M├®tricas obtidas: {
+  lufs: -13.15,
+  truePeak: -3.16,
+  crestFactor: 6.270961000000002,
+  hasBands: true
+}
+[PEAK FIX] Skip: headroom=3.16 dB >= 1.2 (saud├ível)
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+­ƒù║´©Å  BUILD MASTERING PLAN
+    Mode: EXTREME | bands: YES
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+­ƒÄ» [AUTOMASTER] MOTOR DE DECIS├âO - Target Din├ómico
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+­ƒôè M├®tricas de entrada:
+   LUFS atual: -13.2 LUFS
+   True Peak: -3.2 dBTP
+   Headroom inicial: 3.2 dB
+   Limiter stress permitido: 4.0 dB (modo EXTREME)
+   Effective Headroom: 7.2 dB
+   Crest Factor: 6.3 dB
+
+­ƒÄÜ´©Å Modo escolhido: Balanceado
+
+­ƒôè Mix m├®dia detectada (-18 a -13 LUFS)
+   Estrat├®gia: Subida moderada baseada em capacidade
+   Target range: -13.0 a -12.0 LUFS
+   Ganho permitido: 5.7 dB (80% headroom)
+   Ganho final: 0.7 dB
+
+­ƒÄ» Target final calculado:
+   LUFS atual: -13.2 LUFS
+   LUFS alvo: -12.5 LUFS
+   Ganho necess├írio: +0.7 dB
+   Estrat├®gia: moderate_push
+
+­ƒö¼ An├ílise de estresse do limiter:
+   Ganho necess├írio: 0.7 dB
+   Headroom dispon├¡vel: 3.2 dB
+   Estresse estimado: 0.0 dB
+   Limite de estresse: 3 dB
+   Ô£à Estresse dentro do limite
+
+­ƒºá Mix Confidence: 0.70
+
+Ô£à Decis├úo final:
+   Modo: Balanceado
+   Offset seguro: +0.7 LU
+   LUFS alvo: -12.5 LUFS
+   Ganho necess├írio: +0.7 dB
+   Processar: SIM
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+
+   ÔÜí EXTREME (GOOD, CF=6.3<8, ultra-denso): Target -9.5 LUFS (ISP-safe 
+ceiling)
+[PLAN] Mix Class: GOOD ÔåÆ target -9.5 LUFS
+[PLAN][EQ] sub_boost=0.5 mud_cut=-0.5 presence=2 air=1 (from bands)
+[PLAN][HP] sub forte (-15.5 dBFS) ÔåÆ highpass 35 Hz
+[PLAN] Highpass: 35 Hz (1-pole) | MixClass: GOOD
+[PLAN][SAT] clip1: threshold=0.83 output=0.99 oversample=8 | clip2: 
+threshold=0.96 output=0.995 oversample=8 (GOOD ÔÇö double-clip v3-baseline)
+[MASTERING PLAN] Plano: {
+  shouldProcess: true,
+  targetLUFS: -9.5,
+  mixClass: 'GOOD',
+  highpass_hz: 35,
+  eq: {
+    sub_boost: 0.5,
+    mud_cut: -0.5,
+    presence_boost: 2,
+    air_boost: 1,
+    source: 'bands'
+  }
+}
+
+­ƒöÆ TARGET LOCKED FROM MASTERING PLAN
+   Target LUFS: -9.50 LUFS
+   Mix Class:   GOOD
+   Highpass:    35 Hz
+   EQ src:      bands
+
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+­ƒöä TENTATIVA 1/3
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+   Target atual: -9.5 LUFS
+   Modo: EXTREME
+
+[FINAL TARGET BEFORE PROCESSING] -9.5 LUFS
+
+[EXTREME MODE] Pipeline de loudness m├íximo ÔÇö ceiling -0.5 dBTP
+[EXTREME MODE] Guardrails: CF drop >5 dB ou limiter GR >5 dB ÔåÆ fallback para 
+HIGH
+
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉ
+­ƒÄÜ´©Å HIGH MODE: LIMITER-DRIVEN MASTERING
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉ
+   Target LUFS: -9.50 LUFS
+   Ceiling: -0.50 dBTP
+   Strategy: Macro stabilization + Iterative limiter convergence
+   Plan source: mini-analyzer
+
+[STEP 0] Applying macro dynamics stabilizer...
+
+[HIGH PRE-LIMITER STABILIZATION]
+   Goal: Reduce perceived volume jump when bass enters
+   Method: Gentle wideband compressor (macro dynamics control)
+   Threshold: -14.65 dB (RMS + 1.5dB)
+   Ratio: 1.5:1 | Attack: 30ms | Release: 180ms
+   Expected reduction: 1-2 dB on bass entry
+   Ô£à Macro dynamics stabilized
+
+[STEP 0] Ô£à Stabilized base file created: t_hey_extreme_stabilized.wav
+
+[SOFTCLIP1-EXTREME] type=tanh threshold=0.86 output=0.99 oversample=8 (serial, 
+class=GOOD)
+[PRE-COND] highpass 35 Hz (p=1, source=plan, class=GOOD, CF=6.3)
+[PRE-COND] acompressor DENSO CF<10: ratio=2.0 thr=0.85 mix=0.5 sem makeup 
+(parallel peak ctrl)
+[EQ-PRE ] sub=0.5 mud=-0.5 (src=bands)
+[EQ-POST] presence=2 air=1 (src=bands)
+[EXTREME] ISP guard: internalCeiling=-2.0 dBFS (published ceiling: -0.5 dBTP)
+[STEP 1] Initial gain calculation:
+   Base LUFS: -14.71 LUFS
+   Initial pre-gain: +5.71 dB (+0.5 dB boost, Fase 10)
+   Pre-gain cap: 18 dB (clipper=true, precond=true, preSatEQ=true, 
+postSatEQ=true)
+
+[STEP 2] Starting iterative limiter convergence...
+
+[HIGH LIMITER] Iteration 1/7
+[HIGH LIMITER] Pre-gain: +5.71 dB
+   ÔÜá´©Å TP violation: -0.38 dBTP > -2.00 dBTP
+   ÔåÆ Reducing pre-gain by 1.0 dB to +4.71 dB (attempt 2/2)
+   ÔÜá´©Å TP violation: -1.36 dBTP > -2.00 dBTP
+   ÔåÆ Max attempts reached ÔÇö TP above ceiling, outer loop will handle via 
+postcheck
+[HIGH LIMITER] LUFS measured: -14.32 LUFS
+[HIGH LIMITER] TP measured: -1.36 dBTP (ceiling: -0.50 dBTP)
+[HIGH LIMITER] Error: +4.82 LU
+[HIGH LIMITER] ÔÜá´©Å Warning: TP ceiling violated despite correction attempts
+[EXTREME] Feedback: outer preGain 5.71 ÔåÆ 4.71 dB (inner TP-reduction)
+[HIGH LIMITER] Adjusted pre-gain by +1.50 dB (step=0.7) ÔåÆ +6.21 dB
+
+[HIGH LIMITER] Iteration 2/7
+[HIGH LIMITER] Pre-gain: +6.21 dB
+   ÔÜá´©Å TP violation: 0.12 dBTP > -2.00 dBTP
+   ÔåÆ Reducing pre-gain by 1.0 dB to +5.21 dB (attempt 2/2)
+   ÔÜá´©Å TP violation: -0.87 dBTP > -2.00 dBTP
+   ÔåÆ Max attempts reached ÔÇö TP above ceiling, outer loop will handle via 
+postcheck
+[HIGH LIMITER] LUFS measured: -13.82 LUFS
+[HIGH LIMITER] TP measured: -0.87 dBTP (ceiling: -0.50 dBTP)
+[HIGH LIMITER] Error: +4.32 LU
+[HIGH LIMITER] ÔÜá´©Å Warning: TP ceiling violated despite correction attempts
+[EXTREME] Feedback: outer preGain 6.21 ÔåÆ 5.21 dB (inner TP-reduction)
+[HIGH LIMITER] Adjusted pre-gain by +1.50 dB (step=0.7) ÔåÆ +6.71 dB
+
+[HIGH LIMITER] Iteration 3/7
+[HIGH LIMITER] Pre-gain: +6.71 dB
+   ÔÜá´©Å TP violation: 0.61 dBTP > -2.00 dBTP
+   ÔåÆ Reducing pre-gain by 1.0 dB to +5.71 dB (attempt 2/2)
+   ÔÜá´©Å TP violation: -0.38 dBTP > -2.00 dBTP
+   ÔåÆ Max attempts reached ÔÇö TP above ceiling, outer loop will handle via 
+postcheck
+[HIGH LIMITER] LUFS measured: -13.33 LUFS
+[HIGH LIMITER] TP measured: -0.38 dBTP (ceiling: -0.50 dBTP)
+[HIGH LIMITER] Error: +3.83 LU
+[HIGH LIMITER] ÔÜá´©Å Warning: TP ceiling violated despite correction attempts
+[EXTREME] Feedback: outer preGain 6.71 ÔåÆ 5.71 dB (inner TP-reduction)
+[HIGH LIMITER] Adjusted pre-gain by +1.50 dB (step=0.7) ÔåÆ +7.21 dB
+
+[HIGH LIMITER] Iteration 4/7
+[HIGH LIMITER] Pre-gain: +7.21 dB
+   ÔÜá´©Å TP violation: 1.09 dBTP > -2.00 dBTP
+   ÔåÆ Reducing pre-gain by 1.0 dB to +6.21 dB (attempt 2/2)
+   ÔÜá´©Å TP violation: 0.12 dBTP > -2.00 dBTP
+   ÔåÆ Max attempts reached ÔÇö TP above ceiling, outer loop will handle via 
+postcheck
+[HIGH LIMITER] LUFS measured: -12.84 LUFS
+[HIGH LIMITER] TP measured: 0.12 dBTP (ceiling: -0.50 dBTP)
+[HIGH LIMITER] Error: +3.34 LU
+[HIGH LIMITER] ÔÜá´©Å Warning: TP ceiling violated despite correction attempts
+[EXTREME] Feedback: outer preGain 7.21 ÔåÆ 6.21 dB (inner TP-reduction)
+[HIGH LIMITER] Adjusted pre-gain by +1.50 dB (step=0.7) ÔåÆ +7.71 dB
+
+[HIGH LIMITER] Iteration 5/7
+[HIGH LIMITER] Pre-gain: +7.71 dB
+   ÔÜá´©Å TP violation: 1.53 dBTP > -2.00 dBTP
+   ÔåÆ Reducing pre-gain by 1.0 dB to +6.71 dB (attempt 2/2)
+   ÔÜá´©Å TP violation: 0.61 dBTP > -2.00 dBTP
+   ÔåÆ Max attempts reached ÔÇö TP above ceiling, outer loop will handle via 
+postcheck
+[HIGH LIMITER] LUFS measured: -12.36 LUFS
+[HIGH LIMITER] TP measured: 0.61 dBTP (ceiling: -0.50 dBTP)
+[HIGH LIMITER] Adjusted target: -8.83 LUFS (fix-penalty: -0.67 dB)
+[HIGH LIMITER] Error: +3.53 LU
+[HIGH LIMITER] ÔÜá´©Å Warning: TP ceiling violated despite correction attempts
+[EXTREME] Feedback: outer preGain 7.71 ÔåÆ 6.71 dB (inner TP-reduction)
+[HIGH LIMITER] Adjusted pre-gain by +1.50 dB (step=0.7) ÔåÆ +8.21 dB
+
+[HIGH LIMITER] Iteration 6/7
+[HIGH LIMITER] Pre-gain: +8.21 dB
+   ÔÜá´©Å TP violation: 1.53 dBTP > -2.00 dBTP
+   ÔåÆ Reducing pre-gain by 1.0 dB to +7.21 dB (attempt 2/2)
+   ÔÜá´©Å TP violation: 1.09 dBTP > -2.00 dBTP
+   ÔåÆ Max attempts reached ÔÇö TP above ceiling, outer loop will handle via 
+postcheck
+[HIGH LIMITER] LUFS measured: -11.88 LUFS
+[HIGH LIMITER] TP measured: 1.09 dBTP (ceiling: -0.50 dBTP)
+[HIGH LIMITER] Adjusted target: -8.34 LUFS (fix-penalty: -1.16 dB)
+[HIGH LIMITER] Error: +3.54 LU
+[HIGH LIMITER] ÔÜá´©Å Warning: TP ceiling violated despite correction attempts
+[EXTREME] Feedback: outer preGain 8.21 ÔåÆ 7.21 dB (inner TP-reduction)
+[HIGH LIMITER] Adjusted pre-gain by +1.50 dB (step=0.7) ÔåÆ +8.71 dB
+
+[HIGH LIMITER] Iteration 7/7
+[HIGH LIMITER] Pre-gain: +8.71 dB
+   ÔÜá´©Å TP violation: 1.94 dBTP > -2.00 dBTP
+   ÔåÆ Reducing pre-gain by 1.0 dB to +7.71 dB (attempt 2/2)
+   ÔÜá´©Å TP violation: 1.53 dBTP > -2.00 dBTP
+   ÔåÆ Max attempts reached ÔÇö TP above ceiling, outer loop will handle via 
+postcheck
+[HIGH LIMITER] LUFS measured: -11.40 LUFS
+[HIGH LIMITER] TP measured: 1.53 dBTP (ceiling: -0.50 dBTP)
+[HIGH LIMITER] Adjusted target: -7.86 LUFS (fix-penalty: -1.64 dB)
+[HIGH LIMITER] Error: +3.54 LU
+[HIGH LIMITER] ÔÜá´©Å Warning: TP ceiling violated despite correction attempts
+
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+­ƒôè AUDIT v6 ÔÇö DISTRIBUI├ç├âO DE GANHO (CLIPPER + LIMITER)
+   CF input:             6.3
+   Clipper mode:         SERIAL
+   LUFS pr├®-clipper:     -6.40 LUFS
+   LUFS pr├®-limiter:     -12.46 LUFS  (TP: 0.55 dBTP)
+   LUFS p├│s-limiter:     -11.40 LUFS
+   GR efetivo (clipper): -6.06 dB  ÔÜá´©Å ~50%+ dos samples (cont├¡nuo ÔÇö 
+cola)
+   GR efetivo (limiter): -1.06 dB
+   Ô£à  GR controlado (1.1 dB) ÔÇö limiter n├úo sobrecarregado
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+[STEP 3] Finalizing output...
+[STEP 3] Ô£à Final output copied to: t_hey_extreme.wav
+[STEP 3] Ô£à Temporary files cleaned
+
+
+[HIGH TP POSTCHECK] ÔÜá´©Å True Peak acima do ceiling detectado
+   TP medido: 1.53 dBTP  |  ceiling: -0.50 dBTP
+   Aplicando fix-true-peak (redu├º├úo de gain linear)...
+[HIGH TP POSTCHECK] Ô£à TP corrigido: 1.53 ÔåÆ -0.55 dBTP
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉ
+Ô£à HIGH LIMITER-DRIVEN MASTERING COMPLETE
+   Final LUFS: -11.40 LUFS
+   Target LUFS: -9.50 LUFS
+   Final error: 1.90 LU
+   Final TP: -0.55 dBTP (ceiling: -0.50 dBTP)
+   Completed 7 iterations (max reached)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉ
+
+[EXTREME GUARDRAIL] CF drop: -2.94 dB (limite: 5.0 dB) Ô£à
+[EXTREME GUARDRAIL] Limiter GR: 1.06 dB (limite: 5.0 dB) Ô£à
+
+­ƒÄ» [EXTREME MODE] Valida├º├úo determin├¡stica
+   EXTREME mode ├® single-pass: resultado aceito como final
+   Warnings s├úo informativos, n├úo causam reprocessamento
+
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+­ƒöì VALIDA├ç├âO DO RESULTADO FINAL
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+­ƒôè REGRA T├ëCNICA 1: LUFS n├úo pode reduzir
+   Reference LUFS: -13.48 LUFS (ap├│s pr├®-processamento)
+   Final LUFS: -13.48 LUFS
+   Diferen├ºa: +0.00 LU
+   Toler├óncia t├®cnica: 0.25 LU
+   Limite m├¡nimo aceit├ível: -13.73 LUFS
+   Ô£à OK: LUFS mantido ou aumentado
+
+­ƒôè REGRA T├ëCNICA 2: True Peak <= -1.0 dBTP
+   Final TP: -0.55 dBTP
+   Limite: -1.0 dBTP
+   ÔØî VIOLA├ç├âO: TP excedeu 0.45 dB
+
+­ƒôè M├ëTRICA EST├ëTICA 3: Crest Factor drop
+   Input CF: 9.99 dB
+   Output CF: 12.93 dB
+   CF Drop: -2.94 dB
+   Refer├¬ncia: 2.0 dB (ideal) | Limite cr├¡tico: 3.5 dB | Strategy: EXTREME
+   Ô£à EXCELENTE: Transientes preservados (4.94 dB de margem)
+
+­ƒôè M├ëTRICA EST├ëTICA 4: Limiter reduction
+   Ganho aplicado: 0.00 dB
+   Headroom estimado: 0.55 dB
+   Limiter reduction estimado: 0.00 dB
+   Refer├¬ncia: 5.0 dB (ideal)
+   Ô£à EXCELENTE: Limiter stress controlado (5.00 dB de margem)
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ÔØî VALIDA├ç├âO FALHOU: 1 viola├º├úo(├Áes) t├®cnica(s)
+   Viola├º├Áes: TP_OVERSHOOT
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔ
+òÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔò
+ÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+
+   Ôä╣´©Å Violations detectadas: TP_OVERSHOOT
+   (EXTREME mode: aceito como comportamento esperado)
+   Ô£à EXTREME mode complete - single pass execution
+
+[SATURATION CHECK] Verificando necessidade de satura├º├úo...
+
+­ƒÄø´©Å SATURA├ç├âO FALLBACK:
+   Delta final: -0.3 LU
+   Modo: EXTREME
+   Crest Factor: 6.3 dB
+   Mix Class: GOOD
+   ­ƒÜ½ Satura├º├úo bloqueada: Crest Factor < 10 dB (mix j├í comprimida)
+
+[SAT] engaged=false
+[RESULT] final_lufs=-13.48 final_tp=-0.55 output=C:\Users\DJ 
+Correa\Desktop\Programacao\SoundyAI\automaster\t_hey_extreme.wav
+{"success":true,"target_lufs":-9.5,"original_target":-9.5,"target_adjusted":false,"target_tp":-0.5,"used_tp":-0.5,"pre_gain_db":0,"ceiling_trim_db":0,"high_rms_clamp_applied":false,"dynamic_unstable":false,"pumping_risk":false,"sub_dominant":false,"final_lufs":-13.48,"final_tp":-0.55,"reference_lufs":-13.48,"reference_lufs_pre_limiter":-13.48,"lufs_error":-3.9800000000000004,"tp_error":-0.050000000000000044,"fallback_used":true,"fix_applied":true,"measured_by":"extreme-limiter-driven","duration":0,"output_size_kb":0,"mode_result":"EXTREME-LIMITER-DRIVEN","strategy_applied":"EXTREME","peak_correction_applied":false,"peak_correction_amount_db":0,"peak_correction_regions":0,"peak_correction_severity":null,"affected_duration_ms":0,"mode_requested":"EXTREME","mode_applied":"EXTREME","downgrade_reason":null,"confidence_score":0.7,"confidence_label":"OK","impact_aborted":false,"abort_reason":null,"mix_class":"GOOD","validation_passed":false,"validation_attempts":1,"validation_violations":["TP_OVERSHOOT"],"validation_warnings":[],"validation_details":{"lufs_change":0,"reference_lufs":-13.48,"tolerance_applied":0.25,"final_tp":-0.55,"tp_overshoot":0.44999999999999996,"cf_drop":-2.9399999999999995,"cf_drop_margin":4.9399999999999995,"limiter_reduction":0,"limiter_margin":5},"delta_lufs":-0.33000000000000007,"crest_drop":-2.9399999999999995,"tp_overshoot":true,"sat_used":false,"sat_aborted":false,"sat_blocked":true,"sat_reason":"CF_TOO_LOW","sat_intensity":0,"capped":false,"cap_reason":null,"offset_applied":0.7,"perceptual_improvement":"A faixa j├í possu├¡a volume alto. O sistema focou em deixar o ataque mais firme e evitar distor├º├Áes em sistemas fortes."}

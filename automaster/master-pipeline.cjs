@@ -21,7 +21,7 @@ const execFileAsync = promisify(execFile);
 // CONSTANTES
 // ============================================================================
 
-const VALID_MODES = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
+const VALID_MODES = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH', 'EXTREME'];
 
 const MEASURE_AUDIO_SCRIPT = path.resolve(__dirname, 'measure-audio.cjs');
 const CHECK_APTITUDE_SCRIPT = path.resolve(__dirname, 'check-aptitude.cjs');
@@ -343,7 +343,8 @@ const MODE_TARGET_LUFS = {
   STREAMING: -14,
   LOW:       -14,
   MEDIUM:    -11,
-  HIGH:       -9
+  HIGH:       -9,
+  EXTREME:    -9
 };
 
 async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = false, safeMode = false }) {

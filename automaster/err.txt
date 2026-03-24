@@ -1,0 +1,262 @@
+[MASTERING PLAN] Analisando métricas e construindo plano...
+[MINI-ANALYZER] Iniciando análise com bandas...
+[MINI-ANALYZER] P1: LUFS=-12.2 TP=-1.2 CF=12.9
+[MINI-ANALYZER] Band sub    : -18.1 dBFS
+[MINI-ANALYZER] Band bass   : -19.3 dBFS
+[MINI-ANALYZER] Band mid    : -19.0 dBFS
+[MINI-ANALYZER] Band highMid: -28.3 dBFS
+[MINI-ANALYZER] Band air    : -40.7 dBFS
+[MASTERING PLAN] Métricas obtidas: {
+  lufs: -12.2,
+  truePeak: -1.2,
+  crestFactor: 12.903329999999997,
+  hasBands: true
+}
+
+════════════════════════════════════════════════════════════
+🗺️  BUILD MASTERING PLAN
+    Mode: HIGH | bands: YES
+════════════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════════════
+🎯 [AUTOMASTER] MOTOR DE DECISÃO - Target Dinâmico
+═══════════════════════════════════════════════════════════════
+📊 Métricas de entrada:
+   LUFS atual: -12.2 LUFS
+   True Peak: -1.2 dBTP
+   Headroom inicial: 1.2 dB
+   Limiter stress permitido: 6.0 dB (modo HIGH)
+   Effective Headroom: 7.2 dB
+   Crest Factor: 12.9 dB
+
+🎚️ Modo escolhido: Impacto
+
+🎨 Mix alta detectada (> -13 LUFS)
+   🔥 HIGH MODE: Buscar loudness competitiva mesmo em mix alta
+   Target: -10.5 LUFS (CF >= 12)
+   Ganho para target: 1.7 dB
+   Ganho permitido: 3.6 dB
+   Ganho aplicado: 1.7 dB
+
+🎯 Target final calculado:
+   LUFS atual: -12.2 LUFS
+   LUFS alvo: -10.5 LUFS
+   Ganho necessário: +1.7 dB
+   Estratégia: preserve
+
+🔬 Análise de estresse do limiter:
+   Ganho necessário: 1.7 dB
+   Headroom disponível: 1.2 dB
+   Estresse estimado: 0.5 dB
+   Limite de estresse: 7.5 dB
+   ✅ Estresse dentro do limite
+
+🧠 Mix Confidence: 0.70
+
+✅ Decisão final:
+   Modo: Impacto
+   Offset seguro: +1.7 LU
+   LUFS alvo: -10.5 LUFS
+   Ganho necessário: +1.7 dB
+   Processar: SIM
+═══════════════════════════════════════════════════════════════
+
+[PLAN] Mix Class: GOOD → target -10.0 LUFS
+[PLAN][EQ] sub_boost=0.5 mud_cut=-0.5 presence=1.2 air=0.8 (from bands)
+[PLAN][HP] sub forte (-18.1 dBFS) → highpass 35 Hz
+[PLAN] Highpass: 35 Hz (1-pole) | MixClass: GOOD
+[MASTERING PLAN] Plano: {
+  shouldProcess: true,
+  targetLUFS: -10,
+  mixClass: 'GOOD',
+  highpass_hz: 35,
+  eq: {
+    sub_boost: 0.5,
+    mud_cut: -0.5,
+    presence_boost: 1.2,
+    air_boost: 0.8,
+    source: 'bands'
+  }
+}
+
+🔒 TARGET LOCKED FROM MASTERING PLAN
+   Target LUFS: -10.00 LUFS
+   Mix Class:   GOOD
+   Highpass:    35 Hz
+   EQ src:      bands
+
+
+════════════════════════════════════════════════════════════
+🔄 TENTATIVA 1/3
+════════════════════════════════════════════════════════════
+   Target atual: -10.0 LUFS
+   Modo: HIGH
+
+[FINAL TARGET BEFORE PROCESSING] -10 LUFS
+
+[HIGH MODE] Loudnorm bypassed – using limiter-driven loudness
+[HIGH MODE] Benefits: Immediate volume rise, no bass reaction, solid loudness
+
+
+═══════════════════════════════════════════════════════
+🎚️ HIGH MODE: LIMITER-DRIVEN MASTERING
+═══════════════════════════════════════════════════════
+   Target LUFS: -10.00 LUFS
+   Ceiling: -1.00 dBTP
+   Strategy: Macro stabilization + Iterative limiter convergence
+   Plan source: mini-analyzer
+
+[STEP 0] Applying macro dynamics stabilizer...
+
+[HIGH PRE-LIMITER STABILIZATION]
+   Goal: Reduce perceived volume jump when bass enters
+   Method: Gentle wideband compressor (macro dynamics control)
+   Threshold: -13.70 dB (RMS + 1.5dB)
+   Ratio: 1.5:1 | Attack: 30ms | Release: 180ms
+   Expected reduction: 1-2 dB on bass entry
+   ✅ Macro dynamics stabilized
+
+[STEP 0] ✅ Stabilized base file created: test_plan_h3_v2_stabilized.wav
+
+[PRE-COND] highpass 35 Hz (p=1, source=plan, class=GOOD)
+[PRE-COND] acompressor ratio=1.5 release=100ms (CF=12.9)
+[EQ] HIGH mode: sub=0.5 mud=-0.5 pres=1.2 air=0.8 (src=bands)
+[STEP 1] Initial gain calculation:
+   Base LUFS: -13.70 LUFS
+   Initial pre-gain: +4.20 dB (+0.5 dB boost, Fase 10)
+   Pre-gain cap: 18 dB (clipper=true, precond=true, eq=true)
+
+[STEP 2] Starting iterative limiter convergence...
+
+[HIGH LIMITER] Iteration 1/5
+[HIGH LIMITER] Pre-gain: +4.20 dB
+[HIGH LIMITER] LUFS measured: -15.14 LUFS
+[HIGH LIMITER] TP measured: -1.76 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Error: +5.14 LU
+[HIGH LIMITER] Adjusted pre-gain by +3.60 dB → +7.80 dB
+
+[HIGH LIMITER] Iteration 2/5
+[HIGH LIMITER] Pre-gain: +7.80 dB
+   ⚠️ TP violation: 0.25 dBTP > -1.00 dBTP
+   → Reducing pre-gain by 1.0 dB to +6.80 dB (attempt 2/2)
+   ⚠️ TP violation: 0.21 dBTP > -1.00 dBTP
+   → Max attempts reached — TP above ceiling, outer loop will handle via postcheck
+[HIGH LIMITER] LUFS measured: -12.67 LUFS
+[HIGH LIMITER] TP measured: 0.21 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Error: +2.67 LU
+[HIGH LIMITER] ⚠️ Warning: TP ceiling violated despite correction attempts
+[HIGH LIMITER] Adjusted pre-gain by +1.87 dB → +9.67 dB
+
+[HIGH LIMITER] Iteration 3/5
+[HIGH LIMITER] Pre-gain: +9.67 dB
+   ⚠️ TP violation: 0.57 dBTP > -1.00 dBTP
+   → Reducing pre-gain by 1.0 dB to +8.67 dB (attempt 2/2)
+   ⚠️ TP violation: 0.56 dBTP > -1.00 dBTP
+   → Max attempts reached — TP above ceiling, outer loop will handle via postcheck
+[HIGH LIMITER] LUFS measured: -11.07 LUFS
+[HIGH LIMITER] TP measured: 0.56 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Adjusted target: -8.74 LUFS (fix-penalty: -1.26 dB)
+[HIGH LIMITER] Error: +2.33 LU
+[HIGH LIMITER] ⚠️ Warning: TP ceiling violated despite correction attempts
+[HIGH LIMITER] Adjusted pre-gain by +1.63 dB → +11.30 dB
+
+[HIGH LIMITER] Iteration 4/5
+[HIGH LIMITER] Pre-gain: +11.30 dB
+   ⚠️ TP violation: 0.53 dBTP > -1.00 dBTP
+   → Reducing pre-gain by 1.0 dB to +10.30 dB (attempt 2/2)
+   ⚠️ TP violation: 0.57 dBTP > -1.00 dBTP
+   → Max attempts reached — TP above ceiling, outer loop will handle via postcheck
+[HIGH LIMITER] LUFS measured: -9.85 LUFS
+[HIGH LIMITER] TP measured: 0.57 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Adjusted target: -8.39 LUFS (fix-penalty: -1.61 dB)
+[HIGH LIMITER] Error: +1.46 LU
+[HIGH LIMITER] ⚠️ Warning: TP ceiling violated despite correction attempts
+[HIGH LIMITER] Adjusted pre-gain by +1.02 dB → +12.32 dB
+
+[HIGH LIMITER] Iteration 5/5
+[HIGH LIMITER] Pre-gain: +12.32 dB
+   ⚠️ TP violation: 0.49 dBTP > -1.00 dBTP
+   → Reducing pre-gain by 1.0 dB to +11.32 dB (attempt 2/2)
+   ⚠️ TP violation: 0.53 dBTP > -1.00 dBTP
+   → Max attempts reached — TP above ceiling, outer loop will handle via postcheck
+[HIGH LIMITER] LUFS measured: -9.17 LUFS
+[HIGH LIMITER] TP measured: 0.53 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Adjusted target: -8.38 LUFS (fix-penalty: -1.62 dB)
+[HIGH LIMITER] Error: +0.79 LU
+[HIGH LIMITER] ⚠️ Warning: TP ceiling violated despite correction attempts
+
+[STEP 3] Finalizing output...
+[STEP 3] ✅ Final output copied to: test_plan_h3_v2.wav
+[STEP 3] ✅ Temporary files cleaned
+
+
+[HIGH TP POSTCHECK] ⚠️ True Peak acima de -0.8 dBTP detectado
+   TP medido: 0.53 dBTP  |  ceiling: -1.00 dBTP
+   Aplicando fix-true-peak.cjs (gain negativo, margem 0.2 dB)...
+[HIGH TP POSTCHECK] ✅ TP corrigido: 0.53 → -1.05 dBTP
+
+═══════════════════════════════════════════════════════
+✅ HIGH LIMITER-DRIVEN MASTERING COMPLETE
+   Final LUFS: -9.17 LUFS
+   Target LUFS: -10.00 LUFS
+   Final error: 0.83 LU
+   Final TP: -1.05 dBTP (ceiling: -1.00 dBTP)
+   Completed 5 iterations (max reached)
+═══════════════════════════════════════════════════════
+
+
+🎯 [HIGH MODE] Validação determinística
+   HIGH mode é single-pass: resultado aceito como final
+   Warnings são informativos, não causam reprocessamento
+
+
+════════════════════════════════════════════════════════════
+🔍 VALIDAÇÃO DO RESULTADO FINAL
+════════════════════════════════════════════════════════════
+📊 REGRA TÉCNICA 1: LUFS não pode reduzir
+   Reference LUFS: -10.75 LUFS (após pré-processamento)
+   Final LUFS: -10.75 LUFS
+   Diferença: +0.00 LU
+   Tolerância técnica: 0.25 LU
+   Limite mínimo aceitável: -11.00 LUFS
+   ✅ OK: LUFS mantido ou aumentado
+
+📊 REGRA TÉCNICA 2: True Peak <= -1.0 dBTP
+   Final TP: -1.05 dBTP
+   Limite: -1.0 dBTP
+   ✅ OK: Margem de segurança 0.05 dB
+
+📊 MÉTRICA ESTÉTICA 3: Crest Factor drop
+   Input CF: 12.90 dB
+   Output CF: 9.70 dB
+   CF Drop: 3.20 dB
+   Referência: 2.0 dB (ideal)
+   ⚠️ WARNING: CF drop elevado (+1.20 dB acima do ideal)
+   Transientes podem estar ligeiramente comprimidos
+
+📊 MÉTRICA ESTÉTICA 4: Limiter reduction
+   Ganho aplicado: 0.00 dB
+   Headroom estimado: 1.05 dB
+   Limiter reduction estimado: 0.00 dB
+   Referência: 5.0 dB (ideal)
+   ✅ EXCELENTE: Limiter stress controlado (5.00 dB de margem)
+
+════════════════════════════════════════════════════════════
+✅ VALIDAÇÃO PASSOU: Todas as regras técnicas atendidas
+   ⚠️ 1 warning(s) estético(s): CF_DROP_HIGH
+   (Warnings não impedem o uso do resultado)
+════════════════════════════════════════════════════════════
+
+   ℹ️ Warnings informativos: CF_DROP_HIGH
+   (Não impedem uso do resultado)
+   ✅ HIGH mode complete - single pass execution
+
+[SATURATION CHECK] Verificando necessidade de saturação...
+
+🎛️ SATURAÇÃO FALLBACK:
+   Delta final: 1.4 LU
+   Modo: HIGH
+   Crest Factor: 12.9 dB
+   ℹ️ Saturação não necessária (delta suficiente)
+
+[RESULT] final_lufs=-10.75 final_tp=-1.05 output=C:\Users\DJ Correa\Desktop\Programacao\SoundyAI\automaster\test_plan_h3_v2.wav

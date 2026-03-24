@@ -177,7 +177,7 @@ body .neon-accent-br{
 /* ============================================================
    MODAL 1 — MODE CARDS
 ============================================================ */
-.mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:1.5rem;}
+.mode-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:1.5rem;}
 
 .mode-card{
   position:relative;background:rgba(17,17,32,0.9);
@@ -193,6 +193,7 @@ body .neon-accent-br{
 .mode-card.mode-low::before  {background:radial-gradient(ellipse at 50% 0%,rgba(16,185,129,0.12),transparent 60%);}
 .mode-card.mode-medium::before{background:radial-gradient(ellipse at 50% 0%,rgba(79,142,247,0.12),transparent 60%);}
 .mode-card.mode-high::before {background:radial-gradient(ellipse at 50% 0%,rgba(245,158,11,0.12),transparent 60%);}
+.mode-card.mode-extreme::before{background:radial-gradient(ellipse at 50% 0%,rgba(239,68,68,0.15),transparent 60%);}
 
 .mode-card:hover{
   transform:translateY(-6px);border-color:var(--border-glow);
@@ -203,8 +204,9 @@ body .neon-accent-br{
 .mode-card.mode-low.selected   {border-color:rgba(16,185,129,0.7);box-shadow:0 0 44px rgba(16,185,129,0.35),0 12px 40px rgba(0,0,0,0.35),inset 0 1px 0 rgba(16,185,129,0.15);transform:translateY(-6px);}
 .mode-card.mode-medium.selected{border-color:rgba(79,142,247,0.7);box-shadow:0 0 44px rgba(79,142,247,0.4),0 12px 40px rgba(0,0,0,0.35),inset 0 1px 0 rgba(79,142,247,0.15);transform:translateY(-6px);}
 .mode-card.mode-high.selected  {border-color:rgba(245,158,11,0.7);box-shadow:0 0 44px rgba(245,158,11,0.35),0 12px 40px rgba(0,0,0,0.35),inset 0 1px 0 rgba(245,158,11,0.15);transform:translateY(-6px);}
+.mode-card.mode-extreme.selected{border-color:rgba(239,68,68,0.8);box-shadow:0 0 44px rgba(239,68,68,0.4),0 12px 40px rgba(0,0,0,0.4),inset 0 1px 0 rgba(239,68,68,0.2);transform:translateY(-6px);}
 
-.mode-card.mode-low.selected::before,.mode-card.mode-medium.selected::before,.mode-card.mode-high.selected::before{opacity:1;}
+.mode-card.mode-low.selected::before,.mode-card.mode-medium.selected::before,.mode-card.mode-high.selected::before,.mode-card.mode-extreme.selected::before{opacity:1;}
 
 .mode-selected-ring{
   display:none;position:absolute;top:10px;right:10px;
@@ -214,6 +216,7 @@ body .neon-accent-br{
 .mode-card.mode-low.selected    .mode-selected-ring{display:flex;background:var(--success);color:#fff;}
 .mode-card.mode-medium.selected .mode-selected-ring{display:flex;background:var(--primary);color:#fff;}
 .mode-card.mode-high.selected   .mode-selected-ring{display:flex;background:var(--warning);color:#fff;}
+.mode-card.mode-extreme.selected .mode-selected-ring{display:flex;background:#ef4444;color:#fff;}
 
 .mode-icon{font-size:1.75rem;margin-bottom:0.75rem;display:block;}
 
@@ -224,6 +227,7 @@ body .neon-accent-br{
 .mode-card.mode-low    .mode-label{color:var(--success);}
 .mode-card.mode-medium .mode-label{color:var(--primary);}
 .mode-card.mode-high   .mode-label{color:var(--warning);}
+.mode-card.mode-extreme .mode-label{color:#ef4444;}
 
 .mode-lufs{font-family:var(--mono);font-size:0.8rem;font-weight:700;color:var(--text-1);margin-bottom:0.3rem;}
 .mode-desc{font-size:0.72rem;color:var(--text-3);line-height:1.4;}
@@ -575,6 +579,14 @@ body .neon-accent-br{
         <div class="mode-lufs">−10 LUFS</div>
         <div class="mode-desc">Loud modern</div>
       </div>
+      <div class="mode-card mode-extreme" onclick="selectModeInitial('EXTREME', this)" role="button" tabindex="0">
+        <div class="mode-badge-default">PADRÃO</div>
+        <div class="mode-selected-ring">✓</div>
+        <span class="mode-icon">🔥</span>
+        <div class="mode-label">Extremo</div>
+        <div class="mode-lufs">−9 LUFS</div>
+        <div class="mode-desc">Competition loud</div>
+      </div>
     </div>
 
     <div class="am-actions">
@@ -682,6 +694,9 @@ body .neon-accent-br{
         </div>
         <div class="mode-option-v2" id="modeHigh"   data-mode="HIGH"   onclick="selectModeDecision('HIGH', this)">
           <span class="mode-opt-icon">⚡</span><div><div class="mode-opt-name">Impacto</div><div class="mode-opt-desc">Loud modern · −10 LUFS</div></div>
+        </div>
+        <div class="mode-option-v2" id="modeExtreme" data-mode="EXTREME" onclick="selectModeDecision('EXTREME', this)">
+          <span class="mode-opt-icon">🔥</span><div><div class="mode-opt-name">Extremo</div><div class="mode-opt-desc">Competition loud · −9 LUFS · TP −0.5</div></div>
         </div>
       </div>
       <div class="am-actions"><button class="btn btn-primary" onclick="openConfirmationModal()">Confirmar perfil →</button></div>
@@ -1084,15 +1099,15 @@ function closeAllModals() {
 // MODE HELPERS
 // ================================================================
 function normalizeMode(m) { return m ? String(m).toUpperCase().trim() : ''; }
-function isValidMode(m)   { return ['STREAMING','LOW','MEDIUM','HIGH'].includes(normalizeMode(m)); }
+function isValidMode(m)   { return ['STREAMING','LOW','MEDIUM','HIGH','EXTREME'].includes(normalizeMode(m)); }
 function setMode(m) {
   const n = normalizeMode(m);
   if (!isValidMode(n)) { console.error('[AUTOMASTER] Modo inválido:', m); return false; }
   automasterState.mode = n; return true;
 }
 function getModeName(code) {
-  const map = { LOW:'Suave', MEDIUM:'Balanceado', HIGH:'Impacto', STREAMING:'Streaming',
-                low:'Suave', medium:'Balanceado', high:'Impacto', streaming:'Streaming' };
+  const map = { LOW:'Suave', MEDIUM:'Balanceado', HIGH:'Impacto', EXTREME:'Extremo', STREAMING:'Streaming',
+                low:'Suave', medium:'Balanceado', high:'Impacto', extreme:'Extremo', streaming:'Streaming' };
   return map[code] || code;
 }
 
@@ -1211,7 +1226,7 @@ function openDecisionModal() {
     const rec = isValidMode(normalizeMode(recommendedMode)) ? normalizeMode(recommendedMode) : 'MEDIUM';
     setMode(rec);
     document.querySelectorAll('.mode-option-v2').forEach(o => o.classList.remove('selected','recommended'));
-    const el = document.getElementById({ LOW:'modeLow', MEDIUM:'modeMedium', HIGH:'modeHigh' }[rec]);
+    const el = document.getElementById({ LOW:'modeLow', MEDIUM:'modeMedium', HIGH:'modeHigh', EXTREME:'modeExtreme' }[rec]);
     if (el) el.classList.add('selected','recommended');
   }
   showModal('decisionModal');

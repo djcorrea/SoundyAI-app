@@ -11,12 +11,15 @@
  *   - NÃO promete melhoria sonora
  * 
  * Filosofia:
- *   - Target fixo: -1.0 dBTP (seguro para qualquer plataforma)
+ *   - Target padrão: -1.0 dBTP (seguro para qualquer plataforma)
+ *   - Argumento opcional: ceiling em dBTP (ex: -0.5 para EXTREME mode)
  *   - Margem de segurança: +0.05 dB (mínima — apenas cobre imprecisão do medidor)
- *   - Preciso e previsível: resultado esperado ≈ -1.05 dBTP
+ *   - Preciso e previsível: resultado esperado ≈ TARGET_TP - 0.05 dBTP
  * 
  * Uso:
- *   node fix-true-peak.cjs <input.wav>
+ *   node fix-true-peak.cjs <input.wav> [ceiling_dbtp]
+ *   node fix-true-peak.cjs audio.wav          # target -1.0 dBTP
+ *   node fix-true-peak.cjs audio.wav -0.5     # target -0.5 dBTP (EXTREME)
  * 
  * Saída:
  *   - JSON puro no stdout
@@ -31,18 +34,22 @@ const path = require('path');
 // CONSTANTES
 // ============================================================
 
-const TARGET_TP = -1.0;        // dBTP seguro para pré-master
-const SAFETY_MARGIN = 0.05;    // Margem mínima: apenas cobre imprecisão de medição do loudnorm (~±0.03 dB)
+const DEFAULT_TARGET_TP = -1.0; // dBTP padrão — seguro para qualquer plataforma
+const SAFETY_MARGIN = 0.05;     // Margem mínima: apenas cobre imprecisão de medição do loudnorm (~±0.03 dB)
 
 // ============================================================
 // VALIDAÇÃO DE ENTRADA
 // ============================================================
 
+/**
+ * Retorna { inputPath, targetTP }.
+ * Aceita argumento opcional de ceiling: node fix-true-peak.cjs <input.wav> [ceiling_dbtp]
+ */
 function validateInput() {
   const args = process.argv.slice(2);
 
-  if (args.length !== 1) {
-    exitWithError('INVALID_ARGS', 'Uso: node fix-true-peak.cjs <input.wav>');
+  if (args.length < 1 || args.length > 2) {
+    exitWithError('INVALID_ARGS', 'Uso: node fix-true-peak.cjs <input.wav> [ceiling_dbtp]');
   }
 
   const inputPath = path.resolve(args[0]);
@@ -58,7 +65,17 @@ function validateInput() {
     exitWithError('INVALID_FORMAT', `Apenas WAV é suportado (recebido: ${ext})`);
   }
 
-  return inputPath;
+  // Argumento opcional: ceiling em dBTP
+  let targetTP = DEFAULT_TARGET_TP;
+  if (args.length === 2) {
+    const parsed = parseFloat(args[1]);
+    if (isNaN(parsed) || parsed > 0 || parsed < -6) {
+      exitWithError('INVALID_CEILING', `Ceiling inválido: "${args[1]}" — deve ser um número entre -6 e 0 (ex: -0.5, -1.0)`);
+    }
+    targetTP = parsed;
+  }
+
+  return { inputPath, targetTP };
 }
 
 // ============================================================
@@ -207,7 +224,7 @@ function exitWithError(code, message) {
 async function main() {
   try {
     // 1. Validar entrada
-    const inputPath = validateInput();
+    const { inputPath, targetTP: TARGET_TP } = validateInput();
 
     // 2. Detectar sample rate (para preservação)
     const sampleRate = await detectInputSampleRate(inputPath);

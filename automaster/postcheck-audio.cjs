@@ -24,6 +24,7 @@ const MODE_TARGETS = {
   LOW:       -14,
   MEDIUM:    -11,
   HIGH:       -9,
+  EXTREME:    -9,
   CLEAN:     -11
 };
 

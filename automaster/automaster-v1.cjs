@@ -24,7 +24,9 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs');
 const path = require('path');
-const { analyzeAudioMetrics, decideGainWithinRange, applyGlobalCaps } = require('./decision-engine.cjs');
+const { analyzeAudioMetrics, decideGainWithinRange, applyGlobalCaps, buildMasteringPlan } = require('./decision-engine.cjs');
+const { analyzeWithBands } = require('./mini-analyzer.cjs');
+const { runPeakOutlierCorrection } = require('./peak-outlier-detector.cjs');
 const util = require('util');
 const { exec } = require('child_process');
 const execAsync = util.promisify(exec);
@@ -80,14 +82,15 @@ function validateArgs() {
   }
   
   // Validar mode
-  const validModes = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
+  const validModes = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH', 'EXTREME'];
   const modeUpper = (mode || 'MEDIUM').toUpperCase();
   if (!validModes.includes(modeUpper)) {
-    throw new Error(`Mode invalido: ${mode}. Deve ser STREAMING, LOW, MEDIUM ou HIGH`);
+    throw new Error(`Mode invalido: ${mode}. Deve ser STREAMING, LOW, MEDIUM, HIGH ou EXTREME`);
   }
 
-  // Ceiling fixo padrão para evitar clipping
-  const ceilingDbtp = -1.0; // True Peak ceiling padrão
+  // Ceiling: EXTREME usa -0.5 dBTP (mais headroom para competição de loudness)
+  // Os demais modos usam -1.0 dBTP (padrão de broadcast)
+  const ceilingDbtp = modeUpper === 'EXTREME' ? -0.5 : -1.0;
 
   return {
     inputPath: path.resolve(inputPath),
@@ -125,6 +128,55 @@ function checkFFmpeg() {
  */
 function dbToLinear(db) {
   return Math.pow(10, db / 20);
+}
+
+/**
+ * Aguarda o arquivo de saída estabilizar em tamanho antes de retornar.
+ * Garante que o buffer do OS foi completamente descarregado em disco.
+ *
+ * Algoritmo:
+ *   - Verifica tamanho a cada 250 ms
+ *   - Exige 3 ciclos consecutivos sem mudança de tamanho
+ *   - Abandona após MAX_CYCLES para evitar bloqueio indefinido
+ *   - Lança erro se arquivo inexistente ou tamanho zero ao final
+ *
+ * @param {string} filePath  - Caminho absoluto do arquivo
+ * @param {number} [intervalMs=250]  - Intervalo entre verificações em ms
+ * @param {number} [stableRequired=3] - Ciclos estáveis necessários
+ * @param {number} [maxCycles=40]     - Limite de ciclos (~10 s total)
+ */
+async function waitForStableFile(filePath, intervalMs = 250, stableRequired = 3, maxCycles = 40) {
+  let lastSize = -1;
+  let stableCount = 0;
+  let cycles = 0;
+
+  while (stableCount < stableRequired && cycles < maxCycles) {
+    await new Promise(resolve => setTimeout(resolve, intervalMs));
+    cycles++;
+
+    if (!fs.existsSync(filePath)) {
+      lastSize = -1;
+      stableCount = 0;
+      continue;
+    }
+
+    const currentSize = fs.statSync(filePath).size;
+    if (currentSize === lastSize && currentSize > 0) {
+      stableCount++;
+    } else {
+      stableCount = 0;
+    }
+    lastSize = currentSize;
+  }
+
+  // Validações finais
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`[FINAL FILE READY] Arquivo de saída não encontrado: ${filePath}`);
+  }
+  const finalSize = fs.statSync(filePath).size;
+  if (finalSize === 0) {
+    throw new Error(`[FINAL FILE READY] Arquivo de saída vazio (0 bytes) após espera: ${filePath}`);
+  }
 }
 
 /**
@@ -200,12 +252,17 @@ async function measureWithOfficialScript(filePath, maxRetries = 3) {
 /**
  * Aplica fix de True Peak usando fix-true-peak.cjs.
  * Cria arquivo _safe.wav e o move para outputPath.
+ * @param {string} outputPath - Arquivo a corrigir
+ * @param {number} [ceilingDbtp=-1.0] - Ceiling alvo em dBTP (ex: -0.5 para EXTREME)
  */
-async function applyTruePeakFix(outputPath) {
+async function applyTruePeakFix(outputPath, ceilingDbtp = -1.0) {
   const debug = process.env.DEBUG_PIPELINE === 'true';
   
   try {
-    const { stdout } = await execFileAsync('node', [FIX_TP_SCRIPT, outputPath], {
+    const scriptArgs = [FIX_TP_SCRIPT, outputPath];
+    if (ceilingDbtp !== -1.0) scriptArgs.push(ceilingDbtp.toString());
+
+    const { stdout } = await execFileAsync('node', scriptArgs, {
       maxBuffer: 10 * 1024 * 1024,
       timeout: 120000
     });
@@ -1738,7 +1795,10 @@ function renderTwoPass(inputPath, outputPath, targetI, targetTP, targetLRA, meas
       // Mais suave: maior attack/release para reduzir artefatos agressivos
       alimiterFilter = `alimiter=limit=${linearLimit.toFixed(6)}:attack=20:release=150:level=false`;
     } else {
-      alimiterFilter = `alimiter=limit=${linearLimit.toFixed(6)}:attack=5:release=50:level=false`;
+      // Parâmetros por modo: release mais longo reduz pumping; MEDIUM tem attack levemente maior
+      const alimiterAttack = (mode === 'MEDIUM') ? 7 : 5;
+      const alimiterRelease = (mode === 'LOW' || mode === 'MEDIUM') ? 80 : 50;
+      alimiterFilter = `alimiter=limit=${linearLimit.toFixed(6)}:attack=${alimiterAttack}:release=${alimiterRelease}:level=false`;
     }
 
     // Construir chain: [EQ defensivo] + pré-ganho (se necessário) + [pre-limiter] + loudnorm + limiter
@@ -2214,6 +2274,284 @@ async function applyMacroDynamicsStabilizer(inputFile, rmsDb, sampleRate, output
 }
 
 /**
+ * Retorna filtro FFmpeg de soft clipping para inserção antes do alimiter no HIGH loop.
+ * Retorna null se mode != HIGH, crestFactor < 4, ou strategy === 'CLEAN'.
+ *
+ * @param {string} mode
+ * @param {number} crestFactor
+ * @param {string} strategy
+ * @returns {string|null}
+ */
+function buildSoftClipperFilter(mode, crestFactor, strategy, plan = null, mixClass = null) {
+  if (mode !== 'HIGH' && mode !== 'EXTREME') return null;
+  if (strategy === 'CLEAN') return null;
+
+  // EXTREME: usa o MESMO clipper CF-adaptativo do HIGH v7 (atan soft-knee).
+  // O "extremo" vem do ceiling mais alto (-0.5 dBTP), ataque 3ms e alvo LUFS maior.
+  // Clipper atan 0.93/0.88 cria ISPs ~0.5 dB acima do sample peak (controlável),
+  // enquanto tanh 0.86 criava ISPs 4+ dB que tornavam TP compliance impossível.
+  if (mode === 'EXTREME') {
+    // Re-usa mesma lógica CF-adaptativa do HIGH v7 (código duplicado intencionalmente para clareza)
+    let extThreshold = plan?.saturation?.threshold ?? 0.83;
+    const extOutput    = plan?.saturation?.output    ?? 0.99;
+    const extOsample   = plan?.saturation?.oversample ?? 8;
+    let extCurve = 'tanh';
+    if (mixClass !== 'POOR' && typeof crestFactor === 'number') {
+      if (crestFactor < 10) {
+        extThreshold = 0.93;
+        extCurve = 'atan';
+      } else if (crestFactor < 12) {
+        extThreshold = 0.88;
+        extCurve = 'atan';
+      }
+    }
+    const cfStr = typeof crestFactor === 'number' ? crestFactor.toFixed(1) : 'N/A';
+    console.error(`[SOFTCLIP1-EXTREME] type=${extCurve} threshold=${extThreshold} output=${extOutput} oversample=${extOsample} (CF-adaptive v7, CF=${cfStr}, class=${mixClass})`);
+    return `asoftclip=type=${extCurve}:threshold=${extThreshold}:output=${extOutput}:oversample=${extOsample}`;
+  }
+  if (typeof crestFactor === 'number' && crestFactor < 4) return null;
+  // HIGH v6 CLIPPER 1 (pré-EQ): threshold base por mixClass + override CF-adaptativo
+  // v6: threshold mais alto para material denso (CF<12, não-POOR)
+  //   → clipper só engaja nos picos maiores → transientes passam mais livres
+  let threshold    = plan?.saturation?.threshold  ?? 0.83;
+  const output     = plan?.saturation?.output     ?? 0.99;
+  const oversample = plan?.saturation?.oversample ?? 8;
+  const src        = plan?.saturation?.source     ?? 'legacy';
+  // Override CF-adaptativo: NÃO aplica a POOR (threshold baixo é necessário ali)
+  // v7: threshold mais alto + tipo atan (soft knee) para CF<12
+  //   atan tem onset mais suave que tanh próximo ao threshold → menos distorção de ataque
+  //   threshold 0.93 para CF<10: só os picos mais extremos (+3 dBFS acima do RMS) são clipped
+  let curveType = 'tanh';  // POOR e CF>=12: mantém tanh (baseline)
+  if (mixClass !== 'POOR' && typeof crestFactor === 'number') {
+    if (crestFactor < 10) {
+      threshold = 0.93;  // v7: 0.90 → 0.93 — só picos extremos, corpo do sinal passa livre
+      curveType = 'atan';  // v7: atan tem onset linear-progressivo → menos distorção no corpo
+    } else if (crestFactor < 12) {
+      threshold = 0.88;  // v7: 0.86 → 0.88
+      curveType = 'atan';  // v7: atan para CF moderadamente denso também
+    }
+    // CF >= 12 ou POOR: mantém threshold do plano (0.83/0.80) e tipo tanh
+  }
+  const cfStr = typeof crestFactor === 'number' ? crestFactor.toFixed(1) : 'N/A';
+  console.error(`[SOFTCLIP1] type=${curveType} threshold=${threshold} output=${output} oversample=${oversample} (src=${src}, CF=${cfStr}, class=${mixClass})`);
+  return `asoftclip=type=${curveType}:threshold=${threshold}:output=${output}:oversample=${oversample}`;
+}
+
+/**
+ * HIGH v4: SEGUNDO estágio de soft clip (pós-alimiter) — ATUALMENTE DESABILITADO.
+ * Análise empírica mostrou que clip2 (em qualquer posição) perturba o mecanismo
+ * de adjustedTarget baseado em TP violations, impedindo a convergência do loop
+ * quando o target é -10.5 LUFS. O target change (-11.5→-10.5) já provê o ganho
+ * de loudness desejado via TP violations naturais do clip1 (TP ≈ -0.62 → fix -0.43 dB).
+ */
+function buildSoftClipper2Filter(mode, strategy, plan = null) {
+  // Desabilitado: retornar null preserva o mecanismo de adjustedTarget do loop
+  return null;
+}
+
+/**
+ * v6: Retorna o mix ratio para o modo paralelo do soft clipper.
+ *   mix = 1.0 → serial puro (baseline v3-v5, sem mudança)
+ *   mix < 1.0 → (1-mix)*dry + mix*tanh — sinal seco preserva transientes
+ *
+ * CF < 10 (muito denso — EDM, pop loudness):     0.50  (50% dry → kick mais punchy — v7)
+ * CF 10–12 (moderadamente denso):                 0.72  (28% dry — v7)
+ * CF >= 12 ou POOR:                               1.0   (serial — comportamento v5)
+ *
+ * REGRA: POOR mantém serial (1.0) sempre — convergência é prioritária
+ * v7: mix reduzido de 0.60→0.50 (CF<10) e 0.75→0.72 (CF 10-12) para mais sinal seco = mais punch
+ */
+function buildSoftClipperMix(mode, crestFactor, mixClass) {
+  // EXTREME: usa mesma lógica CF-adaptativa do HIGH (mix paralelo preserva transientes)
+  // Com clipper atan 0.93/0.88, o mix paralelo ajuda a controlar ISPs para material denso
+  if (mode !== 'HIGH' && mode !== 'EXTREME') return 1.0;
+  if (mixClass === 'POOR') return 1.0;
+  if (typeof crestFactor !== 'number') return 1.0;
+  if (crestFactor < 10) return 0.50;  // v7: 0.60 → 0.50
+  if (crestFactor < 12) return 0.72;  // v7: 0.75 → 0.72
+  return 1.0;
+}
+
+/**
+ * REFINE MODE — Monta a cadeia de filtros tonal (EQ + compressão condicional).
+ *
+ * Pipeline: highpass → EQ condicional (bands) → compressor (só CF > 16)
+ *
+ * - NÃO inclui softclip (evita coloração / distorção)
+ * - NÃO inclui ganho (preGain=0 no render)
+ * - Limiter serve apenas como safety de ceiling
+ *
+ * @param {number}      crestFactor  CF medido do input
+ * @param {Object|null} masteringPlan  Plano com .eq (sub_boost, mud_cut, presence_boost, air_boost)
+ * @returns {string|null}  Filter chain FFmpeg ou null se nada a fazer
+ */
+function buildRefineFilter(crestFactor, masteringPlan) {
+  const filters = [];
+
+  // 1. Highpass leve — remove infra inútil sem agredir graves
+  filters.push('highpass=f=30:p=1');
+  console.error('[REFINE] highpass 30 Hz (p=1)');
+
+  // 2. EQ condicional baseada em bandas
+  const eq = masteringPlan?.eq;
+  if (eq) {
+    // Sub/bass (80 Hz): aplica boost ou corte condicional
+    if (Math.abs(eq.sub_boost ?? 0) >= 0.1) {
+      filters.push(`equalizer=f=80:t=q:w=1:g=${eq.sub_boost}`);
+      console.error(`[REFINE] EQ 80Hz (sub/bass): ${eq.sub_boost >= 0 ? '+' : ''}${eq.sub_boost} dB`);
+    }
+    // Mud cut (300 Hz): só se corte for significativo
+    if ((eq.mud_cut ?? 0) <= -0.3) {
+      filters.push(`equalizer=f=300:t=q:w=1:g=${eq.mud_cut}`);
+      console.error(`[REFINE] EQ 300Hz (mud): ${eq.mud_cut} dB`);
+    }
+    // Presence (4 kHz): boost tonal — mais agressivo no REFINE (até +2.5 dB)
+    if ((eq.presence_boost ?? 0) >= 0.5) {
+      filters.push(`equalizer=f=4000:t=q:w=1.5:g=${eq.presence_boost}`);
+      console.error(`[REFINE] EQ 4kHz (presence): +${eq.presence_boost} dB`);
+    }
+    // Air (12 kHz): brilho — mais agressivo no REFINE
+    if ((eq.air_boost ?? 0) >= 0.5) {
+      filters.push(`equalizer=f=12000:t=q:w=1.5:g=${eq.air_boost}`);
+      console.error(`[REFINE] EQ 12kHz (air): +${eq.air_boost} dB`);
+    }
+  } else {
+    // Sem bandas: defaults conservadores de presença e brilho
+    filters.push('equalizer=f=4000:t=q:w=1.5:g=1.0');
+    filters.push('equalizer=f=12000:t=q:w=1.5:g=0.8');
+    console.error('[REFINE] EQ sem bandas: presence=+1.0 dB, air=+0.8 dB (defaults conservadores)');
+  }
+
+  console.error('[REFINE] compressor: OFF | saturação: OFF');
+  return filters.join(',');
+}
+
+/**
+ * Fase 3: Pré-condicionamento leve — highpass + compressor suave ANTES do soft clipper/limiter.
+ * Remove infra-grave inútil e doma picos extremos sem destruir dinâmica.
+ *
+ * @param {string} mode
+ * @param {number} crestFactor
+ * @returns {string|null}
+ */
+function buildPreConditionerFilters(mode, crestFactor, mixClass = null, plan = null) {
+  if (mode !== 'HIGH' && mode !== 'EXTREME') return null;
+  const filters = [];
+
+  // Highpass: usa plano do buildMasteringPlan se disponível;
+  // fallback = comportamento legado (POOR→30 Hz, outros→25 Hz)
+  const baseHpHz    = plan ? plan.highpass_hz    : (mixClass === 'POOR' ? 30 : 25);
+  const hpPoles     = plan ? plan.highpass_poles : (mixClass === 'POOR' ? 2  : 1);
+  // HIGH v4: Apenas mixClass POOR usa 30 Hz (muita energia em sub-graves).
+  // A condição CF>14 foi removida: para material dinâmico (CF alto) o 30 Hz
+  // remove graves em excesso, reduz baseLUFS e causa divergência no loop.
+  const hpHz = mixClass === 'POOR' ? Math.max(baseHpHz, 30) : baseHpHz;
+
+  const hpFilter = hpPoles > 1 ? `highpass=f=${hpHz}:p=${hpPoles}` : `highpass=f=${hpHz}`;
+  filters.push(hpFilter);
+  console.error(`[PRE-COND] highpass ${hpHz} Hz (p=${hpPoles}, source=${plan ? 'plan' : 'legacy'}, class=${mixClass}, CF=${typeof crestFactor === 'number' ? crestFactor.toFixed(1) : 'N/A'})`);
+
+  // Compressor HIGH v5: CF-adaptativo com compressão paralela para material denso
+  // PRINCÍPIO: mix denso (CF<12) → picos muito próximos do alvo → limiter sobrecarregado
+  // Solução: compressão paralela SEM makeup — controla picos antes do alimiter
+  //   mix (parallel): transientes preservados pelo sinal seco que "vaza" (mix < 1.0)
+  //   SEM makeup: não gera ISPs extras; o loop ajusta pre-gain naturalmente
+  //   Resultado: picos ~0.5-1 dB menores no alimiter → menos TP violations → menos "cola"
+  // POOR ou CF>=12: v3 baseline inalterado (convergência garantida)
+  const cfNum = typeof crestFactor === 'number' ? crestFactor : 99;
+  let compressorFilter;
+  if (mixClass !== 'POOR' && cfNum < 10) {
+    // Material muito denso (EDM, pop): compressão paralela 2.0:1 sem makeup
+    // threshold=0.85 (~-1.4 dBFS): engaja nos picos elevados antes do alimiter
+    // mix=0.5: 50% dry preserva ataque do kick; loop sobe pre-gain ~0.3-0.5 dB para compensar LUFS
+    compressorFilter = 'acompressor=threshold=0.85:ratio=2.0:attack=15:release=100:mix=0.5:detection=rms';
+    console.error(`[PRE-COND] acompressor DENSO CF<10: ratio=2.0 thr=0.85 mix=0.5 sem makeup (parallel peak ctrl)`);
+  } else if (mixClass !== 'POOR' && cfNum < 12) {
+    // Material moderadamente denso: compressão paralela 1.8:1 sem makeup
+    // mix=0.7: 70% comprimido + 30% dry; threshold mais alto para menos colateral
+    compressorFilter = 'acompressor=threshold=0.90:ratio=1.8:attack=15:release=110:mix=0.7:detection=rms';
+    console.error(`[PRE-COND] acompressor MODERADO CF 10-12: ratio=1.8 thr=0.90 mix=0.7 sem makeup (parallel)`);
+  } else {
+    // v3-baseline: POOR class ou CF>=12 (material dinâmico) — sem alteração
+    compressorFilter = 'acompressor=threshold=0.95:ratio=1.7:attack=15:release=120';
+    console.error(`[PRE-COND] acompressor v3-BASELINE: ratio=1.7 thr=0.95 release=120ms (CF=${cfNum < 99 ? cfNum.toFixed(1) : 'N/A'}, class=${mixClass})`);
+  }
+  filters.push(compressorFilter);
+
+  // [LOW END CONTROL] CF >= 12 em modo HIGH/EXTREME = material onde sub/kick domina os picos.
+  // O compressor de banda larga não isola o sub: cada kick pode lotar o headroom do limiter
+  // antes que o restante do espectro chegue, causando pumping perceptível.
+  // Solução: corte leve de shelf em 80 Hz antes do limiter — reduz energia sub sem machucar o punch.
+  // CF >= 15: material muito dinâmico (ex: jazz/acústico) → -2.0 dB
+  // CF >= 12: material dinâmico normal → -1.5 dB
+  // POOR class: já tem highpass 30 Hz agressivo — adicionar shelf causaria thin sound.
+  const isLowEndRisk = typeof crestFactor === 'number' && crestFactor >= 12 && mixClass !== 'POOR';
+  if (isLowEndRisk) {
+    const lowEndCutDb = crestFactor >= 15 ? -2.0 : -1.5;
+    // bass = low-shelf FFmpeg filter (alias de lowshelf): corta tudo abaixo de 100 Hz
+    // width_type=q w=0.7: curva suave para não criar pico de phase no kick
+    const lowEndFilter = `bass=g=${lowEndCutDb}:f=100:width_type=q:w=0.7`;
+    filters.push(lowEndFilter);
+    console.error(`[LOW ENERGY DETECTED] CF=${crestFactor.toFixed(1)} >= 12, class=${mixClass} — baixo freq em risco de driving limiter`);
+    console.error(`[LOW END CONTROL] Aplicando low-shelf ${lowEndCutDb} dB em 100 Hz pré-limiter (anti-pumping)`);
+  }
+
+  return filters.join(',');
+}
+
+/**
+ * PRE-SATURATION EQ — sub-bass warmth + mud cut.
+ * Aplicada ANTES do softclipper para que a saturação processe
+ * o sinal já com as frequências baixas moldadas.
+ *
+ * @param {string}      mode  'HIGH' ou outros
+ * @param {Object|null} plan  MasteringPlan (opcional)
+ * @returns {string|null}
+ */
+function buildPreSatEQFilter(mode, plan = null, crestFactor = null, mixClass = null) {
+  if (mode !== 'HIGH' && mode !== 'EXTREME') return null;
+  let subBoost = plan?.eq?.sub_boost  ?? 0.5;
+  const mudCut   = plan?.eq?.mud_cut    ?? -0.5;
+  const src      = plan?.eq?.source     ?? 'defaults';
+  // [SUB CONTROL] HIGH/EXTREME mode + CF >= 12 = clipper serial ativo
+  // sub_boost positivo antes do clipper tanh serial empurra graves de forma desproporcional,
+  // causando grave dominante. Solução: zerar sub_boost para preservar balanço tonal.
+  // EXTREME incluído: pipeline de loudness máximo + sub boost = principal causa de pumping.
+  if ((mode === 'HIGH' || mode === 'EXTREME') && mixClass !== 'POOR' && typeof crestFactor === 'number' && crestFactor >= 12 && subBoost > 0) {
+    console.error(`[SUB BOOST DISABLED - LOW END RISK] sub_boost: ${subBoost} → 0 (CF=${crestFactor.toFixed(1)} >= 12, class=${mixClass}, mode=${mode})`);
+    console.error(`[SUB BOOST DISABLED - LOW END RISK] Razão: clipper + CF>=12 → grave domina mix; sub_boost removido para estabilidade`);
+    subBoost = 0;
+  }
+  console.error(`[EQ-PRE ] sub=${subBoost} mud=${mudCut} (src=${src})`);
+  return [
+    `equalizer=f=80:t=q:w=1:g=${subBoost}`,    // sub-bass warmth
+    `equalizer=f=300:t=q:w=1:g=${mudCut}`,      // mud cut
+  ].join(',');
+}
+
+/**
+ * POST-SATURATION EQ — presence + air.
+ * Aplicada DEPOIS do softclipper para que o brilho adicionado
+ * seja limpo, sem ser processado pela saturação.
+ * Isto permite boosts mais generosos sem riscos de harshness.
+ *
+ * @param {string}      mode  'HIGH' ou outros
+ * @param {Object|null} plan  MasteringPlan (opcional)
+ * @returns {string|null}
+ */
+function buildPostSatEQFilter(mode, plan = null) {
+  if (mode !== 'HIGH' && mode !== 'EXTREME') return null;
+  const presenceBoost = plan?.eq?.presence_boost ?? 1.5;
+  const airBoost      = plan?.eq?.air_boost      ?? 1.0;
+  const src           = plan?.eq?.source         ?? 'defaults';
+  console.error(`[EQ-POST] presence=${presenceBoost} air=${airBoost} (src=${src})`);
+  return [
+    `equalizer=f=4000:t=q:w=1.5:g=${presenceBoost}`,  // presence 3-5 kHz
+    `equalizer=f=12000:t=q:w=1.5:g=${airBoost}`,       // air 10-14 kHz
+  ].join(',');
+}
+
+/**
  * Renderiza áudio com limiter aplicado + ganho pré-limiter
  * 
  * O threshold é implementado como ganho PRÉ-limiter:
@@ -2230,29 +2568,107 @@ async function applyMacroDynamicsStabilizer(inputFile, rmsDb, sampleRate, output
  * @param {number} ceiling - Ceiling em dBTP
  * @param {number} sampleRate - Sample rate
  * @param {string} outputPath - Caminho de saída
+ * @param {string|null} [softClipperFilter=null] - Filtro asoftclip opcional (Fase 2)
  */
-async function renderWithLimiter(inputFile, preGainDB, ceiling, sampleRate, outputPath) {
-  const MAX_TP_ATTEMPTS = 2;
+async function renderWithLimiter(inputFile, preGainDB, ceiling, sampleRate, outputPath, softClipperFilter = null, preConditionerFilter = null, perceptualEQFilter = null, postSatEQFilter = null, softClipper2Filter = null, crestFactor = null, clipParallelMix = 1.0, limiterAttackMs = 10) {
+  const MAX_TP_ATTEMPTS = 2;  // Fase 6: mantido em 2 — mais tentativas aumentam redução de ganho e pioram LUFS final
   let currentPreGainDB = preGainDB;
   let tpViolation = false;
   let finalTP = 0;
+
+  // v6: parallel clip path quando mix < 1.0 (preserva transientes via sinal seco)
+  const useParallelClip = softClipperFilter !== null && clipParallelMix < 1.0;
   
   for (let attempt = 1; attempt <= MAX_TP_ATTEMPTS; attempt++) {
     // Converter ceiling para linear
     const limitLinear = dbToLinear(ceiling);
-    
-    // Aplicar ganho + alimiter em cascata
-    // CRITICAL: level=true garante que o limiter normaliza corretamente
-    const filterComplex = `volume=${currentPreGainDB.toFixed(6)}dB,alimiter=level_in=1.0:level_out=1.0:limit=${limitLinear}:attack=1:release=50:level=true`;
-    
-    const args = [
-      '-y',
-      '-i', `"${inputFile}"`,
-      '-af', `"${filterComplex}"`,
-      '-ar', sampleRate.toString(),
-      '-c:a', 'pcm_s24le',
-      `"${outputPath}"`
-    ];
+
+    // Release adaptativo por CF: material denso → recovery mais rápida → menos "cola"
+    const limiterRelease = (crestFactor !== null && crestFactor < 10) ? 40 :
+                           (crestFactor !== null && crestFactor < 12) ? 50 : 60;
+    const limiterFilter = `alimiter=level_in=1.0:level_out=1.0:limit=${limitLinear}:attack=${limiterAttackMs}:release=${limiterRelease}:level=true`;
+
+    let args;
+
+    if (useParallelClip) {
+      // ═══════════════════════════════════════════════════════════════
+      // PATH PARALELO v6: filter_complex com asplit + amix
+      // Cadeia: volume → preConditioner → preEQ →
+      //         [asplit → (dry) + (tanh) → amix(mix)] →
+      //         postEQ → volume -0.5dB → alimiter
+      // Resultado: (1-mix)*dry + mix*clipped  → kick transiente preservado
+      // ═══════════════════════════════════════════════════════════════
+
+      // Pré-clip (antes do split)
+      const preClipParts = [`volume=${currentPreGainDB.toFixed(6)}dB`];
+      if (preConditionerFilter) preClipParts.push(preConditionerFilter);
+      if (perceptualEQFilter)   preClipParts.push(perceptualEQFilter);
+
+      // Pós-clip (após o merge)
+      const postClipParts = [];
+      if (postSatEQFilter) postClipParts.push(postSatEQFilter);
+      postClipParts.push('volume=-0.5dB');   // headroom pré-limiter (paralelo mantém -0.5dB)
+      postClipParts.push(limiterFilter);
+      if (softClipper2Filter !== null) {
+        postClipParts.push('asoftclip=type=tanh:threshold=0.95:output=1.0:oversample=8');
+      }
+
+      const dryWeight = (1.0 - clipParallelMix).toFixed(3);
+      const wetWeight = clipParallelMix.toFixed(3);
+
+      // v7 Transient-aware: pre-clipper compressor no wet path
+      // Rationale: transiente (pico muito curto) → compressor duca o wet brevemente → dry path preserva o punch
+      //            corpo sustentado → compressor abaixo do threshold → soft clipper age normalmente
+      // threshold=0.85 (-1.4 dBFS): só picos acima desse nível disparam o compressor
+      // ratio=2.0: compressão leve — 6 dB acima do threshold → 3 dB de redução
+      // attack=0.3ms: reação rápida ao pico (antes do tanh engajar)
+      // release=20ms: recupera rapidamente entre batidas → não esmaga sustain
+      // makeup=1.0: sem ganho extra — manter nível
+      const wetPreComp = 'acompressor=threshold=0.85:ratio=2.0:attack=0.3:release=20:makeup=1.0:detection=peak';
+
+      const fc = [
+        `[0:a]${preClipParts.join(',')},asplit=2[dry_sc][wet_sc]`,
+        `[wet_sc]${wetPreComp},${softClipperFilter}[clipped_sc]`,
+        `[dry_sc][clipped_sc]amix=inputs=2:weights=${dryWeight} ${wetWeight}:normalize=1[after_sc]`,
+        `[after_sc]${postClipParts.join(',')}[out_sc]`,
+      ].join(';');
+
+      console.error(`[PARALLEL CLIP v7] mix=${clipParallelMix} (dry=${dryWeight} wet=${wetWeight}) transient_comp=ON release=${limiterRelease}ms`);
+
+      args = [
+        '-y',
+        '-i', `"${inputFile}"`,
+        '-filter_complex', `"${fc}"`,
+        '-map', '"[out_sc]"',
+        '-ar', sampleRate.toString(),
+        '-c:a', 'pcm_s24le',
+        `"${outputPath}"`
+      ];
+    } else {
+      // ═══════════════════════════════════════════════════════════════
+      // PATH SERIAL (baseline v3-v5): -af simples
+      // Cadeia HIGH: volume → preConditioner → preEQ → clip1 → postEQ → volume -0.5dB → alimiter → clip2
+      // ═══════════════════════════════════════════════════════════════
+      const filterParts = [`volume=${currentPreGainDB.toFixed(6)}dB`];
+      if (preConditionerFilter) filterParts.push(preConditionerFilter);   // highpass + compressor
+      if (perceptualEQFilter)   filterParts.push(perceptualEQFilter);     // EQ pre-sat (sub + mud)
+      if (softClipperFilter)    filterParts.push(softClipperFilter);      // CLIP1: pré-EQ, ISP control
+      if (postSatEQFilter)      filterParts.push(postSatEQFilter);        // EQ post-sat (presence + air)
+      if (softClipperFilter)    filterParts.push('volume=-0.5dB');        // headroom pré-limiter
+      filterParts.push(limiterFilter);
+      if (softClipper2Filter !== null) {
+        filterParts.push('asoftclip=type=tanh:threshold=0.95:output=1.0:oversample=8');
+      }
+
+      args = [
+        '-y',
+        '-i', `"${inputFile}"`,
+        '-af', `"${filterParts.join(',')}"`,
+        '-ar', sampleRate.toString(),
+        '-c:a', 'pcm_s24le',
+        `"${outputPath}"`
+      ];
+    }
     
     await execAsync(`ffmpeg ${args.join(' ')}`);
     
@@ -2270,7 +2686,7 @@ async function renderWithLimiter(inputFile, preGainDB, ceiling, sampleRate, outp
         currentPreGainDB -= 1.0;
         console.error(`   → Reducing pre-gain by 1.0 dB to ${currentPreGainDB >= 0 ? '+' : ''}${currentPreGainDB.toFixed(2)} dB (attempt ${attempt + 1}/${MAX_TP_ATTEMPTS})`);
       } else {
-        console.error(`   → Max attempts reached, accepting TP: ${finalTP.toFixed(2)} dBTP`);
+        console.error(`   → Max attempts reached — TP above ceiling, outer loop will handle via postcheck`);
       }
     } else {
       // TP OK
@@ -2288,6 +2704,84 @@ async function renderWithLimiter(inputFile, preGainDB, ceiling, sampleRate, outp
     finalTP,
     tpViolation: tpViolation && finalTP > ceiling
   };
+}
+
+/**
+ * FASE 1 AUDIT: Mede LUFS do sinal ANTES do alimiter (sem alimiter no chain).
+ * Roda uma vez após convergência, antes de deletar o baseFile.
+ * GR efetivo do limiter = preLimiterLUFS - finalLUFS (valor negativo = redução).
+ *
+ * @returns {{ lufs: number, tp: number } | null}
+ */
+async function auditPreLimiterLUFS(baseFile, preGainDB, sampleRate, preCondFilter, preSatEQFilter, softClipFilter, postSatEQFilter, clipParallelMix = 1.0) {
+  const auditPath = baseFile + '.audit_prelim.wav';
+  const useParallel = softClipFilter !== null && clipParallelMix < 1.0;
+  try {
+    let args;
+    if (useParallel) {
+      // Cadeia paralela sem alimiter — consistente com renderWithLimiter
+      const preClipParts = [`volume=${preGainDB.toFixed(6)}dB`];
+      if (preCondFilter)  preClipParts.push(preCondFilter);
+      if (preSatEQFilter) preClipParts.push(preSatEQFilter);
+      const postClipParts = [];
+      if (postSatEQFilter) postClipParts.push(postSatEQFilter);
+      postClipParts.push('volume=-0.5dB');
+      const dryWeight = (1.0 - clipParallelMix).toFixed(3);
+      const wetWeight = clipParallelMix.toFixed(3);
+      const fc = [
+        `[0:a]${preClipParts.join(',')},asplit=2[dry_al][wet_al]`,
+        `[wet_al]${softClipFilter}[clipped_al]`,
+        `[dry_al][clipped_al]amix=inputs=2:weights=${dryWeight} ${wetWeight}:normalize=1[after_al]`,
+        `[after_al]${postClipParts.join(',')}[out_al]`,
+      ].join(';');
+      args = ['-y', '-i', `"${baseFile}"`, '-filter_complex', `"${fc}"`, '-map', '"[out_al]"', '-ar', sampleRate.toString(), '-c:a', 'pcm_s24le', `"${auditPath}"` ];
+    } else {
+      // Cadeia serial (baseline)
+      const filterParts = [`volume=${preGainDB.toFixed(6)}dB`];
+      if (preCondFilter)   filterParts.push(preCondFilter);
+      if (preSatEQFilter)  filterParts.push(preSatEQFilter);
+      if (softClipFilter)  filterParts.push(softClipFilter);
+      if (postSatEQFilter) filterParts.push(postSatEQFilter);
+      if (softClipFilter)  filterParts.push('volume=-0.5dB');
+      args = ['-y', '-i', `"${baseFile}"`, '-af', `"${filterParts.join(',')}"`, '-ar', sampleRate.toString(), '-c:a', 'pcm_s24le', `"${auditPath}"` ];
+    }
+    // SEM alimiter — LUFS do sinal processado antes do limiting
+    await execAsync(`ffmpeg ${args.join(' ')}`);
+    const measurement = await measureWithOfficialScript(auditPath);
+    return { lufs: measurement.lufs_i, tp: measurement.true_peak_db };
+  } catch (e) {
+    console.error(`[AUDIT] Erro ao medir pre-limiter LUFS: ${e.message}`);
+    return null;
+  } finally {
+    if (fs.existsSync(auditPath)) await fs.promises.unlink(auditPath).catch(() => {});
+  }
+}
+
+/**
+ * FASE 1 AUDIT: Mede LUFS do sinal ANTES do clipper (sem clip1, sem alimiter).
+ * Junto com auditPreLimiterLUFS, permite calcular o GR do clipper isolado.
+ * clipperGR = preLimiterLUFS - preClipperLUFS  (contrib. líquida do tanh)
+ *
+ * @returns {{ lufs: number, tp: number } | null}
+ */
+async function auditPreClipperLUFS(baseFile, preGainDB, sampleRate, preCondFilter, preSatEQFilter, postSatEQFilter) {
+  const auditPath = baseFile + '.audit_preclip.wav';
+  try {
+    // Cadeia SEM clip1 e SEM -0.5dB e SEM alimiter
+    const filterParts = [`volume=${preGainDB.toFixed(6)}dB`];
+    if (preCondFilter)   filterParts.push(preCondFilter);
+    if (preSatEQFilter)  filterParts.push(preSatEQFilter);
+    if (postSatEQFilter) filterParts.push(postSatEQFilter);
+    const args = ['-y', '-i', `"${baseFile}"`, '-af', `"${filterParts.join(',')}"`, '-ar', sampleRate.toString(), '-c:a', 'pcm_s24le', `"${auditPath}"` ];
+    await execAsync(`ffmpeg ${args.join(' ')}`);
+    const measurement = await measureWithOfficialScript(auditPath);
+    return { lufs: measurement.lufs_i, tp: measurement.true_peak_db };
+  } catch (e) {
+    console.error(`[AUDIT] Erro ao medir pre-clipper LUFS: ${e.message}`);
+    return null;
+  } finally {
+    if (fs.existsSync(auditPath)) await fs.promises.unlink(auditPath).catch(() => {});
+  }
 }
 
 /**
@@ -2310,7 +2804,128 @@ async function renderWithLimiter(inputFile, preGainDB, ceiling, sampleRate, outp
  * - Comportamento similar a limiter manual de DAW
  * - Pipeline determinístico e reproduzível
  */
-async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRate, outputPath }) {
+async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRate, outputPath, mode = 'HIGH', crestFactor = 12, strategy = '', mixClass = null, masteringPlan = null }) {
+
+  // ============================================================
+  // REFINE MODE: desvio antecipado — pipeline zero-gain tonal
+  // ============================================================
+  if (strategy === 'REFINE') {
+    console.error('');
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('🔬 REFINE MODE: MELHORIA TONAL SEM LOUDNESS PUSH');
+    console.error('═══════════════════════════════════════════════════════');
+    console.error(`   Plan: ${masteringPlan ? masteringPlan.bandsSource : 'none'}`);
+    console.error('');
+
+    // Pré-medir TP do input para detectar violação antes de processar.
+    // Se houver violação (TP > ceiling), aplicar pré-compensação de ganho e
+    // usar ceiling de render mais baixo no alimiter, para que o alimiter controle
+    // o overshoot inter-sample durante o render — sem precisar de global gain reduction pós-render.
+    const inputMeasureRefine = await measureWithOfficialScript(inputFile);
+    const inputTPRefine = inputMeasureRefine.true_peak_db;
+
+    let refinePreGain = 0;
+    let refineRenderCeiling = ceiling;
+
+    if (inputTPRefine > (ceiling + 0.3)) {
+      const tpExcess = inputTPRefine - ceiling;           // e.g. 0.75 - (-1.0) = 1.75 dB
+      refinePreGain = tpExcess + 0.1;                    // compensar perda esperada do fix + margem mínima
+      refinePreGain = Math.min(refinePreGain, 3.0);      // cap: não virar IMPACT
+      refineRenderCeiling = ceiling - tpExcess - 0.5;    // alimiter mais agressivo para controlar ISP overshoot
+      refineRenderCeiling = Math.max(refineRenderCeiling, ceiling - 3.0);  // floor: nunca abaixo -4.0 dBTP
+      console.error(`[REFINE TP COMP] Input TP=${inputTPRefine.toFixed(2)} dBTP acima do ceiling — pré-compensando:`);
+      console.error(`   preGain: +${refinePreGain.toFixed(2)} dB | render ceiling: ${refineRenderCeiling.toFixed(2)} dBTP`);
+    } else {
+      console.error(`[REFINE] Input TP OK (${inputTPRefine.toFixed(2)} dBTP) — sem pré-compensação`);
+    }
+
+    console.error(`   Ceiling: ${ceiling.toFixed(2)} dBTP | preGain: ${refinePreGain > 0 ? '+' : ''}${refinePreGain.toFixed(2)} dB`);
+
+    // Construir filtro REFINE (EQ + compressor condicional, sem softclip)
+    const refineFilter = buildRefineFilter(crestFactor, masteringPlan);
+    console.error(`[REFINE] Filter chain: ${refineFilter}`);
+    console.error('');
+
+    // Single pass: filtros REFINE, sem softclip, limiter apenas safety
+    // Se há violação de TP: preGain compensatório + ceiling de render ajustado
+    const renderResult = await renderWithLimiter(
+      inputFile,
+      refinePreGain,   // preGainDB: 0 em condições normais, compensatório se TP violation
+      refineRenderCeiling,  // ceiling de render: ajustado para controlar ISP overshoot
+      sampleRate,
+      outputPath,
+      null,            // softClipperFilter = null (REFINE: NÃO usa softclip)
+      null,            // preConditionerFilter = null (highpass já está no refineFilter)
+      refineFilter,    // perceptualEQFilter = cadeia REFINE completa
+      null             // postSatEQFilter = null
+    );
+
+    // TP postcheck (mesmo protocolo do HIGH mode)
+    let finalTP = renderResult.finalTP;
+    let fixApplied = false;
+    if (finalTP > -0.8) {
+      console.error('[REFINE TP POSTCHECK] TP acima de -0.8 dBTP — aplicando fix...');
+      const fixResult = await applyTruePeakFix(outputPath);
+      fixApplied = fixResult.fixed;
+      const afterFix = await measureWithOfficialScript(outputPath);
+      finalTP = afterFix.true_peak_db;
+      console.error(`[REFINE TP POSTCHECK] ✅ TP corrigido: ${renderResult.finalTP.toFixed(2)} → ${finalTP.toFixed(2)} dBTP`);
+    } else {
+      console.error(`[REFINE TP POSTCHECK] ✅ TP OK: ${finalTP.toFixed(2)} dBTP`);
+    }
+
+    const finalMeasurement = await measureWithOfficialScript(outputPath);
+    const finalLUFS = finalMeasurement.lufs_i;
+
+    // Trava de não-regressão: se LUFS caiu mais de 0.3 LU → restaurar original
+    // EXCEÇÃO: se a queda foi causada por TP fix (fixApplied=true), a redução é
+    // tecnicamente necessária para compliance — não restaurar o original com violação de TP.
+    if (!fixApplied && finalLUFS < (targetLUFS - 0.3)) {
+      console.error(`[REFINE REGRESSION] ⚠️ LUFS regrediu: ${targetLUFS.toFixed(2)} → ${finalLUFS.toFixed(2)} LU (queda > 0.3 LU)`);
+      console.error('[REFINE REGRESSION] Restaurando áudio original (sem processamento)');
+      await fs.promises.copyFile(inputFile, outputPath);
+      const origMeasure = await measureWithOfficialScript(outputPath);
+      return {
+        success: true,
+        file: outputPath,
+        final_lufs: origMeasure.lufs_i,
+        target_lufs: targetLUFS,
+        final_pregain: 0,
+        ceiling: ceiling,
+        final_tp: origMeasure.true_peak_db,
+        tp_fix_applied: false,
+        iterations: 1,
+        converged: true,
+        strategy: 'REFINE_BYPASS'
+      };
+    }
+
+    console.error('');
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('✅ REFINE MODE COMPLETE');
+    console.error(`   LUFS: ${finalLUFS.toFixed(2)} LUFS (target: ${targetLUFS.toFixed(2)} — sem push)`);
+    console.error(`   TP: ${finalTP.toFixed(2)} dBTP (ceiling: ${ceiling.toFixed(2)} dBTP)`);
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('');
+
+    return {
+      success: true,
+      file: outputPath,
+      final_lufs: finalLUFS,
+      target_lufs: targetLUFS,
+      final_pregain: 0,
+      ceiling: ceiling,
+      final_tp: finalTP,
+      tp_fix_applied: fixApplied,
+      iterations: 1,
+      converged: true,
+      strategy: 'REFINE'
+    };
+  }
+
+  // ============================================================
+  // HIGH MODE normal abaixo
+  // ============================================================
   console.error('');
   console.error('═══════════════════════════════════════════════════════');
   console.error('🎚️ HIGH MODE: LIMITER-DRIVEN MASTERING');
@@ -2318,6 +2933,7 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
   console.error(`   Target LUFS: ${targetLUFS.toFixed(2)} LUFS`);
   console.error(`   Ceiling: ${ceiling.toFixed(2)} dBTP`);
   console.error(`   Strategy: Macro stabilization + Iterative limiter convergence`);
+  console.error(`   Plan source: ${masteringPlan ? masteringPlan.bandsSource : 'none (legacy)'}`);
   console.error('');
   
   // ============================================================
@@ -2344,15 +2960,86 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
   const baseFile = stabilizerResult.file;  // Arquivo base (não muda mais)
   const baseLUFS = await measureLUFS(baseFile);
   
+  // Cap de pre-gain: 18 dB quando soft clipper ativo (double-clip + alimiter garantem TP)
+  // Cap padrão 12 dB sem clipper
+  const softClipperFilter  = buildSoftClipperFilter(mode, crestFactor, strategy, masteringPlan, mixClass);
+  const softClipper2Filter = buildSoftClipper2Filter(mode, strategy, masteringPlan);  // HIGH v4: segundo estágio pós-EQ
+  // v6: mix ratio para clipper paralelo (0.6/0.75/1.0 por CF+class)
+  const softClipperMix = buildSoftClipperMix(mode, crestFactor, mixClass);
+  if (softClipperMix < 1.0) {
+    console.error(`[SOFTCLIP v6] PARALLEL MODE: mix=${softClipperMix} (CF=${typeof crestFactor === 'number' ? crestFactor.toFixed(1) : 'N/A'}, class=${mixClass})`);
+  }
+  // Passa masteringPlan para os builders — fallback transparente se null
+  const preConditionerFilter = buildPreConditionerFilters(mode, crestFactor, mixClass, masteringPlan);
+  const preSatEQFilter   = buildPreSatEQFilter(mode, masteringPlan, crestFactor, mixClass);    // sub + mud (antes da saturação)
+  const postSatEQFilter  = buildPostSatEQFilter(mode, masteringPlan);   // presence + air (após saturação)
+  const clipperActive = !!(softClipperFilter || softClipper2Filter);
+  let PRE_GAIN_MAX = clipperActive ? 18.0 : 12.0;
+  const PRE_GAIN_MIN = -6.0;
+  // Fase 6 Etapa 1 (REVISADO): internalCeiling usa ceiling passado (-1.0).
+  // Ceiling -1.5 causava oscilação (target LUFS só alcançável com ganho que gera TP > -1.5).
+  // As etapas 2 (clipper 0.82), 3 (5 tentativas) e 4 (postcheck -0.8) já resolvem o ISO.
+  //
+  // EXTREME: usa mesma lógica de ceiling do HIGH mas com 0.5 dB extra de margem.
+  // O clipper atan 0.93/0.88 (CF-adaptive v7) cria ISPs ~0.5 dB acima do sample peak.
+  // internalCeiling = ceiling - 0.5 = -1.0 garante que alimiter atenue o suficiente
+  // para que ISPs fiquem abaixo do published ceiling de -0.5 dBTP.
+  const internalCeiling = (mode === 'EXTREME') ? ceiling - 0.5 : ceiling;
+  if (mode === 'EXTREME') {
+    console.error(`[EXTREME] ISP margin: internalCeiling=${internalCeiling.toFixed(1)} dBFS (published ceiling: ${ceiling.toFixed(1)} dBTP, margin: 0.5 dB)`);
+  }
+
+  // ETAPA 4: Proteção para casos extremos (CF muito alto + ganho muito grande)
+  const gainNeededForTarget = targetLUFS - baseLUFS;
+  if (crestFactor > 16 && gainNeededForTarget > 14) {
+    PRE_GAIN_MAX = Math.min(PRE_GAIN_MAX, 14.0);
+    console.error(`   ⚠️ Caso extremo: CF=${crestFactor.toFixed(1)} > 16 && ganho-alvo=${gainNeededForTarget.toFixed(1)} > 14 dB → PRE_GAIN_MAX ajustado para ${PRE_GAIN_MAX} dB`);
+  }
+  // [PREGAIN CAP ADAPTIVE] Clipper serial + CF >= 12 → cap em 14 dB
+  // Ganho acima de 14 dB com clipper tanh serial causa clipping contínuo e grave dominante.
+  if (softClipperMix === 1.0 && clipperActive && typeof crestFactor === 'number' && crestFactor >= 12 && PRE_GAIN_MAX > 14.0) {
+    PRE_GAIN_MAX = 14.0;
+    console.error(`[PREGAIN CAP ADAPTIVE] Clipper serial + CF=${crestFactor.toFixed(1)} >= 12 → PRE_GAIN_MAX=${PRE_GAIN_MAX} dB (era 18 dB)`);
+    console.error(`[PREGAIN CAP ADAPTIVE] Razão: ganho excessivo + clipper serial = clipping contínuo e grave descontrolado`);
+  }
+
   // Ganho inicial: diferença entre target e LUFS atual
   let preGainDB = targetLUFS - baseLUFS;
+
+  // Fase 10 Etapa 2: boost de +0.5 dB no ganho inicial
+  // O compressor (Fase 9) já domou picos antes do clipper — há margem para começar
+  // ligeiramente acima da estimativa pura. Primeira iteração chega mais perto do
+  // target evitando desperdício de iterações na rampa de subida.
+  preGainDB += 0.5;
   
   // Limitar ganho inicial para evitar overshooting extremo
-  preGainDB = Math.max(-6.0, Math.min(12.0, preGainDB));
-  
+  preGainDB = Math.max(PRE_GAIN_MIN, Math.min(PRE_GAIN_MAX, preGainDB));
+
+  // [PRE LIMITER GAIN REDUCTION - LOW DOMINANCE]
+  // Quando CF >= 12 + modo agressivo + ganho necessário alto: o sub/kick chega ao limiter
+  // com amplitude muito maior que o restante do espectro. O alimiter atua principalmente
+  // no grave → limiter GR alto → pumping perceptível no restante da mix.
+  // Solução: reduzir pre-gain em 1 dB pre-loop para que o limiter opere com mais margem.
+  // Condição: CF>=12 (grave dinâmico) + ganho>6 dB (muito boost = sub exacerbado) + não-POOR.
+  // Nota: o [LOW END CONTROL] já corta -1.5 dB em 100 Hz; este é um corte global adicional
+  // para casos onde o ganho total é alto o suficiente para sobrecarregar o alimiter.
+  const isLowDominanceRisk = typeof crestFactor === 'number'
+    && crestFactor >= 12
+    && (mode === 'HIGH' || mode === 'EXTREME')
+    && mixClass !== 'POOR'
+    && gainNeededForTarget > 6
+    && preGainDB > 2;
+  if (isLowDominanceRisk) {
+    const gainReduction = 1.0;
+    preGainDB = Math.max(PRE_GAIN_MIN, preGainDB - gainReduction);
+    console.error(`[PRE LIMITER GAIN REDUCTION - LOW DOMINANCE] CF=${crestFactor.toFixed(1)} | ganho necessário=${gainNeededForTarget.toFixed(1)} dB | mode=${mode}`);
+    console.error(`[PRE LIMITER GAIN REDUCTION - LOW DOMINANCE] Pre-gain reduzido em ${gainReduction} dB → ${preGainDB.toFixed(2)} dB (previne limiter driven pelo sub)`);
+  }
+
   console.error('[STEP 1] Initial gain calculation:');
   console.error(`   Base LUFS: ${baseLUFS.toFixed(2)} LUFS`);
-  console.error(`   Initial pre-gain: ${preGainDB >= 0 ? '+' : ''}${preGainDB.toFixed(2)} dB`);
+  console.error(`   Initial pre-gain: ${preGainDB >= 0 ? '+' : ''}${preGainDB.toFixed(2)} dB (+0.5 dB boost, Fase 10)`);
+  console.error(`   Pre-gain cap: ${PRE_GAIN_MAX} dB (clipper=${clipperActive}, precond=${!!preConditionerFilter}, preSatEQ=${!!preSatEQFilter}, postSatEQ=${!!postSatEQFilter})`);
   console.error('');
   
   // ============================================================
@@ -2361,12 +3048,34 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
   console.error('[STEP 2] Starting iterative limiter convergence...');
   console.error('');
   
-  const MAX_ITERATIONS = 4;
+  const MAX_ITERATIONS = 7;  // 5→7: margem extra de convergência para mixes POOR com alto pré-ganho
   const CONVERGENCE_THRESHOLD_LU = 0.3;
   
   let lastRenderedFile = null;
   let finalLUFS = 0;
   let convergedIteration = -1;
+  // AUDIT: valores medidos pós-convergência (antes de deletar baseFile)
+  let auditPreLimiterLUFSValue = null;
+  let effectiveLimiterGR = null;
+  let auditedClipperGR = null;  // [CLIPPER CAP] hoisted para check pós-loop
+  // [EARLY TP STOP] contadores para detecção de iteração bloqueada
+  let consecutiveTpAtMax = 0;
+  let prevIterError = null;
+  let stalledErrorCount = 0;
+  // [BEST CANDIDATE TRACKING] Melhor iteração intermediária — candidata para recuperação no fallback
+  // Armazenada por iteração; passada no Error ao lançar CLIPPER CAP para uso no catch de processAudio
+  let bestCandidate = null;  // { file, lufs, tp, preGain, lufsDelta, iterNum }
+
+  // Fase 2.1: ajuste proativo de alvo LUFS para compensar fix-true-peak.
+  // A cada iteração, prevemos quanto fix-true-peak vai subtrair baseado no TP medido.
+  // O loop então mira em (targetLUFS - expectedFixPenalty), de forma que após
+  // fix-true-peak o resultado final fique mais próximo do targetLUFS.
+  // POOR: penalidade base -1.5 dB (negativa) → adjustedTarget = targetLUFS + 1.5 dB desde iteração 1
+  // Isso antecipa o TP fix esperado por overshoot estrutural do material POOR
+  let expectedFixPenalty = (mixClass === 'POOR') ? -1.5 : 0;
+  if (mixClass === 'POOR') {
+    console.error(`[HIGH LIMITER] POOR class: expectedFixPenalty antecipado = ${expectedFixPenalty} dB (adjustedTarget +1.5 dB)`);
+  }
   
   const iterationFiles = [];  // Track para limpeza
   
@@ -2380,29 +3089,73 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
     const iterationFile = outputPath.replace(/(\.\w+)$/, `_iter${iterationNum}$1`);
     iterationFiles.push(iterationFile);
     
-    // Renderizar: baseFile + ganho + limiter → iterationFile
+    // Renderizar: baseFile + ganho + preConditioner + preEQ + clip1(paralelo/serial) + postEQ + clip2 + limiter
     const renderResult = await renderWithLimiter(
       baseFile,          // SEMPRE usa o arquivo base estabilizado
       preGainDB,         // Ganho ajustado a cada iteração
-      ceiling,
+      internalCeiling,   // ceiling interno
       sampleRate,
-      iterationFile
+      iterationFile,
+      softClipperFilter,     // CLIP1: threshold CF-adaptativo (v6)
+      preConditionerFilter,  // highpass + compressor
+      preSatEQFilter,        // PRE-SAT EQ: sub + mud
+      postSatEQFilter,       // POST-SAT EQ: presence + air (após clipper)
+      softClipper2Filter,    // HIGH v4 CLIP2: pós-EQ (desabilitado, null)
+      crestFactor,           // CF para limiter release adaptativo
+      softClipperMix,        // v6: parallel mix ratio
+      mode === 'EXTREME' ? 3 : 10  // EXTREME: attack 3ms (mais rápido) vs HIGH: 10ms
     );
     
     lastRenderedFile = renderResult.file;
-    
+
     // Aguardar e medir LUFS do resultado
     finalLUFS = await measureLUFS(lastRenderedFile);
+
+    // [BEST CANDIDATE TRACKING] Registrar melhor iteração como candidata para fallback recovery.
+    // Aceita iterações com TP ≤ ceiling+2.0 dB. Seleciona a que tem menor dist. ao targetLUFS.
+    if (renderResult.finalTP <= ceiling + 2.0) {
+      const iterLufsDelta = Math.abs(finalLUFS - targetLUFS);
+      if (!bestCandidate || iterLufsDelta < bestCandidate.lufsDelta) {
+        bestCandidate = {
+          file:      lastRenderedFile,
+          lufs:      finalLUFS,
+          tp:        renderResult.finalTP,
+          preGain:   preGainDB,
+          lufsDelta: iterLufsDelta,
+          iterNum:   iterationNum,
+        };
+        console.error(`[BEST CANDIDATE] Iter ${iterationNum} registrada: LUFS=${finalLUFS.toFixed(2)} TP=${renderResult.finalTP.toFixed(2)} dBTP delta=${iterLufsDelta.toFixed(2)} LU`);
+      }
+    }
+
+    // ETAPA 3: Estimativa de redução efetiva do limiter
+    // (quanto o limiter trabalhou em relação ao ganho puro aplicado)
+    const limiterReduction = Math.max(0, baseLUFS + preGainDB - finalLUFS);
     
-    const error = targetLUFS - finalLUFS;
+    // Fase 2.1: alvo ajustado — compensa a redução esperada do fix-true-peak.
+    // Se TP > ceiling, o fix-true-peak vai aplicar ~ (-1.0 - TP) - 0.05 dB.
+    // O loop mira mais alto para que o resultado pós-fix fique próximo ao alvo real.
+    const adjustedTarget = targetLUFS - expectedFixPenalty;
+    const error = adjustedTarget - finalLUFS;
     
     console.error(`[HIGH LIMITER] LUFS measured: ${finalLUFS.toFixed(2)} LUFS`);
     console.error(`[HIGH LIMITER] TP measured: ${renderResult.finalTP.toFixed(2)} dBTP (ceiling: ${ceiling.toFixed(2)} dBTP)`);
+    if (expectedFixPenalty !== 0) {
+      console.error(`[HIGH LIMITER] Adjusted target: ${adjustedTarget.toFixed(2)} LUFS (fix-penalty: ${expectedFixPenalty.toFixed(2)} dB)`);
+    }
     console.error(`[HIGH LIMITER] Error: ${error >= 0 ? '+' : ''}${error.toFixed(2)} LU`);
     
-    // Advertir se houve violação persistente de TP
+    // Advertir se houve violação persistente de TP, e atualizar previsão de penalidade
     if (renderResult.tpViolation) {
       console.error(`[HIGH LIMITER] ⚠️ Warning: TP ceiling violated despite correction attempts`);
+      // Fase 6 Etapa 4: fix-true-peak só aplica se TP > (ceiling + 0.2) — alinhar previsão de penalidade
+      if (renderResult.finalTP > (ceiling + 0.2)) {
+        expectedFixPenalty = (ceiling - renderResult.finalTP) - 0.05;
+      } else {
+        expectedFixPenalty = 0;  // TP marginalmente acima do internalCeiling — fix não será aplicado
+      }
+    } else {
+      expectedFixPenalty = 0;  // TP OK — nenhum fix esperado
     }
     
     // Convergiu?
@@ -2414,18 +3167,122 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
     
     // Ainda não convergiu - ajustar ganho para próxima iteração
     if (i < MAX_ITERATIONS - 1) {  // Não ajustar na última iteração
-      const adjustment = error * 0.7;  // 70% do erro (conservador)
-      preGainDB += adjustment;
+      // Step adaptativo: erro pequeno → passo menor para não ultrapassar; erro grande → passo maior
+      const stepFactor = Math.abs(error) < 1.0 ? 0.4 : 0.7;
+      let adjustment = error * stepFactor;
+
+      // ETAPA 3: Boost extra se limiter sub-utilizado e ainda abaixo do target
+      let limiterPushBoost = 0;
+      if (limiterReduction < 2.0 && error > 1.0 && !renderResult.tpViolation) {
+        limiterPushBoost = Math.min(1.0, (2.0 - limiterReduction) * 0.5);
+        console.error(`[HIGH LIMITER] 🔧 Limiter push: reduction=${limiterReduction.toFixed(2)} dB < 2 dB → +${limiterPushBoost.toFixed(2)} dB extra`);
+      }
+
+      const totalAdjustment = adjustment + limiterPushBoost;
+      preGainDB += totalAdjustment;
       
       // Limites de sanidade
-      preGainDB = Math.max(-6.0, Math.min(12.0, preGainDB));
-      
-      console.error(`[HIGH LIMITER] Adjusted pre-gain by ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(2)} dB → ${preGainDB >= 0 ? '+' : ''}${preGainDB.toFixed(2)} dB`);
+      preGainDB = Math.max(PRE_GAIN_MIN, Math.min(PRE_GAIN_MAX, preGainDB));
+
+      // [EARLY TP STOP] check 1: iterações consecutivas no teto de ganho com TP violation
+      if (renderResult.tpViolation && preGainDB >= PRE_GAIN_MAX - 0.1) {
+        consecutiveTpAtMax++;
+      } else {
+        consecutiveTpAtMax = 0;
+      }
+      // [EARLY TP STOP] check 2: erro estagnado (sem progresso real entre iterações)
+      if (renderResult.tpViolation && prevIterError !== null && Math.abs(error - prevIterError) < 0.05) {
+        stalledErrorCount++;
+      } else {
+        stalledErrorCount = 0;
+      }
+      prevIterError = error;
+      if (consecutiveTpAtMax >= 2 || stalledErrorCount >= 2) {
+        console.error(`[EARLY TP STOP] Iteração bloqueada — cap=${consecutiveTpAtMax >= 2} stalled=${stalledErrorCount >= 2}`);
+        console.error(`[EARLY TP STOP] ${consecutiveTpAtMax} iters no teto (${PRE_GAIN_MAX} dB) / ${stalledErrorCount} iters sem progresso`);
+        console.error(`[EARLY TP STOP] Target ${targetLUFS.toFixed(1)} LUFS incompatível com material — parando iteração precoce`);
+        console.error(`[EARLY CF GUARD] Padrão de iteração indica risco elevado de CF drop crítico`);
+        console.error(`[FALLBACK REASON] TP violation repetida no teto de ganho → early stop`);
+        break;
+      }
+
+      console.error(`[HIGH LIMITER] Adjusted pre-gain by ${totalAdjustment >= 0 ? '+' : ''}${totalAdjustment.toFixed(2)} dB (step=${stepFactor}) → ${preGainDB >= 0 ? '+' : ''}${preGainDB.toFixed(2)} dB`);
     }
     
     console.error('');
   }
-  
+
+  // ============================================================
+  // FASE 1 AUDIT: GR efetivo do clipper + limiter (ANTES de deletar baseFile)
+  // ============================================================
+  try {
+    // Medir LUFS pré-clipper (sem clip1, sem -0.5dB, sem alimiter)
+    const preClipAudit = await auditPreClipperLUFS(
+      baseFile, preGainDB, sampleRate,
+      preConditionerFilter, preSatEQFilter, postSatEQFilter
+    );
+    // Medir LUFS pré-limiter (com clip1 paralelo/serial, sem alimiter)
+    const auditResult = await auditPreLimiterLUFS(
+      baseFile, preGainDB, sampleRate,
+      preConditionerFilter, preSatEQFilter, softClipperFilter, postSatEQFilter,
+      softClipperMix
+    );
+    if (auditResult) {
+      auditPreLimiterLUFSValue = auditResult.lufs;
+      effectiveLimiterGR = auditResult.lufs - finalLUFS;
+      const clipperGR = preClipAudit ? (auditResult.lufs - preClipAudit.lufs) : null;
+      auditedClipperGR = clipperGR;  // [CLIPPER CAP] hoisted para check pós-audit
+      console.error('');
+      console.error('══════════════════════════════════════════════════════════');
+      console.error('📊 AUDIT v6 — DISTRIBUIÇÃO DE GANHO (CLIPPER + LIMITER)');
+      console.error(`   CF input:             ${typeof crestFactor === 'number' ? crestFactor.toFixed(1) : 'N/A'}`);
+      console.error(`   Clipper mode:         ${softClipperMix < 1.0 ? `PARALELO mix=${softClipperMix}` : 'SERIAL'}`);
+      if (preClipAudit) {
+        console.error(`   LUFS pré-clipper:     ${preClipAudit.lufs.toFixed(2)} LUFS`);
+      }
+      console.error(`   LUFS pré-limiter:     ${auditResult.lufs.toFixed(2)} LUFS  (TP: ${auditResult.tp.toFixed(2)} dBTP)`);
+      console.error(`   LUFS pós-limiter:     ${finalLUFS.toFixed(2)} LUFS`);
+      if (clipperGR !== null) {
+        const cgAbs = Math.abs(clipperGR);
+        // Estimar % de ativação do clipper pelo GR integrado
+        // GR alto = clipper ativo contínuo; GR baixo = só picos esporádicos
+        const activationEst = cgAbs > 3.0 ? '~50%+ dos samples (contínuo — cola)' :
+                              cgAbs > 2.0 ? '~30-40% dos samples (moderado)' :
+                              cgAbs > 1.0 ? '~10-20% dos samples (picos altos)' :
+                                            '<10% dos samples (picos extremos apenas)';
+        const cgIcon = cgAbs > 2.5 ? '⚠️ ' : cgAbs > 1.5 ? '⚡ ' : '✅ ';
+        console.error(`   GR efetivo (clipper): ${clipperGR.toFixed(2)} dB  ${cgIcon}${activationEst}`);
+      }
+      console.error(`   GR efetivo (limiter): ${effectiveLimiterGR.toFixed(2)} dB`);
+      if (effectiveLimiterGR < -4.0) {
+        console.error(`   ⚠️  LIMITER SOBRECARREGADO: GR=${Math.abs(effectiveLimiterGR).toFixed(1)} dB > 4 dB — waveform possivelmente colada`);
+      } else if (effectiveLimiterGR < -2.0) {
+        console.error(`   ⚡  GR moderado (${Math.abs(effectiveLimiterGR).toFixed(1)} dB) — aceitável para loudness competitivo`);
+      } else {
+        console.error(`   ✅  GR controlado (${Math.abs(effectiveLimiterGR).toFixed(1)} dB) — limiter não sobrecarregado`);
+      }
+      console.error('══════════════════════════════════════════════════════════');
+    }
+  } catch (auditErr) {
+    console.error(`[AUDIT] Falha na medição: ${auditErr.message}`);
+  }
+
+  // [CLIPPER CAP] Abortar se GR do clipper for excessivo — indica clipping contínuo
+  // Serial (mix=1.0): cap 3.0 dB | Parallel (mix<1.0): cap 4.5 dB
+  if (auditedClipperGR !== null) {
+    const clipperGRCap = softClipperMix < 1.0 ? 4.5 : 3.0;
+    if (Math.abs(auditedClipperGR) > clipperGRCap) {
+      console.error(`[CLIPPER CAP] GR do clipper: ${auditedClipperGR.toFixed(2)} dB > -${clipperGRCap} dB (modo ${softClipperMix < 1.0 ? 'PARALELO' : 'SERIAL'})`);
+      console.error(`[CLIPPER CAP] Clipping contínuo detectado — resultado descartado para proteger qualidade`);
+      console.error(`[FALLBACK REASON] Clipper GR excessivo (${Math.abs(auditedClipperGR).toFixed(2)} dB > ${clipperGRCap} dB) → fallback`);
+      const clipperCapErr = new Error(`[CLIPPER CAP] GR do clipper ${Math.abs(auditedClipperGR).toFixed(2)} dB > ${clipperGRCap} dB — fallback para loudnorm`);
+      clipperCapErr.bestCandidate   = bestCandidate;           // [BEST CANDIDATE] para recuperação no fallback
+      clipperCapErr.iterationFiles  = [...iterationFiles];     // para limpeza no catch
+      clipperCapErr.stabilizerFile  = stabilizerTempFile;      // para limpeza no catch
+      throw clipperCapErr;
+    }
+  }
+
   // ============================================================
   // STEP 3: Copiar resultado final e limpar temporários
   // ============================================================
@@ -2457,14 +3314,15 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
 
   // ============================================================
   // POSTCHECK TP OBRIGATÓRIO — alimiter é sample-domain, não garante true peak
+  // Usa fix-true-peak (redução de gain linear) para preservar LUFS ao máximo
   // ============================================================
   if (finalTP > ceiling) {
     console.error('');
     console.error('[HIGH TP POSTCHECK] ⚠️ True Peak acima do ceiling detectado');
     console.error(`   TP medido: ${finalTP.toFixed(2)} dBTP  |  ceiling: ${ceiling.toFixed(2)} dBTP`);
-    console.error(`   Aplicando fix-true-peak.cjs (gain negativo, margem 0.2 dB)...`);
+    console.error(`   Aplicando fix-true-peak (redução de gain linear)...`);
 
-    const fixResult = await applyTruePeakFix(outputPath);
+    const fixResult = await applyTruePeakFix(outputPath, ceiling);
     highModeFixApplied = fixResult.fixed;
 
     if (highModeFixApplied) {
@@ -2511,7 +3369,11 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
     final_tp: finalTP,
     tp_fix_applied: highModeFixApplied,
     iterations: convergedIteration > 0 ? convergedIteration : MAX_ITERATIONS,
-    converged: convergedIteration > 0
+    converged: convergedIteration > 0,
+    // AUDIT: distribuição de ganho
+    pre_limiter_lufs: auditPreLimiterLUFSValue,
+    effective_limiter_gr: effectiveLimiterGR,
+    cf_input: crestFactor
   };
 }
 
@@ -2816,12 +3678,12 @@ async function runTwoPassLoudnorm(options) {
   }
   
   // Calcular ajuste de target baseado na integridade (REDUÇÃO RELATIVA)
-  // Valores reduzidos para preservar diferenciação entre modos
+  // HIGH mode usa penalidades menores: tem mais headroom e é esperado trabalhar mais
   let integrityAdjustment = 0;
   if (mixIntegrity.integrity === 'RISKY') {
-    integrityAdjustment = -1.0;  // Redução moderada
+    integrityAdjustment = (mode === 'HIGH') ? -0.5 : -1.0;  // HIGH: -0.5 LU; outros: -1.0 LU
   } else if (mixIntegrity.integrity === 'POOR') {
-    integrityAdjustment = -2.0;  // Redução conservadora
+    integrityAdjustment = (mode === 'HIGH') ? -1.0 : -2.0;  // HIGH: -1.0 LU; outros: -2.0 LU
   }
   
   console.error(`[INTEGRITY] score=${mixIntegrity.riskScore} reduction=${integrityAdjustment.toFixed(1)} integrity=${mixIntegrity.integrity}`);
@@ -3027,11 +3889,12 @@ async function runTwoPassLoudnorm(options) {
       const hasSubEnergy = crestFactor > 12;
       const hasLimitedHeadroom = headroom < 7.0;
       
-      // Calcular max pre-gain HIGH: min(60% do gain, headroom - 2dB, 6dB cap)
+      // Calcular max pre-gain HIGH: min(60% do gain, headroom + limiterStress×0.4 cap 4dB, 6dB cap)
+      // preGainLimiterStress (3.0 para HIGH) = limiterStressPermitido/2 → ×0.8 = limiterStressPermitido×0.4
       const maxPreGainHigh = Math.min(
-        decisionGainDB * 0.60,  // Nunca mais que 60% do gain necessário
-        headroom - 2.0,         // Manter pelo menos 2 dB de headroom real
-        6.0                     // Cap absoluto de 6 dB
+        decisionGainDB * 0.60,                          // Nunca mais que 60% do gain necessário
+        Math.min(headroom + preGainLimiterStress * 0.8, 4.0),  // headroom + 2.4 dB, cap 4 dB
+        6.0                                              // Cap absoluto de 6 dB
       );
       
       preGainTarget = Math.max(0, maxPreGainHigh);  // Garantir não-negativo
@@ -3274,7 +4137,9 @@ async function runTwoPassLoudnorm(options) {
   // Garantir que loudnorm NUNCA receba áudio com TP > -2 dBTP
   // Isso previne envelope inflation e mantém gain staging profissional
   
-  const CEILING_TARGET_TP = -2.0;  // Ceiling técnico antes do loudnorm
+  // Ceiling técnico antes do loudnorm — por modo (HIGH é mais permissivo, pois limiter controla TP)
+  const CEILING_TARGET_TP_BY_MODE = { STREAMING: -1.5, LOW: -1.5, MEDIUM: -1.3, HIGH: -1.2 };
+  const CEILING_TARGET_TP = CEILING_TARGET_TP_BY_MODE[mode] ?? -1.5;
   let trimApplied = 0;  // Track trim aplicado
   
   if (measured.input_tp > CEILING_TARGET_TP) {
@@ -3664,6 +4529,186 @@ async function processAudio(config) {
   console.error('[FINAL TARGET BEFORE PROCESSING]', validTarget, 'LUFS');
 
   // ═══════════════════════════════════════════════════════════
+  // EXTREME MODE: PIPELINE DE LOUDNESS MÁXIMO
+  // Ceiling -0.5 dBTP | Target -10 a -8 LUFS | Guardrails CF/Limiter
+  // ═══════════════════════════════════════════════════════════
+  if (mode === 'EXTREME') {
+    console.error('');
+    console.error('[EXTREME MODE] Pipeline de loudness máximo — ceiling -0.5 dBTP');
+    console.error('[EXTREME MODE] Guardrails: CF drop >5 dB ou limiter GR >5 dB → fallback para HIGH');
+    console.error('');
+
+    // [EXTREME DOWNGRADE] Material denso (CF < 10) → reduzir target para evitar waveform colada
+    // CF < 10 = material já denso; forçar target agressivo exige ganho alto → punch collapse
+    if (typeof crestFactor === 'number' && crestFactor < 10) {
+      const nudge = crestFactor < 8 ? -1.5 : -1.0;  // mais negativo = mais quieto = menos agressivo
+      const prevTarget = validTarget;
+      validTarget = validTarget + nudge;
+      console.error(`[EXTREME DOWNGRADE] CF=${crestFactor.toFixed(1)} < 10 — material denso detectado`);
+      console.error(`[EXTREME DOWNGRADE] Target: ${prevTarget.toFixed(1)} → ${validTarget.toFixed(1)} LUFS (nudge=${nudge} LU)`);
+      console.error(`[EXTREME DOWNGRADE] Razão: CF baixo + EXTREME = risco de waveform colada e perda de punch`);
+    }
+
+    const sampleRateExt = await detectInputSampleRate(inputPath);
+
+    try {
+      const extremeResult = await runLimiterDrivenMaster({
+        inputFile:     inputPath,
+        targetLUFS:    validTarget,
+        ceiling:       ceilingDbtp,   // -0.5 dBTP (vem do validateArgs)
+        sampleRate:    sampleRateExt,
+        outputPath:    outputPath,
+        mode,                         // 'EXTREME' — ativa filtros específicos nos builders
+        crestFactor,
+        strategy,
+        mixClass:      config.mixClass || null,
+        masteringPlan: config.masteringPlan || null
+      });
+
+      const finalMeasurementExt = await measureWithOfficialScript(outputPath);
+
+      let finalTPExt = finalMeasurementExt.true_peak_db;
+      let finalLUFSExt = finalMeasurementExt.lufs_i;
+      let extFixApplied = extremeResult.tp_fix_applied || false;
+
+      // Postcheck TP para ceiling -0.5
+      if (finalTPExt > ceilingDbtp) {
+        console.error('[EXTREME CALLER SAFECHECK] TP acima do ceiling -0.5 dBTP — aplicando fix...');
+        const extFix = await applyTruePeakFix(outputPath);
+        extFixApplied = true;
+        const afterExtFix = await measureWithOfficialScript(outputPath);
+        finalTPExt  = afterExtFix.true_peak_db;
+        finalLUFSExt = afterExtFix.lufs_i;
+        if (finalTPExt > ceilingDbtp) {
+          throw new Error(`[EXTREME SAFECHECK] TP não corrigível: ${finalTPExt.toFixed(2)} > ${ceilingDbtp.toFixed(2)} dBTP`);
+        }
+        console.error(`[EXTREME SAFECHECK] ✅ TP corrigido para ${finalTPExt.toFixed(2)} dBTP`);
+      }
+
+      // Guardrail CF drop: EXTREME tolera até 5.0 dB (vs 4.0 do HIGH)
+      const inputCFGuardrailExt  = (config.inputTP  || 0) - (config.inputLUFS || -20);
+      const outputCFGuardrailExt = finalTPExt - finalLUFSExt;
+      const crestDropExt = inputCFGuardrailExt - outputCFGuardrailExt;
+      if (crestDropExt > 5.0) {
+        throw new Error(`[EXTREME GUARDRAIL] CF drop ${crestDropExt.toFixed(2)} dB > 5.0 dB — fallback para HIGH`);
+      }
+      console.error(`[EXTREME GUARDRAIL] CF drop: ${crestDropExt.toFixed(2)} dB (limite: 5.0 dB) ✅`);
+
+      // Guardrail limiter GR: se o limiter trabalhou mais de 5 dB, é indicativo de
+      // distorção excessiva — fallback para HIGH que tem pipeline mais conservador
+      if (extremeResult.effective_limiter_gr !== null && extremeResult.effective_limiter_gr !== undefined) {
+        const limGR = Math.abs(extremeResult.effective_limiter_gr);
+        if (limGR > 5.0) {
+          throw new Error(`[EXTREME GUARDRAIL] Limiter GR ${limGR.toFixed(2)} dB > 5.0 dB — fallback para HIGH`);
+        }
+        console.error(`[EXTREME GUARDRAIL] Limiter GR: ${limGR.toFixed(2)} dB (limite: 5.0 dB) ✅`);
+      }
+
+      return {
+        success: true,
+        targetI: validTarget,
+        originalTarget: validTarget,
+        targetAdjusted: false,
+        targetTP: ceilingDbtp,
+        usedTP: ceilingDbtp,
+        pre_gain_db: 0,
+        ceiling_trim_db: 0,
+        high_rms_clamp_applied: false,
+        dynamic_unstable: false,
+        pumping_risk: false,
+        sub_dominant: false,
+        final_lufs: finalLUFSExt,
+        final_tp: finalTPExt,
+        reference_lufs: finalLUFSExt,
+        reference_lufs_pre_limiter: finalLUFSExt,
+        lufsError: finalLUFSExt - validTarget,
+        tpError: finalTPExt - ceilingDbtp,
+        fallback_used: extFixApplied,
+        fix_applied: extFixApplied,
+        fix_details: null,
+        duration: 0,
+        outputSize: 0,
+        measured_by: 'extreme-limiter-driven',
+        measurement_failed: false,
+        measurement_error: null,
+        mode_result: 'EXTREME-LIMITER-DRIVEN',
+        strategy_applied: 'EXTREME',
+        impact_aborted: false,
+        abort_reason: null,
+        mix_class: config.mixClass || 'UNKNOWN'
+      };
+    } catch (error) {
+      console.error('[EXTREME MODE ERROR]', error.message);
+      console.error('[EXTREME MODE FALLBACK] Executando HIGH como fallback...');
+      console.error('');
+      // Fallback para HIGH com ceiling -1.0 (mais seguro)
+      const fallbackCeiling = -1.0;
+      try {
+        const fallbackResult = await runLimiterDrivenMaster({
+          inputFile:     inputPath,
+          targetLUFS:    validTarget,
+          ceiling:       fallbackCeiling,
+          sampleRate:    sampleRateExt,
+          outputPath:    outputPath,
+          mode:          'HIGH',        // Fallback usa pipeline HIGH
+          crestFactor,
+          strategy,
+          mixClass:      config.mixClass || null,
+          masteringPlan: config.masteringPlan || null
+        });
+        const fallbackMeasure = await measureWithOfficialScript(outputPath);
+        let fallbackTP   = fallbackMeasure.true_peak_db;
+        let fallbackLUFS = fallbackMeasure.lufs_i;
+        let fallbackFix  = fallbackResult.tp_fix_applied || false;
+        if (fallbackTP > fallbackCeiling) {
+          await applyTruePeakFix(outputPath);
+          fallbackFix = true;
+          const afterFallFix = await measureWithOfficialScript(outputPath);
+          fallbackTP   = afterFallFix.true_peak_db;
+          fallbackLUFS = afterFallFix.lufs_i;
+        }
+        return {
+          success: true,
+          targetI: validTarget,
+          originalTarget: validTarget,
+          targetAdjusted: false,
+          targetTP: fallbackCeiling,
+          usedTP: fallbackCeiling,
+          pre_gain_db: 0,
+          ceiling_trim_db: 0,
+          high_rms_clamp_applied: false,
+          dynamic_unstable: false,
+          pumping_risk: false,
+          sub_dominant: false,
+          final_lufs: fallbackLUFS,
+          final_tp: fallbackTP,
+          reference_lufs: fallbackLUFS,
+          reference_lufs_pre_limiter: fallbackLUFS,
+          lufsError: fallbackLUFS - validTarget,
+          tpError: fallbackTP - fallbackCeiling,
+          fallback_used: true,
+          fix_applied: fallbackFix,
+          fix_details: 'EXTREME_TO_HIGH_FALLBACK',
+          duration: 0,
+          outputSize: 0,
+          measured_by: 'extreme-fallback-high',
+          measurement_failed: false,
+          measurement_error: null,
+          mode_result: 'EXTREME-FALLBACK-HIGH',
+          strategy_applied: 'HIGH',
+          impact_aborted: false,
+          abort_reason: null,
+          mix_class: config.mixClass || 'UNKNOWN'
+        };
+      } catch (fallbackError) {
+        console.error('[EXTREME FALLBACK ERROR]', fallbackError.message);
+        console.error('[EXTREME FALLBACK] Continuando para loudnorm...');
+        // Cai para loudnorm abaixo
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // HIGH MODE: BYPASS LOUDNORM → USE LIMITER-DRIVEN MASTERING
   // ═══════════════════════════════════════════════════════════
   if (mode === 'HIGH') {
@@ -3682,7 +4727,12 @@ async function processAudio(config) {
         targetLUFS: validTarget,
         ceiling: ceilingDbtp,
         sampleRate: sampleRate,
-        outputPath: outputPath
+        outputPath: outputPath,
+        mode,
+        crestFactor,
+        strategy,
+        mixClass: config.mixClass || null,  // Fase 8: highpass adaptativo por mixClass
+        masteringPlan: config.masteringPlan || null  // Fase: plano DSP band-aware
       });
 
       // Medir resultado final — runLimiterDrivenMaster já aplicou TP fix se necessário,
@@ -3692,6 +4742,7 @@ async function processAudio(config) {
       // Segurança extra: se por qualquer razão o TP ainda estiver acima (ex: race no renameSync)
       // aplicar fix aqui também — belt & suspenders
       let finalTP = finalMeasurement.true_peak_db;
+      let finalActualLUFS = finalMeasurement.lufs_i;  // será atualizado se extraFix for aplicado
       let callerFixApplied = limiterResult.tp_fix_applied || false;
       if (finalTP > ceilingDbtp) {
         console.error('[HIGH CALLER SAFECHECK] TP ainda acima após runLimiterDrivenMaster, aplicando fix adicional...');
@@ -3699,11 +4750,22 @@ async function processAudio(config) {
         callerFixApplied = true;
         const afterExtra = await measureWithOfficialScript(outputPath);
         finalTP = afterExtra.true_peak_db;
+        finalActualLUFS = afterExtra.lufs_i;  // LUFS real após fix — evita reportar valor antigo no JSON
         if (finalTP > ceilingDbtp) {
           throw new Error(`[HIGH CALLER SAFECHECK] TP não corrigível: ${finalTP.toFixed(2)} > ${ceilingDbtp.toFixed(2)} dBTP`);
         }
-        console.error(`[HIGH CALLER SAFECHECK] ✅ TP corrigido para ${finalTP.toFixed(2)} dBTP`);
+        console.error(`[HIGH CALLER SAFECHECK] ✅ TP corrigido para ${finalTP.toFixed(2)} dBTP (LUFS: ${finalActualLUFS.toFixed(2)})`);
       }
+
+      // HIGH v4 Fase 2.6 — GUARDRAIL: CF drop excessivo → fallback para loudnorm
+      // Usa métrica TP-LUFS consistente (mesma usada em validateFinalResult)
+      const inputCFGuardrail  = (config.inputTP  || 0) - (config.inputLUFS || -20);
+      const outputCFGuardrail = finalTP - finalActualLUFS;
+      const crestDropGuardrail = inputCFGuardrail - outputCFGuardrail;
+      if (crestDropGuardrail > 4.0) {
+        throw new Error(`[HIGH v4 GUARDRAIL] CF drop ${crestDropGuardrail.toFixed(2)} dB > 4.0 dB — resultado descartado, fallback para loudnorm`);
+      }
+      console.error(`[HIGH GUARDRAIL] CF drop: ${crestDropGuardrail.toFixed(2)} dB (limite: 4.0 dB) ✅`);
 
       // Retornar em formato compatível
       return {
@@ -3719,11 +4781,11 @@ async function processAudio(config) {
         dynamic_unstable: false,
         pumping_risk: false,
         sub_dominant: false,
-        final_lufs: finalMeasurement.lufs_i,
+        final_lufs: finalActualLUFS,
         final_tp: finalTP,
-        reference_lufs: finalMeasurement.lufs_i,
-        reference_lufs_pre_limiter: finalMeasurement.lufs_i,
-        lufsError: finalMeasurement.lufs_i - validTarget,
+        reference_lufs: finalActualLUFS,
+        reference_lufs_pre_limiter: finalActualLUFS,
+        lufsError: finalActualLUFS - validTarget,
         tpError: finalTP - ceilingDbtp,
         fallback_used: callerFixApplied,
         fix_applied: callerFixApplied,
@@ -3733,7 +4795,8 @@ async function processAudio(config) {
         measured_by: 'limiter-driven',
         measurement_failed: false,
         measurement_error: null,
-        mode_result: 'HIGH-LIMITER-DRIVEN',
+        mode_result: (limiterResult.strategy === 'REFINE' || limiterResult.strategy === 'REFINE_BYPASS') ? 'HIGH-REFINE' : 'HIGH-LIMITER-DRIVEN',
+        strategy_applied: (limiterResult.strategy === 'REFINE' || limiterResult.strategy === 'REFINE_BYPASS') ? 'REFINE' : (limiterResult.strategy || 'IMPACT'),
         impact_aborted: false,
         abort_reason: null,
         mix_class: 'UNKNOWN'
@@ -3741,7 +4804,174 @@ async function processAudio(config) {
     } catch (error) {
       console.error('[HIGH MODE ERROR] Failed to apply limiter-driven master:', error.message);
       console.error('[HIGH MODE FALLBACK] Falling back to loudnorm...');
-      // Se falhar, continuar com loudnorm normal
+
+      // Extrair metadata passada pelo CLIPPER CAP (quando disponível)
+      const limiterBestCandidate = error.bestCandidate  || null;
+      const limiterIterFiles     = error.iterationFiles || [];
+      const limiterStabFile      = error.stabilizerFile  || null;
+
+      // [MIN LOUDNESS FLOOR] Piso mínimo de LUFS por modo.
+      // Garante que o resultado final atenda ao perfil de loudness esperado para cada modo.
+      // Candidatos limiter-driven com LUFS abaixo do piso são rejeitados mesmo que tecnicamente
+      // melhores em CF — o usuário escolheu o modo esperando um nível de loudness mínimo.
+      const MIN_LUFS_BY_MODE_CATCH = { 'HIGH': -12.0, 'EXTREME': -11.0, 'MEDIUM': -14.0, 'STREAMING': -18.0, 'LOW': -16.0 };
+      const minLUFSForMode         = MIN_LUFS_BY_MODE_CATCH[mode] ?? -14.0;
+      console.error(`[MIN LOUDNESS FLOOR] Modo ${mode}: piso mínimo = ${minLUFSForMode.toFixed(1)} LUFS`);
+
+      // [FALLBACK TARGET DOWNGRADE] Quando guardrails de qualidade disparam o fallback,
+      // o target agressivo original causará CF_DROP_CRITICAL na loudnorm também.
+      // Downgrade de +2.0 LU dá margem para a loudnorm operar sem saturar a waveform.
+      const isQualityGuardrailFallback = /CLIPPER CAP|GUARDRAIL/.test(error.message);
+      let fallbackTarget = validTarget;
+      if (isQualityGuardrailFallback) {
+        fallbackTarget = validTarget + 2.0;
+        console.error(`[FALLBACK TARGET DOWNGRADE] Origem: guardrail de qualidade (${error.message.slice(0, 40)}...)`);
+        console.error(`[FALLBACK TARGET DOWNGRADE] Target: ${validTarget.toFixed(1)} → ${fallbackTarget.toFixed(1)} LUFS (+2.0 LU conservador)`);
+        console.error(`[FALLBACK REASON] Target original incompatível com material — loudnorm opera em modo conservador`);
+      }
+
+      // Executar fallback loudnorm com target downgraded
+      const loudnormResult = await runTwoPassLoudnorm({
+        inputPath,
+        outputPath,
+        targetI: fallbackTarget,
+        targetTP: ceilingDbtp,
+        mode,
+        targetLockedByDecisionEngine: true,  // mantém rota decision-engine, target já downgraded acima
+        strategy,
+        decisionGainDB,
+        crestFactor
+      });
+
+      // [BEST CANDIDATE COMPARISON] Se fallback terminou com CF_DROP_CRITICAL,
+      // compara com a melhor iteração limiter-driven (que pode preservar melhor os transientes).
+      const inputCFComp = (config.inputTP || 0) - (config.inputLUFS || -20);
+      if (limiterBestCandidate && fs.existsSync(limiterBestCandidate.file)) {
+        const fallbackMeas    = await measureWithOfficialScript(outputPath);
+        const fallbackCFDrop  = inputCFComp - (fallbackMeas.true_peak_db - fallbackMeas.lufs_i);
+        console.error(`[BEST CANDIDATE COMPARISON] Fallback: LUFS=${fallbackMeas.lufs_i.toFixed(2)} CF drop=${fallbackCFDrop.toFixed(2)} dB`);
+        console.error(`[BEST CANDIDATE COMPARISON] Candidato: iter=${limiterBestCandidate.iterNum} LUFS=${limiterBestCandidate.lufs.toFixed(2)} TP=${limiterBestCandidate.tp.toFixed(2)}`);
+
+        if (fallbackCFDrop > 3.5) {
+          // Fallback tem CF_DROP_CRITICAL — avaliar se candidato limiter-driven preserva melhor
+          const candidateMeas  = await measureWithOfficialScript(limiterBestCandidate.file);
+          const candidateCFDrop = inputCFComp - (candidateMeas.true_peak_db - candidateMeas.lufs_i);
+          const candidateTpOk   = limiterBestCandidate.tp <= ceilingDbtp + 2.0;  // alinhado com critério de aceite do tracking; TP fix pode corrigir até ~2 dB
+          // [MIN LOUDNESS FLOOR] Verificar se candidato atende ao piso de loudness do modo
+          const candidateLUFSOk = limiterBestCandidate.lufs >= minLUFSForMode;
+          if (!candidateLUFSOk) {
+            console.error(`[REJECTED BEST CANDIDATE - TOO LOW LOUDNESS] iter${limiterBestCandidate.iterNum} LUFS=${limiterBestCandidate.lufs.toFixed(2)} < mínimo ${minLUFSForMode.toFixed(1)} para modo ${mode}`);
+            console.error(`[REJECTED BEST CANDIDATE - TOO LOW LOUDNESS] Candidato rejeitado — resultado ficaria fora do perfil de loudness esperado pelo usuário`);
+          }
+          console.error(`[BEST CANDIDATE COMPARISON] Candidato CF drop: ${candidateCFDrop.toFixed(2)} dB | TP ok: ${candidateTpOk} | LUFS ok: ${candidateLUFSOk}`);
+
+          if (candidateCFDrop < fallbackCFDrop && candidateTpOk && candidateLUFSOk) {
+            // Candidato preserva melhor os transientes E atende ao piso de loudness do modo
+            console.error(`[BEST CANDIDATE SELECTED] iter${limiterBestCandidate.iterNum} CF drop ${candidateCFDrop.toFixed(2)} < fallback ${fallbackCFDrop.toFixed(2)} dB`);
+            console.error(`[BEST CANDIDATE SELECTED] Copiando iter${limiterBestCandidate.iterNum} para outputPath final`);
+            await fs.promises.copyFile(limiterBestCandidate.file, outputPath);
+            // TP fix obrigatório se TP estiver acima do ceiling
+            const afterCopy = await measureWithOfficialScript(outputPath);
+            if (afterCopy.true_peak_db > ceilingDbtp) {
+              console.error(`[BEST CANDIDATE SELECTED] TP fix: ${afterCopy.true_peak_db.toFixed(2)} → ${ceilingDbtp.toFixed(2)} dBTP`);
+              await applyTruePeakFix(outputPath, ceilingDbtp);
+            }
+            const finalBestMeas       = await measureWithOfficialScript(outputPath);
+            loudnormResult.final_lufs  = finalBestMeas.lufs_i;
+            loudnormResult.final_tp    = finalBestMeas.true_peak_db;
+            loudnormResult.fallback_used = true;
+            // [BEST CANDIDATE] A referência para validação deve ser o input original (não a rota loudnorm)
+            // config.inputLUFS = LUFS antes de qualquer processamento; evita falso LUFS_REDUCTION
+            const inputRef = config.inputLUFS || finalBestMeas.lufs_i;
+            loudnormResult.reference_lufs_pre_limiter = inputRef;
+            loudnormResult.reference_lufs = inputRef;
+          } else {
+            console.error(`[FALLBACK FINAL SELECTED] Candidato não supera fallback (CF drop: ${candidateCFDrop.toFixed(2)} vs ${fallbackCFDrop.toFixed(2)}, tpOk=${candidateTpOk}, lufsOk=${candidateLUFSOk})`);
+
+            // [FINAL CF SAFETY RERENDER] Único rerender conservador extra — sem loop
+            // Somente se o fallback ainda tem CF_DROP_CRITICAL e há margem de target útil
+            const safeFallbackTarget = fallbackTarget + 2.0;
+            const inputLUFSVal       = config.inputLUFS || -20;
+            if (fallbackCFDrop > 3.5 && safeFallbackTarget > inputLUFSVal + 1.0) {
+              console.error(`[FINAL CF SAFETY RERENDER] CF crítico (${fallbackCFDrop.toFixed(2)} dB) — 1 rerender conservador`);
+              console.error(`[FINAL CF SAFETY RERENDER] Target: ${fallbackTarget.toFixed(1)} → ${safeFallbackTarget.toFixed(1)} LUFS`);
+              try {
+                const safeResult = await runTwoPassLoudnorm({
+                  inputPath,
+                  outputPath,
+                  targetI: safeFallbackTarget,
+                  targetTP: ceilingDbtp,
+                  mode,
+                  targetLockedByDecisionEngine: true,  // usa rota decision-engine com target conservador
+                  strategy,
+                  decisionGainDB,
+                  crestFactor
+                });
+                const safeMeas   = await measureWithOfficialScript(outputPath);
+                const safeCFDrop = inputCFComp - (safeMeas.true_peak_db - safeMeas.lufs_i);
+                console.error(`[FINAL CF SAFETY RERENDER] Resultado: LUFS=${safeMeas.lufs_i.toFixed(2)} TP=${safeMeas.true_peak_db.toFixed(2)} CF drop=${safeCFDrop.toFixed(2)} dB`);
+                loudnormResult.final_lufs  = safeMeas.lufs_i;
+                loudnormResult.final_tp    = safeMeas.true_peak_db;
+                loudnormResult.fallback_used = true;
+              } catch (safeErr) {
+                console.error(`[FINAL CF SAFETY RERENDER] Falha: ${safeErr.message} — mantendo resultado anterior`);
+              }
+            }
+          }
+        } else {
+          console.error(`[FALLBACK FINAL SELECTED] CF drop fallback (${fallbackCFDrop.toFixed(2)} dB) aceitável — candidato não necessário`);
+        }
+      }
+
+      // Limpar arquivos temporários do loop limiter (CLIPPER CAP lança antes do STEP 3)
+      for (const tmpFile of [...limiterIterFiles, limiterStabFile].filter(Boolean)) {
+        if (tmpFile !== outputPath && fs.existsSync(tmpFile)) {
+          await fs.promises.unlink(tmpFile).catch(() => {});
+        }
+      }
+      if (limiterIterFiles.length > 0 || limiterStabFile) {
+        console.error(`[HIGH MODE FALLBACK] ✅ Arquivos temp do loop limiter limpos`);
+      }
+
+      // [MIN LOUDNESS RERENDER] Verificação final de piso de loudness.
+      // Se o resultado final (fallback ou candidato selecionado) ficou abaixo do piso do modo,
+      // fazer 1 rerender conservador com target = minLUFSForMode — sem loop.
+      // Prioridade: 1) candidato ok, 2) fallback ok, 3) rerender para mínimo, 4) aceitar abaixo
+      const finalResultLUFS = loudnormResult.final_lufs;
+      if (typeof finalResultLUFS === 'number' && finalResultLUFS < minLUFSForMode) {
+        console.error(`[MIN LOUDNESS RERENDER] LUFS final ${finalResultLUFS.toFixed(2)} < mínimo ${minLUFSForMode.toFixed(1)} para modo ${mode}`);
+        console.error(`[MIN LOUDNESS RERENDER] 1 rerender para atingir piso mínimo (target=${minLUFSForMode.toFixed(1)} LUFS) — sem loop`);
+        try {
+          await runTwoPassLoudnorm({
+            inputPath,
+            outputPath,
+            targetI:                      minLUFSForMode,
+            targetTP:                     ceilingDbtp,
+            mode,
+            targetLockedByDecisionEngine: true,
+            strategy,
+            decisionGainDB,
+            crestFactor
+          });
+          const minMeas       = await measureWithOfficialScript(outputPath);
+          const inputCFReRnd  = (config.inputTP || 0) - (config.inputLUFS || -20);
+          const minCFDrop     = inputCFReRnd - (minMeas.true_peak_db - minMeas.lufs_i);
+          console.error(`[MIN LOUDNESS RERENDER] Resultado: LUFS=${minMeas.lufs_i.toFixed(2)} TP=${minMeas.true_peak_db.toFixed(2)} CF drop=${minCFDrop.toFixed(2)} dB`);
+          if (minCFDrop > 5.0) {
+            console.error(`[MIN LOUDNESS RERENDER] ⚠️ CF drop elevado (${minCFDrop.toFixed(2)} dB) — loudness priorizado para atingir piso do modo ${mode}`);
+          }
+          loudnormResult.final_lufs    = minMeas.lufs_i;
+          loudnormResult.final_tp      = minMeas.true_peak_db;
+          loudnormResult.fallback_used = true;
+        } catch (minErr) {
+          console.error(`[MIN LOUDNESS RERENDER] Falha: ${minErr.message} — mantendo resultado anterior`);
+          console.error(`[MIN LOUDNESS RERENDER] ⚠️ Resultado final LUFS ${finalResultLUFS.toFixed(2)} abaixo do mínimo ${minLUFSForMode.toFixed(1)} para modo ${mode}`);
+        }
+      } else if (typeof finalResultLUFS === 'number') {
+        console.error(`[MIN LOUDNESS CHECK] ✅ LUFS ${finalResultLUFS.toFixed(2)} ≥ mínimo ${minLUFSForMode.toFixed(1)} para modo ${mode}`);
+      }
+
+      return loudnormResult;
     }
   }
 
@@ -3831,12 +5061,13 @@ function checkTransientProtection(inputCF, outputCF, currentGain) {
  * @param {number} inputLUFS - LUFS original (para validação)
  * @returns {Promise<Object>} - { sat_used, sat_aborted, sat_blocked, sat_reason, sat_intensity, final_metrics }
  */
-async function applySaturationFallback(inputPath, outputPath, offsetApplied, deltaFinal, mode, inputCrestFactor, inputLUFS) {
+async function applySaturationFallback(inputPath, outputPath, offsetApplied, deltaFinal, mode, inputCrestFactor, inputLUFS, mixClass = null) {
   console.error('');
   console.error('🎛️ SATURAÇÃO FALLBACK:');
   console.error(`   Delta final: ${deltaFinal.toFixed(1)} LU`);
   console.error(`   Modo: ${mode}`);
   console.error(`   Crest Factor: ${inputCrestFactor.toFixed(1)} dB`);
+  console.error(`   Mix Class: ${mixClass ?? 'unknown'}`);
   
   // Verificação 1: Modo LOW não permite saturação
   if (mode === 'LOW') {
@@ -3866,11 +5097,17 @@ async function applySaturationFallback(inputPath, outputPath, offsetApplied, del
     };
   }
   
-  // Condição de ativação: APENAS delta < 0.7 LU
-  const shouldApplySaturation = (deltaFinal < 0.7);
-  
+  // Condição de ativação: POOR sempre (mustApply), outros apenas se delta < 0.7 LU
+  const forcedByClass = (mixClass === 'POOR');
+  const shouldApplySaturation = forcedByClass || (deltaFinal < 0.7);
+
+  if (forcedByClass) {
+    console.error('   [SAT] forced=true (POOR)');
+    console.error('   [SAT] drive=3% (volume harmônica determinística)');
+  }
+
   if (!shouldApplySaturation) {
-    console.error('   ℹ️ Saturação não necessária (delta suficiente)');
+    console.error('   ℹ️ Saturação não necessária (delta suficiente, classe não-POOR)');
     console.error('');
     return {
       sat_used: false,
@@ -3881,8 +5118,12 @@ async function applySaturationFallback(inputPath, outputPath, offsetApplied, del
       final_metrics: null
     };
   }
-  
-  console.error('   ⚡ Aplicando saturação MUITO LEVE (3% drive) para harmônicos sutis...');
+
+  if (forcedByClass) {
+    console.error('   ⚡ Aplicando saturação harmônica determinística (POOR class)...');
+  } else {
+    console.error('   ⚡ Aplicando saturação MUITO LEVE (3% drive) para harmônicos sutis...');
+  }
   
   // Intensidade fixa: 3% de drive
   const satIntensity = 0.03;
@@ -4134,9 +5375,10 @@ function calculateQualityScore(result, metrics) {
  * 1. LUFS final >= LUFS de referência - 0.25 LU (tolerância técnica)
  *    Referência = LUFS medido APÓS pré-processamento (EQ+PreGain+Limiter)
  * 2. True Peak final <= -1.0 dBTP (headroom mínimo obrigatório)
+ * 3. Crest Factor drop <= 3.5 dB (guardrail HIGH v2 — transientes não podem ser destruídos)
  * 
  * MÉTRICAS ESTÉTICAS (warnings apenas - não bloqueiam):
- * 3. Crest Factor drop <= 2.0 dB (ideal para preservação de transientes)
+ * 3b. Crest Factor drop <= 2.0 dB (ideal para preservação de transientes)
  * 4. Limiter reduction média <= 5 dB (ideal para não destruir dinâmica)
  * 
  * Objetivo V1: Garantir loudness previsível e seguro (LUFS target + no clipping).
@@ -4222,20 +5464,23 @@ function validateFinalResult(referenceLUFS, inputCF, result) {
   }
   console.error('');
   
-  // REGRA 2: True Peak <= -1.0 dBTP (BLOQUEANTE)
+  // REGRA 2: True Peak <= target_tp dBTP (BLOQUEANTE)
+  // target_tp é -1.0 para modos padrão, -0.5 para EXTREME.
+  // Suporta tanto snake_case (target_tp) quanto camelCase (targetTP) para compatibilidade.
+  const tpCeiling = result.target_tp ?? result.targetTP ?? -1.0;
   details.final_tp = result.final_tp;
   
-  console.error(`📊 REGRA TÉCNICA 2: True Peak <= -1.0 dBTP`);
+  console.error(`📊 REGRA TÉCNICA 2: True Peak <= ${tpCeiling.toFixed(1)} dBTP`);
   console.error(`   Final TP: ${result.final_tp.toFixed(2)} dBTP`);
-  console.error(`   Limite: -1.0 dBTP`);
+  console.error(`   Limite: ${tpCeiling.toFixed(1)} dBTP`);
   
-  if (result.final_tp > -1.0) {
+  if (result.final_tp > tpCeiling) {
     violations.push('TP_OVERSHOOT');
-    const overshoot = result.final_tp + 1.0;
+    const overshoot = result.final_tp - tpCeiling;
     console.error(`   ❌ VIOLAÇÃO: TP excedeu ${overshoot.toFixed(2)} dB`);
     details.tp_overshoot = overshoot;
   } else {
-    const margin = Math.abs(result.final_tp + 1.0);
+    const margin = Math.abs(result.final_tp - tpCeiling);
     console.error(`   ✅ OK: Margem de segurança ${margin.toFixed(2)} dB`);
     details.tp_margin = margin;
   }
@@ -4245,18 +5490,30 @@ function validateFinalResult(referenceLUFS, inputCF, result) {
   // MÉTRICAS ESTÉTICAS (WARNINGS APENAS)
   // ============================================================
   
-  // MÉTRICA 3: Crest Factor drop (WARNING apenas)
+  // MÉTRICA 3: Crest Factor drop
+  // > 2.0 dB → warning (transientes ligeiramente comprimidos)
+  // > 3.5 dB → violation BLOQUEANTE (transientes destruídos — guardrail HIGH v2)
+  // NOTA: inputCF vem do mini-analyzer (TP-RMS); outputCF usa TP-LUFS integrado.
+  //       A comparação é aproximada — por isso o threshold crítico é conservador (3.5 dB).
+  // SKIP para REFINE/REFINE_BYPASS: sem loudness push, CF delta é esperado de EQ spectral.
   const outputCF = result.final_tp - result.final_lufs;
   const cfDrop = inputCF - outputCF;
   details.cf_drop = cfDrop;
+  
+  const isRefineStrategy = result.strategy_applied === 'REFINE' || result.strategy_applied === 'REFINE_BYPASS';
   
   console.error(`📊 MÉTRICA ESTÉTICA 3: Crest Factor drop`);
   console.error(`   Input CF: ${inputCF.toFixed(2)} dB`);
   console.error(`   Output CF: ${outputCF.toFixed(2)} dB`);
   console.error(`   CF Drop: ${cfDrop.toFixed(2)} dB`);
-  console.error(`   Referência: 2.0 dB (ideal)`);
+  console.error(`   Referência: 2.0 dB (ideal) | Limite crítico: 3.5 dB | Strategy: ${result.strategy_applied}`);
   
-  if (cfDrop > 2.0) {
+  if (cfDrop > 3.5 && !isRefineStrategy) {
+    violations.push('CF_DROP_CRITICAL');
+    const excess = cfDrop - 3.5;
+    console.error(`   ❌ VIOLATION: CF drop crítico (+${excess.toFixed(2)} dB acima de 3.5 dB) — transientes destruídos`);
+    details.cf_drop_excess = cfDrop - 2.0;
+  } else if (cfDrop > 2.0) {
     warnings.push('CF_DROP_HIGH');
     const excess = cfDrop - 2.0;
     console.error(`   ⚠️ WARNING: CF drop elevado (+${excess.toFixed(2)} dB acima do ideal)`);
@@ -4333,7 +5590,9 @@ function validateFinalResult(referenceLUFS, inputCF, result) {
 
 async function main() {
   const debug = process.env.DEBUG_PIPELINE === 'true';
-  let eqTempFile = null;  // Arquivo temporário com EQ (para limpeza ao final)
+  let eqTempFile = null;           // Arquivo temporário com EQ (para limpeza ao final)
+  let peakCorrectionTempFile = null; // Arquivo temporário de peak correction
+  let peakCorrectionInfo = null;     // Info de peak correction para JSON de saída
 
   if (debug) {
     console.error('[DEBUG] AutoMaster V1 - Nucleo Tecnico');
@@ -4359,79 +5618,106 @@ async function main() {
     process.exit(1);
   }
 
-  // 2.5 DECISION ENGINE - Analisar métricas e decidir target LUFS
-  console.error('[DECISION ENGINE] Analisando métricas do áudio...');
-  let metrics, decision;
+  // 2.5 BUILD MASTERING PLAN (análise + decisão unificados)
+  console.error('[MASTERING PLAN] Analisando métricas e construindo plano...');
+  let metrics, masteringPlan;
   try {
-    metrics = await analyzeAudioMetrics(config.inputPath, execAsync);
-    console.error('[DECISION ENGINE] Métricas:', metrics);
-    
-    decision = decideGainWithinRange(metrics, config.mode);
-    console.error('[DECISION ENGINE] Decisão:', decision);
-    
-    if (!decision.shouldProcess) {
-      console.error('[DECISION ENGINE] Processamento abortado:', decision.reason);
-      // BUG FIX: emitir JSON antes de sair — sem isso o executeCoreEngine recebe stdout vazio
+    // Mini analyzer: LUFS/TP/CF + 5 bandas via FFmpeg paralelo
+    metrics = await analyzeWithBands(config.inputPath, execAsync);
+    console.error('[MASTERING PLAN] Métricas obtidas:', {
+      lufs: metrics.lufs, truePeak: metrics.truePeak,
+      crestFactor: metrics.crestFactor, hasBands: !!metrics.bands
+    });
+
+    // Peak Outlier Detection + Local Correction
+    // Ativado apenas quando headroom < 1.2 dB E LUFS < -11
+    // Corrige picos isolados localmente via gain reduction com fade — sem tocar loudness global
+    if (config.mode === 'HIGH' || config.mode === 'MEDIUM' || config.mode === 'EXTREME') {
+      const tempPeakFile = config.inputPath + '.peak_corrected.wav';
+      const peakResult = await runPeakOutlierCorrection(
+        config.inputPath,
+        tempPeakFile,
+        metrics,
+        execAsync,
+        analyzeWithBands
+      );
+      if (peakResult.applied) {
+        metrics               = peakResult.newMetrics;
+        config.inputPath      = peakResult.correctedPath;
+        peakCorrectionInfo    = peakResult.correctionInfo;
+        peakCorrectionTempFile = peakResult.correctedPath;
+        console.error(`[PEAK FIX] Input atualizado para arquivo corrigido: ${config.inputPath}`);
+        // Log resumo
+        console.error(`[PEAK FIX] Novas métricas: LUFS=${metrics.lufs.toFixed(2)} TP=${metrics.truePeak.toFixed(2)} headroom=${Math.abs(metrics.truePeak).toFixed(2)} dB`);
+      }
+    }
+
+    // Decision engine unificada: target + caps + mix classification + EQ plan
+    masteringPlan = buildMasteringPlan(metrics, config.mode);
+    console.error('[MASTERING PLAN] Plano:', {
+      shouldProcess: masteringPlan.shouldProcess,
+      targetLUFS: masteringPlan.targetLUFS,
+      mixClass: masteringPlan.mixClass,
+      highpass_hz: masteringPlan.highpass_hz,
+      eq: masteringPlan.eq
+    });
+
+    if (!masteringPlan.shouldProcess) {
+      console.error('[MASTERING PLAN] Processamento abortado:', masteringPlan.abortReason);
       process.stdout.write(JSON.stringify({
         success: false,
         impact_aborted: true,
-        abort_reason: decision.reason || 'DECISION_ENGINE_ABORT',
+        abort_reason: masteringPlan.abortReason || 'MASTERING_PLAN_ABORT',
         final_lufs: metrics.lufs,
         final_tp: metrics.truePeak,
         mode_result: config.mode
       }) + '\n');
       process.exit(0);
     }
-    
-    // 🔒 BLOCO 1: APLICAR GLOBAL CAPS
-    console.error('[GLOBAL CAPS] Aplicando hard caps de segurança...');
-    decision = applyGlobalCaps(decision, metrics);
-    console.error('[GLOBAL CAPS] Decisão após caps:', {
-      targetLUFS: decision.targetLUFS,
-      gainDB: decision.gainDB,
-      capped: decision.capped,
-      cap_reason: decision.cap_reason
-    });
-    
-    // 🔒 LOCK TARGET — decisão final do motor
-    const lockedTargetLUFS = decision.targetLUFS;
+
+    // Expor campos do plano diretamente em config (mantém compatibilidade total)
+    const lockedTargetLUFS = masteringPlan.targetLUFS;
+    const decision = masteringPlan.raw_decision;
+    const mixClassification = masteringPlan.mixClass;
+    const mixClassStrategy = { POOR: 'CONSERVATIVE', MEDIUM: 'MODERATE', GOOD: 'AGGRESSIVE' }[mixClassification] || '';
+
+    config.mixClass = mixClassification;
+    config.mixClassStrategy = mixClassStrategy;
+    config.masteringPlan = masteringPlan;           // NOVO: plano completo disponível em processAudio
+
+    // Propagar REFINE strategy do plano de masterização
+    if (masteringPlan.strategy === 'REFINE') {
+      config.strategy = 'REFINE';
+    }
+
     config.targetLufs = lockedTargetLUFS;
-    config.targetLockedByDecisionEngine = true; // Flag para impedir recálculo
-    
-    console.error('');
-    console.error('🔒 TARGET LOCKED FROM DECISION ENGINE');
-    console.error(`   Target LUFS: ${lockedTargetLUFS.toFixed(2)} LUFS`);
-    console.error(`   Modo: ${config.mode}`);
-    console.error(`   Status: LOCKED (não será recalculado no pipeline)`);
-    console.error('');
-    
-    // Armazenar informações de downgrade (se houver)
+    config.targetLockedByDecisionEngine = true;
+
     config.modeRequested = decision.modeRequested || config.mode;
-    config.modeApplied = decision.modeApplied || config.mode;
+    config.modeApplied   = decision.modeApplied   || config.mode;
     config.downgradeReason = decision.downgradeReason || null;
-    
-    // Armazenar informações de caps
-    config.globalCapsApplied = decision.capped || false;
-    config.capReason = decision.cap_reason || null;
-    config.offsetApplied = decision.offsetApplied || 0;
-    
-    // Armazenar LUFS original para fallback
-    config.inputLUFS = metrics.lufs;  // CORRIGIDO: metrics.lufs ao invés de metrics.currentLUFS
-    config.inputTP = metrics.truePeak;
-    config.crestFactor = metrics.crestFactor;
+
+    config.globalCapsApplied = decision.capped    || false;
+    config.capReason         = decision.cap_reason || null;
+    config.offsetApplied     = decision.offsetApplied || 0;
+
+    config.inputLUFS       = metrics.lufs;
+    config.inputTP         = metrics.truePeak;
+    config.crestFactor     = metrics.crestFactor;
     config.previousValidTarget = lockedTargetLUFS;
-    config.decisionGainDB = decision.gainDB;  // Armazenar ganho calculado pelo decision engine
-    
-    // Log de diagnóstico
-    console.error('[CONFIG SETUP] Input LUFS armazenado:', config.inputLUFS);
-    console.error('[CONFIG SETUP] Crest Factor armazenado:', config.crestFactor);
-    console.error('[CONFIG SETUP] Decision Gain DB armazenado:', config.decisionGainDB);
-    
-    console.error('[TARGET LOCKED BY DECISION ENGINE]', lockedTargetLUFS, 'LUFS');
-    
+    config.decisionGainDB  = decision.gainDB;
+
+    console.error('');
+    console.error('🔒 TARGET LOCKED FROM MASTERING PLAN');
+    console.error(`   Target LUFS: ${lockedTargetLUFS.toFixed(2)} LUFS`);
+    console.error(`   Mix Class:   ${mixClassification}`);
+    console.error(`   Highpass:    ${masteringPlan.highpass_hz} Hz`);
+    console.error(`   EQ src:      ${masteringPlan.eq ? masteringPlan.eq.source : 'N/A'}`);
+    console.error('');
+
   } catch (error) {
-    console.error('[DECISION ENGINE] Erro ao analisar áudio:', error.message);
-    process.stdout.write(JSON.stringify({ success: false, error: '[DECISION ENGINE] ' + error.message }) + '\n');
+    console.error('[MASTERING PLAN] Erro ao analisar áudio:', error.message);
+    process.stdout.write(JSON.stringify({ success: false, error: '[MASTERING PLAN] ' + error.message }) + '\n');
     process.exit(1);
   }
 
@@ -4474,23 +5760,26 @@ async function main() {
       }
       
       // ============================================================
-      // HIGH MODE: VALIDAÇÃO DETERMINÍSTICA (SEM RETRY LOOP)
+      // HIGH/EXTREME MODE: VALIDAÇÃO DETERMINÍSTICA (SEM RETRY LOOP)
       // ============================================================
-      if (config.mode === 'HIGH') {
+      if (config.mode === 'HIGH' || config.mode === 'EXTREME') {
+        const modeLabel = config.mode;
         console.error('');
-        console.error('🎯 [HIGH MODE] Validação determinística');
-        console.error('   HIGH mode é single-pass: resultado aceito como final');
+        console.error(`🎯 [${modeLabel} MODE] Validação determinística`);
+        console.error(`   ${modeLabel} mode é single-pass: resultado aceito como final`);
         console.error('   Warnings são informativos, não causam reprocessamento');
         console.error('');
         
         // Executar validação apenas para gerar warnings informativos
+        // CF consistente: usa TP-LUFS (mesmo tipo de métrica do output) para evitar falsos positivos
+        const consistentInputCF_high = metrics.truePeak - metrics.lufs;
         validation = validateFinalResult(
           result.reference_lufs_pre_limiter,
-          metrics.crestFactor,
+          consistentInputCF_high,
           result
         );
         
-        // HIGH sempre passa (determinístico)
+        // HIGH/EXTREME sempre passa (determinístico)
         validationPassed = true;
         
         if (validation.warnings && validation.warnings.length > 0) {
@@ -4499,11 +5788,17 @@ async function main() {
         }
         
         if (validation.violations && validation.violations.length > 0) {
+          const cfCriticalWithFallback = validation.violations.includes('CF_DROP_CRITICAL') && result.fallback_used;
           console.error(`   ℹ️ Violations detectadas: ${validation.violations.join(', ')}`);
-          console.error('   (HIGH mode: aceito como comportamento esperado)');
+          if (cfCriticalWithFallback) {
+            console.error(`   ⚠️ CF_DROP_CRITICAL em modo fallback — processado via loudnorm conservador`);
+            console.error(`   (resultado foi mitigado pelo [FALLBACK TARGET DOWNGRADE] e [BEST CANDIDATE COMPARISON])`);
+          } else {
+            console.error(`   (${modeLabel} mode: aceito como comportamento esperado)`);
+          }
         }
         
-        console.error('   ✅ HIGH mode complete - single pass execution');
+        console.error(`   ✅ ${modeLabel} mode complete - single pass execution`);
         console.error('');
         
       } else {
@@ -4514,9 +5809,11 @@ async function main() {
         // Validar resultado com REGRAS TÉCNICAS (LUFS + TP)
         // Métricas estéticas (CF drop, limiter stress) geram warnings apenas
         // USAR result.reference_lufs_pre_limiter (medido ANTES do limiter) para referência linear
+        // CF consistente: usa TP-LUFS (mesmo tipo de métrica do output) para evitar falsos positivos
+        const consistentInputCF_low = metrics.truePeak - metrics.lufs;
         validation = validateFinalResult(
           result.reference_lufs_pre_limiter,  // CORRIGIDO: LUFS linear (EQ+PreGain, SEM limiter)
-          metrics.crestFactor,
+          consistentInputCF_low,
           result
         );
         
@@ -4578,9 +5875,11 @@ async function main() {
       
       // Validar resultado do fallback
       // USAR result.reference_lufs_pre_limiter (medido ANTES do limiter) para referência linear
+      // CF consistente: usa TP-LUFS para evitar falsos positivos CF_DROP
+      const consistentInputCF_fallback = metrics.truePeak - metrics.lufs;
       validation = validateFinalResult(
         result.reference_lufs_pre_limiter,  // CORRIGIDO: LUFS linear (EQ+PreGain, SEM limiter)
-        metrics.crestFactor,
+        consistentInputCF_fallback,
         result
       );
       
@@ -4600,18 +5899,23 @@ async function main() {
       console.error('');
     }
     
-    // 🔒 BLOCO 3: SATURAÇÃO FALLBACK (apenas se delta for baixo e validação passou)
+    // 🔒 BLOCO 3: SATURAÇÃO FALLBACK — SKIP para REFINE (sem saturação no REFINE)
     console.error('[SATURATION CHECK] Verificando necessidade de saturação...');
     const deltaLUFS = result.final_lufs - metrics.lufs;
-    const saturation = await applySaturationFallback(
-      config.inputPath,
-      config.outputPath,
-      config.offsetApplied,
-      deltaLUFS,
-      config.modeApplied,
-      metrics.crestFactor,
-      metrics.lufs  // LUFS original para validação
-    );
+    let saturation = { sat_used: false, sat_aborted: false, sat_blocked: true, sat_reason: 'REFINE_NO_SAT', sat_intensity: 0 };
+    if (config.strategy !== 'REFINE') {
+      saturation = await applySaturationFallback(
+        config.outputPath,   // input = saída masterizada (não o original)
+        config.outputPath,   // output = sobrescreve a saída masterizada com versão saturada
+        config.offsetApplied,
+        deltaLUFS,
+        config.modeApplied,
+        metrics.crestFactor,
+        result.final_lufs,   // LUFS da saída masterizada (não do original)
+        config.mixClass || masteringPlan?.mixClass || null  // mixClass para regra determinística
+      );
+    }
+    console.error(`[SAT] engaged=${saturation.sat_used}`);
     
     // Se saturação foi usada, atualizar métricas finais
     if (saturation.sat_used && saturation.final_metrics) {
@@ -4658,14 +5962,20 @@ async function main() {
       duration: result.duration,
       output_size_kb: result.outputSize,
       mode_result: result.mode_result,
+      strategy_applied: result.strategy_applied || null,
+      peak_correction_applied: peakCorrectionInfo?.peak_correction_applied || false,
+      peak_correction_amount_db: peakCorrectionInfo?.peak_correction_amount_db || 0,
+      peak_correction_regions: peakCorrectionInfo?.peak_correction_regions || 0,
+      peak_correction_severity: peakCorrectionInfo?.peak_correction_severity || null,
+      affected_duration_ms: peakCorrectionInfo?.affected_duration_ms || 0,
       mode_requested: config.modeRequested || config.mode,
       mode_applied: config.modeApplied || config.mode,
       downgrade_reason: config.downgradeReason || null,
-      confidence_score: decision.confidenceScore ?? null,
-      confidence_label: decision.confidenceLabel ?? null,
+      confidence_score: masteringPlan?.raw_decision?.confidenceScore ?? null,
+      confidence_label: masteringPlan?.raw_decision?.confidenceLabel ?? null,
       impact_aborted: result.impact_aborted,
       abort_reason: result.abort_reason,
-      mix_class: result.mix_class,
+      mix_class: config.mixClass || result.mix_class,
       
       // 🔒 NOVOS CAMPOS DE VALIDAÇÃO RIGOROSA
       validation_passed: validation.valid,
@@ -4675,7 +5985,7 @@ async function main() {
       validation_details: validation.details,
       delta_lufs: deltaLUFS,
       crest_drop: validation.details.cf_drop,
-      tp_overshoot: result.final_tp > -1.0,
+      tp_overshoot: result.final_tp > (result.target_tp ?? result.targetTP ?? -1.0),
       sat_used: saturation.sat_used,
       sat_aborted: saturation.sat_aborted,
       sat_blocked: saturation.sat_blocked || false,
@@ -4697,7 +6007,14 @@ async function main() {
     
     // Log de resultado final para fácil filtragem
     console.error(`[RESULT] final_lufs=${result.final_lufs.toFixed(2)} final_tp=${result.final_tp.toFixed(2)} output=${config.outputPath}`);
-    
+
+    // [FINAL FILE READY - STABLE] Aguardar estabilização do arquivo em disco antes de retornar.
+    // Mesmo que FFmpeg já encerrou, o buffer do OS pode não ter sido totalmente descarregado.
+    // waitForStableFile verifica 3 ciclos consecutivos sem mudança de tamanho (250 ms cada).
+    await waitForStableFile(config.outputPath);
+    const _finalStat = fs.statSync(config.outputPath);
+    console.error(`[FINAL FILE READY - STABLE] ${config.outputPath} — ${(_finalStat.size / 1024).toFixed(1)} KB — pronto para leitura`);
+
     process.stdout.write(JSON.stringify(jsonResult));
     
     // Limpar arquivo temporário (se foi criado)
@@ -4713,6 +6030,13 @@ async function main() {
           console.error(`[DEBUG] [CLEANUP] Aviso: falha ao remover temporário: ${cleanupError.message}`);
         }
       }
+    }
+
+    // Limpar arquivo temporário do peak correction
+    if (peakCorrectionTempFile && fs.existsSync(peakCorrectionTempFile)) {
+      try {
+        fs.unlinkSync(peakCorrectionTempFile);
+      } catch { /* limpeza silenciosa */ }
     }
     
     process.exit(0);

@@ -102,7 +102,7 @@ ensureDirectories();
 const QUEUE_NAME = 'automaster';
 
 // Modos aceitos pela API pública e pelo pipeline DSP
-const VALID_MODES = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
+const VALID_MODES = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH', 'EXTREME'];
 
 function validateJobData(data) {
   if (!data || typeof data !== 'object') {

@@ -1,0 +1,15 @@
+﻿   ÔåÆ Max attempts reached, accepting TP: 0.52 dBTP
+[HIGH LIMITER] LUFS measured: -10.24 LUFS
+[HIGH LIMITER] TP measured: 0.52 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Adjusted target: -8.98 LUFS (fix-penalty: -1.52 dB)
+[HIGH LIMITER] Error: +1.26 LU
+[HIGH LIMITER] ÔÜá´©Å Warning: TP ceiling violated despite correction attempts
+
+[STEP 3] Finalizing output...
+[STEP 3] Ô£à Final output copied to: test_f4_h3.wav
+[STEP 3] Ô£à Temporary files cleaned
+
+
+[HIGH TP POSTCHECK] ÔÜá´©Å True Peak acima do ceiling detectado
+   TP medido: 0.52 dBTP  |  ceiling: -1.00 dBTP
+   Aplicando fix-true-peak.cjs (gain negativo, margem 0.2 dB)...

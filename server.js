@@ -545,7 +545,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     }
 
     // 2. Validar modo
-    const VALID_MODES = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
+    const VALID_MODES = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH', 'EXTREME'];
     const rawMode = req.body.mode;
     const mode = rawMode ? rawMode.toString().toUpperCase().trim() : null;
 

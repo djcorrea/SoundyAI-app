@@ -1,0 +1,311 @@
+[MASTERING PLAN] Analisando m+Ætricas e construindo plano...
+[MINI-ANALYZER] Iniciando an+Ìlise com bandas...
+[MINI-ANALYZER] P1: LUFS=-23.0 TP=-6.0 CF=13.2
+[MINI-ANALYZER] Band sub    : -31.6 dBFS
+[MINI-ANALYZER] Band bass   : -30.8 dBFS
+[MINI-ANALYZER] Band mid    : -30.7 dBFS
+[MINI-ANALYZER] Band highMid: -35.4 dBFS
+[MINI-ANALYZER] Band air    : -44.0 dBFS
+[MASTERING PLAN] M+Ætricas obtidas: {
+  lufs: -23.04,
+  truePeak: -6.05,
+  crestFactor: 13.173861000000002,
+  hasBands: true
+}
+System.Management.Automation.RemoteException
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+≠É˘¶¥©≈  BUILD MASTERING PLAN
+    Mode: HIGH | bands: YES
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+System.Management.Automation.RemoteException
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+≠Éƒª [AUTOMASTER] MOTOR DE DECIS+‚O - Target Din+Ûmico
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+≠ÉÙË M+Ætricas de entrada:
+   LUFS atual: -23.0 LUFS
+   True Peak: -6.0 dBTP
+   Headroom inicial: 6.0 dB
+   Limiter stress permitido: 6.0 dB (modo HIGH)
+   Effective Headroom: 12.1 dB
+   Crest Factor: 13.2 dB
+System.Management.Automation.RemoteException
+≠Éƒ‹¥©≈ Modo escolhido: Impacto
+System.Management.Automation.RemoteException
+System.Management.Automation.RemoteException
+≠É‹« HIGH MODE: Extens+˙o din+Ûmica ativada
+   Crest Factor: 13.2 dB (> 12 dB)
+   Headroom: 6.0 dB (> 3 dB)
+   Extens+˙o permitida: +2.0 LU
+   Cap estendido: -6.0 LUFS
+System.Management.Automation.RemoteException
+≠É‹« Mix muito baixa detectada (< -18 LUFS)
+   Estrat+Ægia: Subir m+Ìximo poss+°vel at+Æ stress limite
+   ≠Éˆ— HIGH MODE (CF >= 12): Target competitivo -10.5 LUFS
+   Target m+Ìximo modo: -10.5 LUFS
+   Ganho permitido: 12.1 dB
+   Ganho para target: 12.5 dB
+   Ganho final: 12.1 dB
+System.Management.Automation.RemoteException
+≠Éƒª Target final calculado:
+   LUFS atual: -23.0 LUFS
+   LUFS alvo: -11.0 LUFS
+   Ganho necess+Ìrio: +12.1 dB
+   Estrat+Ægia: aggressive_push
+System.Management.Automation.RemoteException
+≠Éƒ‹¥©≈ HIGH MODE EXTENDED: CF > 12 e Headroom > 2 dB
+   Limiter stress estendido: 8.5 dB (padr+˙o: 7.5)
+≠Éˆº An+Ìlise de estresse do limiter:
+   Ganho necess+Ìrio: 12.1 dB
+   Headroom dispon+°vel: 6.0 dB
+   Estresse estimado: 6.0 dB
+   Limite de estresse: 8.5 dB
+   ‘£‡ Estresse dentro do limite
+System.Management.Automation.RemoteException
+≠É∫· Mix Confidence: 0.75
+System.Management.Automation.RemoteException
+‘£‡ Decis+˙o final:
+   Modo: Impacto
+   Offset seguro: +12.1 LU
+   LUFS alvo: -11.0 LUFS
+   Ganho necess+Ìrio: +12.1 dB
+   Processar: SIM
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+System.Management.Automation.RemoteException
+[PLAN] Mix Class: POOR ‘Â∆ target -14.0 LUFS
+[PLAN][EQ] soma presence+air limitada a 4.0 dB (excesso=1.0dB)
+[PLAN][EQ] sub_boost=0.8 mud_cut=-0.5 presence=2.5 air=1.5 (from bands)
+[PLAN] Highpass: 30 Hz (2-pole) | MixClass: POOR
+[PLAN][SAT] threshold=0.82 mustApply=true (POOR ‘«ˆ maior densidade harm+¶nica)
+[MASTERING PLAN] Plano: {
+  shouldProcess: true,
+  targetLUFS: -14,
+  mixClass: 'POOR',
+  highpass_hz: 30,
+  eq: {
+    sub_boost: 0.8,
+    mud_cut: -0.5,
+    presence_boost: 2.5,
+    air_boost: 1.5,
+    source: 'bands'
+  }
+}
+System.Management.Automation.RemoteException
+≠Éˆ∆ TARGET LOCKED FROM MASTERING PLAN
+   Target LUFS: -14.00 LUFS
+   Mix Class:   POOR
+   Highpass:    30 Hz
+   EQ src:      bands
+System.Management.Automation.RemoteException
+System.Management.Automation.RemoteException
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+≠Éˆ‰ TENTATIVA 1/3
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+   Target atual: -14.0 LUFS
+   Modo: HIGH
+System.Management.Automation.RemoteException
+[FINAL TARGET BEFORE PROCESSING] -14 LUFS
+System.Management.Automation.RemoteException
+[HIGH MODE] Loudnorm bypassed ‘«Ù using limiter-driven loudness
+[HIGH MODE] Benefits: Immediate volume rise, no bass reaction, solid loudness
+System.Management.Automation.RemoteException
+System.Management.Automation.RemoteException
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+≠Éƒ‹¥©≈ HIGH MODE: LIMITER-DRIVEN MASTERING
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+   Target LUFS: -14.00 LUFS
+   Ceiling: -1.00 dBTP
+   Strategy: Macro stabilization + Iterative limiter convergence
+   Plan source: mini-analyzer
+System.Management.Automation.RemoteException
+[STEP 0] Applying macro dynamics stabilizer...
+System.Management.Automation.RemoteException
+[HIGH PRE-LIMITER STABILIZATION]
+   Goal: Reduce perceived volume jump when bass enters
+   Method: Gentle wideband compressor (macro dynamics control)
+   Threshold: -24.54 dB (RMS + 1.5dB)
+   Ratio: 1.5:1 | Attack: 30ms | Release: 180ms
+   Expected reduction: 1-2 dB on bass entry
+   ‘£‡ Macro dynamics stabilized
+System.Management.Automation.RemoteException
+[STEP 0] ‘£‡ Stabilized base file created: out_mb1_v4_stabilized.wav
+System.Management.Automation.RemoteException
+[SOFTCLIP] tanh threshold=0.82 output=0.92 oversample=4 (src=mixClass)
+[PRE-COND] highpass 30 Hz (p=2, source=plan, class=POOR)
+[PRE-COND] acompressor ratio=1.5 release=100ms (CF=13.2)
+[EQ-PRE ] sub=0.8 mud=-0.5 (src=bands)
+[EQ-POST] presence=2.5 air=1.5 (src=bands)
+[STEP 1] Initial gain calculation:
+   Base LUFS: -24.09 LUFS
+   Initial pre-gain: +10.59 dB (+0.5 dB boost, Fase 10)
+   Pre-gain cap: 18 dB (clipper=true, precond=true, preSatEQ=true, postSatEQ=true)
+System.Management.Automation.RemoteException
+[STEP 2] Starting iterative limiter convergence...
+System.Management.Automation.RemoteException
+[HIGH LIMITER] POOR class: expectedFixPenalty antecipado = -1.5 dB (adjustedTarget +1.5 dB)
+[HIGH LIMITER] Iteration 1/7
+[HIGH LIMITER] Pre-gain: +10.59 dB
+[HIGH LIMITER] LUFS measured: -18.34 LUFS
+[HIGH LIMITER] TP measured: -2.77 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Adjusted target: -12.50 LUFS (fix-penalty: -1.50 dB)
+[HIGH LIMITER] Error: +5.84 LU
+[HIGH LIMITER] Adjusted pre-gain by +4.09 dB (step=0.7) ‘Â∆ +14.68 dB
+System.Management.Automation.RemoteException
+[HIGH LIMITER] Iteration 2/7
+[HIGH LIMITER] Pre-gain: +14.68 dB
+   ‘‹·¥©≈ TP violation: 0.35 dBTP > -1.00 dBTP
+   ‘Â∆ Reducing pre-gain by 1.0 dB to +13.68 dB (attempt 2/2)
+   ‘‹·¥©≈ TP violation: -0.16 dBTP > -1.00 dBTP
+   ‘Â∆ Max attempts reached ‘«ˆ TP above ceiling, outer loop will handle via postcheck
+[HIGH LIMITER] LUFS measured: -15.29 LUFS
+[HIGH LIMITER] TP measured: -0.16 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Error: +1.29 LU
+[HIGH LIMITER] ‘‹·¥©≈ Warning: TP ceiling violated despite correction attempts
+[HIGH LIMITER] Adjusted pre-gain by +0.90 dB (step=0.7) ‘Â∆ +15.58 dB
+System.Management.Automation.RemoteException
+[HIGH LIMITER] Iteration 3/7
+[HIGH LIMITER] Pre-gain: +15.58 dB
+   ‘‹·¥©≈ TP violation: 0.92 dBTP > -1.00 dBTP
+   ‘Â∆ Reducing pre-gain by 1.0 dB to +14.58 dB (attempt 2/2)
+   ‘‹·¥©≈ TP violation: 0.35 dBTP > -1.00 dBTP
+   ‘Â∆ Max attempts reached ‘«ˆ TP above ceiling, outer loop will handle via postcheck
+[HIGH LIMITER] LUFS measured: -14.41 LUFS
+[HIGH LIMITER] TP measured: 0.35 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Adjusted target: -13.11 LUFS (fix-penalty: -0.89 dB)
+[HIGH LIMITER] Error: +1.30 LU
+[HIGH LIMITER] ‘‹·¥©≈ Warning: TP ceiling violated despite correction attempts
+[HIGH LIMITER] Adjusted pre-gain by +0.91 dB (step=0.7) ‘Â∆ +16.49 dB
+System.Management.Automation.RemoteException
+[HIGH LIMITER] Iteration 4/7
+[HIGH LIMITER] Pre-gain: +16.49 dB
+   ‘‹·¥©≈ TP violation: 1.20 dBTP > -1.00 dBTP
+   ‘Â∆ Reducing pre-gain by 1.0 dB to +15.49 dB (attempt 2/2)
+   ‘‹·¥©≈ TP violation: 0.85 dBTP > -1.00 dBTP
+   ‘Â∆ Max attempts reached ‘«ˆ TP above ceiling, outer loop will handle via postcheck
+[HIGH LIMITER] LUFS measured: -13.54 LUFS
+[HIGH LIMITER] TP measured: 0.85 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Adjusted target: -12.60 LUFS (fix-penalty: -1.40 dB)
+[HIGH LIMITER] Error: +0.94 LU
+[HIGH LIMITER] ‘‹·¥©≈ Warning: TP ceiling violated despite correction attempts
+[HIGH LIMITER] Adjusted pre-gain by +0.38 dB (step=0.4) ‘Â∆ +16.87 dB
+System.Management.Automation.RemoteException
+[HIGH LIMITER] Iteration 5/7
+[HIGH LIMITER] Pre-gain: +16.87 dB
+   ‘‹·¥©≈ TP violation: 1.20 dBTP > -1.00 dBTP
+   ‘Â∆ Reducing pre-gain by 1.0 dB to +15.87 dB (attempt 2/2)
+   ‘‹·¥©≈ TP violation: 1.13 dBTP > -1.00 dBTP
+   ‘Â∆ Max attempts reached ‘«ˆ TP above ceiling, outer loop will handle via postcheck
+[HIGH LIMITER] LUFS measured: -13.18 LUFS
+[HIGH LIMITER] TP measured: 1.13 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Adjusted target: -12.10 LUFS (fix-penalty: -1.90 dB)
+[HIGH LIMITER] Error: +1.08 LU
+[HIGH LIMITER] ‘‹·¥©≈ Warning: TP ceiling violated despite correction attempts
+[HIGH LIMITER] Adjusted pre-gain by +0.76 dB (step=0.7) ‘Â∆ +17.62 dB
+System.Management.Automation.RemoteException
+[HIGH LIMITER] Iteration 6/7
+[HIGH LIMITER] Pre-gain: +17.62 dB
+   ‘‹·¥©≈ TP violation: 1.28 dBTP > -1.00 dBTP
+   ‘Â∆ Reducing pre-gain by 1.0 dB to +16.62 dB (attempt 2/2)
+   ‘‹·¥©≈ TP violation: 1.20 dBTP > -1.00 dBTP
+   ‘Â∆ Max attempts reached ‘«ˆ TP above ceiling, outer loop will handle via postcheck
+[HIGH LIMITER] LUFS measured: -12.49 LUFS
+[HIGH LIMITER] TP measured: 1.20 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Adjusted target: -11.82 LUFS (fix-penalty: -2.18 dB)
+[HIGH LIMITER] Error: +0.67 LU
+[HIGH LIMITER] ‘‹·¥©≈ Warning: TP ceiling violated despite correction attempts
+[HIGH LIMITER] Adjusted pre-gain by +0.27 dB (step=0.4) ‘Â∆ +17.89 dB
+System.Management.Automation.RemoteException
+[HIGH LIMITER] Iteration 7/7
+[HIGH LIMITER] Pre-gain: +17.89 dB
+   ‘‹·¥©≈ TP violation: 1.32 dBTP > -1.00 dBTP
+   ‘Â∆ Reducing pre-gain by 1.0 dB to +16.89 dB (attempt 2/2)
+   ‘‹·¥©≈ TP violation: 1.20 dBTP > -1.00 dBTP
+   ‘Â∆ Max attempts reached ‘«ˆ TP above ceiling, outer loop will handle via postcheck
+[HIGH LIMITER] LUFS measured: -12.25 LUFS
+[HIGH LIMITER] TP measured: 1.20 dBTP (ceiling: -1.00 dBTP)
+[HIGH LIMITER] Adjusted target: -11.75 LUFS (fix-penalty: -2.25 dB)
+[HIGH LIMITER] Error: +0.50 LU
+[HIGH LIMITER] ‘‹·¥©≈ Warning: TP ceiling violated despite correction attempts
+System.Management.Automation.RemoteException
+[STEP 3] Finalizing output...
+[STEP 3] ‘£‡ Final output copied to: out_mb1_v4.wav
+[STEP 3] ‘£‡ Temporary files cleaned
+System.Management.Automation.RemoteException
+System.Management.Automation.RemoteException
+[HIGH TP POSTCHECK] ‘‹·¥©≈ True Peak acima de -0.8 dBTP detectado
+   TP medido: 1.20 dBTP  |  ceiling: -1.00 dBTP
+   Aplicando fix-true-peak.cjs (gain negativo, margem 0.2 dB)...
+[HIGH TP POSTCHECK] ‘£‡ TP corrigido: 1.20 ‘Â∆ -1.05 dBTP
+System.Management.Automation.RemoteException
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+‘£‡ HIGH LIMITER-DRIVEN MASTERING COMPLETE
+   Final LUFS: -12.25 LUFS
+   Target LUFS: -14.00 LUFS
+   Final error: 1.75 LU
+   Final TP: -1.05 dBTP (ceiling: -1.00 dBTP)
+   Completed 7 iterations (max reached)
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+System.Management.Automation.RemoteException
+System.Management.Automation.RemoteException
+≠Éƒª [HIGH MODE] Valida+∫+˙o determin+°stica
+   HIGH mode +Æ single-pass: resultado aceito como final
+   Warnings s+˙o informativos, n+˙o causam reprocessamento
+System.Management.Automation.RemoteException
+System.Management.Automation.RemoteException
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+≠ÉˆÏ VALIDA+Á+‚O DO RESULTADO FINAL
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+≠ÉÙË REGRA T+ÎCNICA 1: LUFS n+˙o pode reduzir
+   Reference LUFS: -14.50 LUFS (ap+¶s pr+Æ-processamento)
+   Final LUFS: -14.50 LUFS
+   Diferen+∫a: +0.00 LU
+   Toler+Ûncia t+Æcnica: 0.25 LU
+   Limite m+°nimo aceit+Ìvel: -14.75 LUFS
+   ‘£‡ OK: LUFS mantido ou aumentado
+System.Management.Automation.RemoteException
+≠ÉÙË REGRA T+ÎCNICA 2: True Peak <= -1.0 dBTP
+   Final TP: -1.05 dBTP
+   Limite: -1.0 dBTP
+   ‘£‡ OK: Margem de seguran+∫a 0.05 dB
+System.Management.Automation.RemoteException
+≠ÉÙË M+ÎTRICA EST+ÎTICA 3: Crest Factor drop
+   Input CF: 13.17 dB
+   Output CF: 13.45 dB
+   CF Drop: -0.28 dB
+   Refer+¨ncia: 2.0 dB (ideal)
+   ‘£‡ EXCELENTE: Transientes preservados (2.28 dB de margem)
+System.Management.Automation.RemoteException
+≠ÉÙË M+ÎTRICA EST+ÎTICA 4: Limiter reduction
+   Ganho aplicado: 0.00 dB
+   Headroom estimado: 1.05 dB
+   Limiter reduction estimado: 0.00 dB
+   Refer+¨ncia: 5.0 dB (ideal)
+   ‘£‡ EXCELENTE: Limiter stress controlado (5.00 dB de margem)
+System.Management.Automation.RemoteException
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+‘£‡ VALIDA+Á+‚O PASSOU: Todas as regras t+Æcnicas atendidas
+‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…‘Ú…
+System.Management.Automation.RemoteException
+   ‘£‡ HIGH mode complete - single pass execution
+System.Management.Automation.RemoteException
+[SATURATION CHECK] Verificando necessidade de satura+∫+˙o...
+System.Management.Automation.RemoteException
+≠Éƒ¯¥©≈ SATURA+Á+‚O FALLBACK:
+   Delta final: 8.5 LU
+   Modo: HIGH
+   Crest Factor: 13.2 dB
+   Mix Class: POOR
+   [SAT] forced=true (POOR)
+   [SAT] drive=3% (volume harm+¶nica determin+°stica)
+   ‘‹Ì Aplicando satura+∫+˙o harm+¶nica determin+°stica (POOR class)...
+   Satura+∫+˙o aplicada:
+     LUFS original: -14.50 LUFS
+     LUFS p+¶s-sat: -14.54 LUFS
+     Altera+∫+˙o: 0.04 LU
+     TP: -1.12 dBTP
+     Intensidade: 3.0%
+   ‘£‡ Satura+∫+˙o aplicada com sucesso (car+Ìter sonoro preservado)
+System.Management.Automation.RemoteException
+[SAT] engaged=true
+[SATURATION] M+Ætricas atualizadas com satura+∫+˙o aplicada
+[RESULT] final_lufs=-14.54 final_tp=-1.12 output=c:\Users\DJ Correa\Desktop\Programacao\SoundyAI\musicas\out_mb1_v4.wav
+{"success":true,"target_lufs":-14,"original_target":-14,"target_adjusted":false,"target_tp":-1,"used_tp":-1,"pre_gain_db":0,"ceiling_trim_db":0,"high_rms_clamp_applied":false,"dynamic_unstable":false,"pumping_risk":false,"sub_dominant":false,"final_lufs":-14.54,"final_tp":-1.12,"reference_lufs":-14.5,"reference_lufs_pre_limiter":-14.5,"lufs_error":-0.5,"tp_error":-0.050000000000000044,"fallback_used":true,"fix_applied":true,"measured_by":"limiter-driven","duration":0,"output_size_kb":0,"mode_result":"HIGH-LIMITER-DRIVEN","mode_requested":"HIGH","mode_applied":"HIGH","downgrade_reason":null,"confidence_score":0.75,"confidence_label":"OK","impact_aborted":false,"abort_reason":null,"mix_class":"POOR","validation_passed":true,"validation_attempts":1,"validation_violations":[],"validation_warnings":[],"validation_details":{"lufs_change":0,"reference_lufs":-14.5,"tolerance_applied":0.25,"final_tp":-1.05,"tp_margin":0.050000000000000044,"cf_drop":-0.276138999999997,"cf_drop_margin":2.276138999999997,"limiter_reduction":0,"limiter_margin":5},"delta_lufs":8.54,"crest_drop":-0.276138999999997,"tp_overshoot":false,"sat_used":true,"sat_aborted":false,"sat_blocked":false,"sat_reason":null,"sat_intensity":0.03,"capped":false,"cap_reason":null,"offset_applied":12.1,"perceptual_improvement":"Aumentou o volume de forma mais evidente com ajustes para preservar a integridade sonora. Foram adicionados harm+¶nicos sutis para maior presen+∫a; o timbre foi preservado."}
