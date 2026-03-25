@@ -1,0 +1,14 @@
+{
+  "status": "OK",
+  "reason": "Faixa tecnicamente apta para masterização.",
+  "metrics": {
+    "duration_sec": 114.2,
+    "sample_rate": 44100,
+    "channels": 2,
+    "integrated_lufs": -21.04,
+    "true_peak_db": -5.4,
+    "lra": 11.9,
+    "estimated_dr": 6.1,
+    "silence_ratio": 0
+  }
+}

@@ -135,20 +135,43 @@ async function runRescueMode(inputPath, tmpOutputPath) {
 }
 
 async function runPrecheck(inputPath) {
+  let stdout;
+
   try {
-    const { stdout } = await execFileAsync(
+    const result = await execFileAsync(
       'node',
       [PRECHECK_SCRIPT, inputPath],
       { maxBuffer: 10 * 1024 * 1024, timeout: 60000 }
     );
-
-    return JSON.parse(stdout.trim());
+    stdout = result.stdout;
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      throw new Error(`Precheck retornou JSON invalido: ${error.message}`);
+    stdout = error.stdout;
+
+    if (!stdout) {
+      throw new Error(`Erro ao executar precheck: ${error.message}`);
     }
-    throw new Error(`Erro ao executar precheck: ${error.message}`);
+
+    console.warn('[PRECHECK NON-ZERO EXIT] usando stdout mesmo com erro');
   }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout.trim());
+  } catch (syntaxErr) {
+    throw new Error(`Precheck retornou JSON invalido: ${syntaxErr.message}`);
+  }
+
+  console.error('[PRECHECK RESULT]', parsed);
+
+  if (parsed.status === 'BLOCKED') {
+    throw new Error(parsed.reason || 'Arquivo invalido para masterizacao');
+  }
+
+  if (parsed.status === 'INTERNAL_ERROR') {
+    throw new Error(`Precheck interno falhou: ${parsed.reason}`);
+  }
+
+  return parsed;
 }
 
 async function runFixTruePeak(inputPath) {
