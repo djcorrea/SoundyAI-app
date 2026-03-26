@@ -48,6 +48,7 @@ const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
+const crypto = require('crypto');
 const redis = require('./redis-connection.cjs');
 const storageService = require('../services/storage-service.cjs');
 const { createServiceLogger, createJobLogger } = require('../services/logger.cjs');
@@ -300,6 +301,22 @@ async function processJob(job) {
     console.log('[PIPELINE] Step 1: download start', { inputKey, dest: isolatedInput });
     await storageService.downloadToFile(inputKey, isolatedInput);
     console.log('[PIPELINE] Step 1: download ok');
+
+    // [FILE INTEGRITY] downloaded_input
+    try {
+      const _dlStat = fsSync.statSync(isolatedInput);
+      const _dlHash = await new Promise((resolve) => {
+        const hash = crypto.createHash('sha256');
+        const stream = fsSync.createReadStream(isolatedInput);
+        stream.on('data', d => hash.update(d));
+        stream.on('end', () => resolve(hash.digest('hex')));
+        stream.on('error', () => resolve('error-reading'));
+      });
+      console.log('[FILE INTEGRITY] stage: downloaded_input | path:', isolatedInput, '| size_bytes:', _dlStat.size, '| sha256:', _dlHash);
+    } catch (_e) {
+      console.warn('[FILE INTEGRITY] downloaded_input: erro ao calcular:', _e.message);
+    }
+
     jobLogger.info({ inputKey }, 'Input baixado do storage');
 
     // 5. Executar pipeline (50%)

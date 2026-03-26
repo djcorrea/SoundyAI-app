@@ -606,6 +606,10 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     await storageService.uploadFile(inputKey, fileBuffer, 'audio/wav');
     console.log('✅ [AUTOMASTER] Upload concluído:', inputKey);
 
+    // [FILE INTEGRITY] upload_received
+    const _uploadHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    console.log('[FILE INTEGRITY] stage: upload_received | path:', inputKey, '| size_bytes:', fileBuffer.length, '| sha256:', _uploadHash);
+
     // 5. Criar job no job-store (Redis)
     console.log('[AUTOMASTER] Pré-jobStore.createJob — jobId:', jobId, '| inputKey:', inputKey, '| mode:', resolvedMode);
     await jobStore.createJob(jobId, {

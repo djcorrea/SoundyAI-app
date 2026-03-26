@@ -14,8 +14,19 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const execFileAsync = promisify(execFile);
+
+async function hashFile(filePath) {
+  return new Promise((resolve) => {
+    const hash = crypto.createHash('sha256');
+    const stream = fs.createReadStream(filePath);
+    stream.on('data', d => hash.update(d));
+    stream.on('end', () => resolve(hash.digest('hex')));
+    stream.on('error', () => resolve('error-reading'));
+  });
+}
 
 // ============================================================================
 // CONSTANTES
@@ -497,6 +508,15 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
   // PRECHECK (existente)
   // ============================================================
 
+  // [FILE INTEGRITY] precheck_input
+  try {
+    const _piStat = fs.statSync(inputUsedForPipeline);
+    const _piHash = await hashFile(inputUsedForPipeline);
+    console.log('[FILE INTEGRITY] stage: precheck_input | path:', inputUsedForPipeline, '| size_bytes:', _piStat.size, '| sha256:', _piHash);
+  } catch (_e) {
+    console.warn('[FILE INTEGRITY] precheck_input: erro ao calcular:', _e.message);
+  }
+
   // Normalizar áudio antes do precheck para garantir consistência entre ambientes
   const normalizedPath = inputUsedForPipeline.replace(/\.wav$/i, '_normalized.wav');
   try {
@@ -519,7 +539,18 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
     console.warn('[PRECHECK NORMALIZE FAILED] usando input original:', normalizeError.message);
   }
 
-  const precheckInput = require('fs').existsSync(normalizedPath) ? normalizedPath : inputUsedForPipeline;
+  // [FILE INTEGRITY] normalized_precheck_input
+  if (fs.existsSync(normalizedPath)) {
+    try {
+      const _npStat = fs.statSync(normalizedPath);
+      const _npHash = await hashFile(normalizedPath);
+      console.log('[FILE INTEGRITY] stage: normalized_precheck_input | path:', normalizedPath, '| size_bytes:', _npStat.size, '| sha256:', _npHash);
+    } catch (_e) {
+      console.warn('[FILE INTEGRITY] normalized_precheck_input: erro ao calcular:', _e.message);
+    }
+  }
+
+  const precheckInput = fs.existsSync(normalizedPath) ? normalizedPath : inputUsedForPipeline;
 
   let precheckInitial;
   try {
@@ -527,6 +558,10 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
     console.error('[STEP] precheck start');
     precheckInitial = await runPrecheck(precheckInput);
     console.error(`[STEP] precheck done ${Date.now() - _t3}ms`);
+    if (precheckInitial && precheckInitial.metrics) {
+      const _m = precheckInitial.metrics;
+      console.log('[PRECHECK METRICS] path:', precheckInput, '| lufs:', _m.integrated_lufs, '| tp:', _m.true_peak_db, '| dr:', _m.estimated_dr, '| lra:', _m.lra, '| duration:', _m.duration_sec);
+    }
   } catch (error) {
     console.error('[STEP] precheck error:', error.message);
     throw new Error(`Precheck inicial falhou: ${error.message}`);
