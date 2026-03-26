@@ -210,7 +210,7 @@ function executeCoreEngine(inputPath, outputPath, mode, strategy) {
 
     const nodeProcess = execFile('node', args, {
       maxBuffer: 10 * 1024 * 1024,
-      timeout: 330000,
+      timeout: 660000,  // 11min — HIGH mode POOR mix: 7 iter (~210s) + AUDIT (~120s) + loudnorm (~180s)
       cwd: __dirname,
       env: Object.assign({}, process.env, { AUTOMASTER_STRATEGY: strategy || '' })
     });

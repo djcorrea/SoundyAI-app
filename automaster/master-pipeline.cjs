@@ -210,11 +210,19 @@ async function runMaster(inputPath, outputPath, mode, strategy) {
     const { stdout } = await execFileAsync(
       'node',
       args,
-      { maxBuffer: 10 * 1024 * 1024, timeout: 330000 }
+      { maxBuffer: 10 * 1024 * 1024, timeout: 720000 }  // 12min — margem acima do timeout interno de run-automaster (11min)
     );
 
     return JSON.parse(stdout.trim());
   } catch (error) {
+    // Exit code != 0 mas stdout pode conter JSON válido (ex: validation_passed=false com success=true)
+    if (error.stdout) {
+      try {
+        return JSON.parse(error.stdout.trim());
+      } catch (parseError) {
+        throw new Error(`Masterizacao retornou JSON invalido: ${parseError.message}`);
+      }
+    }
     if (error instanceof SyntaxError) {
       throw new Error(`Masterizacao retornou JSON invalido: ${error.message}`);
     }
@@ -728,8 +736,12 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
         console.error('[STEP] master-medium-downgrade error:', err.message);
         throw new Error(`Masterização MEDIUM (safe fallback) falhou: ${err.message}`);
       }
+    } else if (masterResult.success === true) {
+      // Arquivo gerado com sucesso — impact_aborted é warning informativo, não bloqueante
+      console.error(`[PIPELINE] impact_aborted (${masterResult.abort_reason}) — resultado aceito (success=true)`);
+      problems.push(`${abortMsg} (resultado entregue com limitação dinâmica)`);
     } else {
-      // Sem safeMode: pedir confirmação antes de prosseguir
+      // Sem safeMode e resultado inválido: pedir confirmação
       return {
         ok: false,
         status: 'NEEDS_CONFIRMATION',

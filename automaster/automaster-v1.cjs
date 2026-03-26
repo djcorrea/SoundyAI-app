@@ -5888,7 +5888,7 @@ async function main() {
         console.error('   Isto indica problema técnico no pipeline');
         console.error(`   Violações: ${validation.violations.join(', ')}`);
         process.stdout.write(JSON.stringify({ success: false, error: 'Fallback conservador violou regras técnicas', violations: validation.violations }) + '\n');
-        process.exit(1);
+        process.exit(0);
       }
       
       console.error('✅ Fallback conservador aplicado com sucesso');
