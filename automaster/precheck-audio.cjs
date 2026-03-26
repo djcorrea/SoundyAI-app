@@ -139,8 +139,8 @@ async function extractMetrics(inputPath, normalizedPath) {
   // 3. Silêncio via ffmpeg silencedetect (do arquivo normalizado)
   const silenceRatio = await getSilenceRatio(normalizedPath, basicMetrics.duration_sec);
   
-  // 4. Estimativa de DR (do arquivo normalizado)
-  const estimatedDR = await estimateDynamicRange(normalizedPath);
+  // 4. Dynamic Range via leitura direta do FFmpeg astats
+  const estimatedDR = await getDynamicRangeFFmpeg(normalizedPath);
 
   return {
     duration_sec: basicMetrics.duration_sec,
@@ -290,14 +290,13 @@ function getSilenceRatio(inputPath, durationSec) {
 }
 
 // ============================================================
-// ESTIMATIVA DE DYNAMIC RANGE (via astats)
+// DYNAMIC RANGE (leitura direta via astats do FFmpeg)
 // ============================================================
 
-function estimateDynamicRange(inputPath) {
-  return new Promise((resolve, reject) => {
-    // astats fornece RMS e Peak level
+function getDynamicRangeFFmpeg(filePath) {
+  return new Promise((resolve) => {
     const args = [
-      '-i', inputPath,
+      '-i', filePath,
       '-af', 'astats=metadata=1:reset=1',
       '-f', 'null',
       '-'
@@ -305,22 +304,15 @@ function estimateDynamicRange(inputPath) {
 
     execFile('ffmpeg', args, { timeout: 60000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
       try {
-        // Extrair Peak e RMS do stderr
-        const peakMatch = stderr.match(/Peak level dB:\s*([-\d.]+)/);
-        const rmsMatch = stderr.match(/RMS level dB:\s*([-\d.]+)/);
+        // astats imprime "Dynamic range: X.X" no stderr
+        const drMatch = stderr.match(/Dynamic range:\s*([\d.]+)/);
 
-        if (peakMatch && rmsMatch) {
-          const peak = parseFloat(peakMatch[1]);
-          const rms = parseFloat(rmsMatch[1]);
-          
-          // DR aproximado = diferença entre peak e RMS
-          // Nota: não é o DR oficial (TT-DR), mas serve como aproximação
-          const dr = Math.abs(peak - rms);
-          resolve(Math.round(dr * 10) / 10); // 1 casa decimal
+        if (drMatch) {
+          resolve(Math.round(parseFloat(drMatch[1]) * 10) / 10);
         } else {
-          resolve(null); // Se não conseguir extrair, marcar null
+          resolve(null);
         }
-      } catch (parseError) {
+      } catch (_) {
         resolve(null);
       }
     });
