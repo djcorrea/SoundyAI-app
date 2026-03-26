@@ -497,11 +497,35 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
   // PRECHECK (existente)
   // ============================================================
 
+  // Normalizar áudio antes do precheck para garantir consistência entre ambientes
+  const normalizedPath = inputUsedForPipeline.replace(/\.wav$/i, '_normalized.wav');
+  try {
+    console.error('[STEP] precheck-normalize start');
+    await execFileAsync('ffmpeg', [
+      '-y',
+      '-i', inputUsedForPipeline,
+      '-vn',
+      '-acodec', 'pcm_s24le',
+      '-ar', '44100',
+      '-ac', '2',
+      normalizedPath
+    ], { maxBuffer: 10 * 1024 * 1024, timeout: 120000 });
+    console.log('[PRECHECK NORMALIZED INPUT]', {
+      original: inputUsedForPipeline,
+      normalized: normalizedPath
+    });
+    console.error('[STEP] precheck-normalize done');
+  } catch (normalizeError) {
+    console.warn('[PRECHECK NORMALIZE FAILED] usando input original:', normalizeError.message);
+  }
+
+  const precheckInput = require('fs').existsSync(normalizedPath) ? normalizedPath : inputUsedForPipeline;
+
   let precheckInitial;
   try {
     const _t3 = Date.now();
     console.error('[STEP] precheck start');
-    precheckInitial = await runPrecheck(inputUsedForPipeline);
+    precheckInitial = await runPrecheck(precheckInput);
     console.error(`[STEP] precheck done ${Date.now() - _t3}ms`);
   } catch (error) {
     console.error('[STEP] precheck error:', error.message);
