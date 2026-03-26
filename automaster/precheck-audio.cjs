@@ -93,21 +93,54 @@ function checkFFmpeg() {
 }
 
 // ============================================================
+// NORMALIZAÇÃO DE ENTRADA (garante decode consistente entre ambientes)
+// ============================================================
+
+function normalizeInput(inputPath) {
+  const normalizedPath = path.join(
+    path.dirname(inputPath),
+    `__precheck_norm_${Date.now()}.wav`
+  );
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-y',
+      '-i', inputPath,
+      '-vn',
+      '-acodec', 'pcm_s16le',
+      '-ar', '44100',
+      '-ac', '2',
+      normalizedPath
+    ];
+
+    execFile('ffmpeg', args, { timeout: 120000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        reject(new Error(`Normalização falhou: ${stderr || error.message}`));
+        return;
+      }
+
+      console.error('[PRECHECK NORMALIZED]', JSON.stringify({ input: inputPath, normalized: normalizedPath }));
+      resolve(normalizedPath);
+    });
+  });
+}
+
+// ============================================================
 // EXTRAÇÃO DE MÉTRICAS (FFprobe + FFmpeg)
 // ============================================================
 
-async function extractMetrics(inputPath) {
-  // 1. Métricas básicas via ffprobe
+async function extractMetrics(inputPath, normalizedPath) {
+  // 1. Métricas básicas via ffprobe (do original — duration, sample_rate, channels)
   const basicMetrics = await getBasicMetrics(inputPath);
   
-  // 2. Métricas de loudness via ffmpeg loudnorm
-  const loudnessMetrics = await getLoudnessMetrics(inputPath);
+  // 2. Métricas de loudness via ffmpeg loudnorm (do arquivo normalizado)
+  const loudnessMetrics = await getLoudnessMetrics(normalizedPath);
   
-  // 3. Silêncio via ffmpeg silencedetect
-  const silenceRatio = await getSilenceRatio(inputPath, basicMetrics.duration_sec);
+  // 3. Silêncio via ffmpeg silencedetect (do arquivo normalizado)
+  const silenceRatio = await getSilenceRatio(normalizedPath, basicMetrics.duration_sec);
   
-  // 4. Estimativa de DR (aproximação via peak vs RMS)
-  const estimatedDR = await estimateDynamicRange(inputPath);
+  // 4. Estimativa de DR (do arquivo normalizado)
+  const estimatedDR = await estimateDynamicRange(normalizedPath);
 
   return {
     duration_sec: basicMetrics.duration_sec,
@@ -405,6 +438,8 @@ function exitWithError(code, message) {
 // ============================================================
 
 async function main() {
+  let normalizedPath = null;
+
   try {
     // 1. Validar entrada
     const inputPath = validateInput();
@@ -412,19 +447,31 @@ async function main() {
     // 2. Verificar FFmpeg
     await checkFFmpeg();
 
-    // 3. Extrair métricas
-    const metrics = await extractMetrics(inputPath);
+    // 3. Normalizar input (garante decode consistente entre ambientes)
+    normalizedPath = await normalizeInput(inputPath);
 
-    // 4. Classificar
+    // 4. Extrair métricas
+    const metrics = await extractMetrics(inputPath, normalizedPath);
+
+    // 5. Classificar
     const { status, reason } = classify(metrics);
 
-    // 5. Saída JSON pura
+    // 6. Saída JSON pura
     outputResult(status, reason, metrics);
+
+    // Cleanup antes de sair
+    if (normalizedPath && fs.existsSync(normalizedPath)) {
+      try { fs.unlinkSync(normalizedPath); } catch (_) {}
+    }
 
     // Exit code baseado em status
     process.exit(status === 'BLOCKED' ? 1 : 0);
 
   } catch (error) {
+    // Cleanup em caso de erro
+    if (normalizedPath && fs.existsSync(normalizedPath)) {
+      try { fs.unlinkSync(normalizedPath); } catch (_) {}
+    }
     exitWithError('INTERNAL_ERROR', error.message);
   }
 }
