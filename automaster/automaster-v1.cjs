@@ -2937,27 +2937,24 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
   console.error('');
   
   // ============================================================
-  // STEP 0: Estabilizar macro dinâmicas ANTES do limiter
+  // V1: POOR mix → loudnorm direto (pula limiter-driven)
   // ============================================================
-  console.error('[STEP 0] Applying macro dynamics stabilizer...');
-  const inputMetrics = await measureWithOfficialScript(inputFile);
-  const inputRMS = inputMetrics.rms || (inputMetrics.lufs_i - 3.0);  // Fallback: LUFS - 3dB
-  
-  const stabilizerTempFile = outputPath.replace(/(\.\w+)$/, '_stabilized$1');
-  const stabilizerResult = await applyMacroDynamicsStabilizer(
-    inputFile,
-    inputRMS,
-    sampleRate,
-    stabilizerTempFile
-  );
-  
-  console.error(`[STEP 0] ✅ Stabilized base file created: ${path.basename(stabilizerResult.file)}`);
-  console.error('');
-  
+  if (mixClass === 'POOR') {
+    console.error('[HIGH MODE] POOR mix — skip limiter-driven, loudnorm direto');
+    const poorErr = new Error('[POOR_SKIP] mixClass POOR — loudnorm direto');
+    poorErr.iterationFiles = [];
+    poorErr.stabilizerFile = null;
+    throw poorErr;
+  }
+
+  // V1: timeout interno — abortar se processamento limiter exceder 120s
+  const _limiterStartMs = Date.now();
+  const _LIMITER_TIMEOUT_MS = 120000;
+
   // ============================================================
-  // STEP 1: Calcular ganho inicial estimado
+  // STEP 1: Calcular ganho inicial estimado (V1: sem estabilizador)
   // ============================================================
-  const baseFile = stabilizerResult.file;  // Arquivo base (não muda mais)
+  const baseFile = inputFile;  // V1: usa input diretamente
   const baseLUFS = await measureLUFS(baseFile);
   
   // Cap de pre-gain: 18 dB quando soft clipper ativo (double-clip + alimiter garantem TP)
@@ -3048,16 +3045,12 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
   console.error('[STEP 2] Starting iterative limiter convergence...');
   console.error('');
   
-  const MAX_ITERATIONS = 7;  // 5→7: margem extra de convergência para mixes POOR com alto pré-ganho
+  const MAX_ITERATIONS = 2;  // V1: 2 iterações — se não convergir → fallback imediato
   const CONVERGENCE_THRESHOLD_LU = 0.3;
-  
+
   let lastRenderedFile = null;
   let finalLUFS = 0;
   let convergedIteration = -1;
-  // AUDIT: valores medidos pós-convergência (antes de deletar baseFile)
-  let auditPreLimiterLUFSValue = null;
-  let effectiveLimiterGR = null;
-  let auditedClipperGR = null;  // [CLIPPER CAP] hoisted para check pós-loop
   // [EARLY TP STOP] contadores para detecção de iteração bloqueada
   let consecutiveTpAtMax = 0;
   let prevIterError = null;
@@ -3110,6 +3103,16 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
 
     // Aguardar e medir LUFS do resultado
     finalLUFS = await measureLUFS(lastRenderedFile);
+
+    // V1: abortar se timeout interno excedido
+    if (Date.now() - _limiterStartMs > _LIMITER_TIMEOUT_MS) {
+      console.error(`[TIMEOUT] Limiter excedeu ${_LIMITER_TIMEOUT_MS / 1000}s → fallback loudnorm`);
+      const timeoutErr = new Error(`[TIMEOUT] Processamento limiter excedeu ${_LIMITER_TIMEOUT_MS / 1000}s — fallback`);
+      timeoutErr.bestCandidate  = bestCandidate;
+      timeoutErr.iterationFiles = [...iterationFiles];
+      timeoutErr.stabilizerFile = null;
+      throw timeoutErr;
+    }
 
     // [BEST CANDIDATE TRACKING] Registrar melhor iteração como candidata para fallback recovery.
     // Aceita iterações com TP ≤ ceiling+2.0 dB. Seleciona a que tem menor dist. ao targetLUFS.
@@ -3213,77 +3216,6 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
   }
 
   // ============================================================
-  // FASE 1 AUDIT: GR efetivo do clipper + limiter (ANTES de deletar baseFile)
-  // ============================================================
-  try {
-    // Medir LUFS pré-clipper (sem clip1, sem -0.5dB, sem alimiter)
-    const preClipAudit = await auditPreClipperLUFS(
-      baseFile, preGainDB, sampleRate,
-      preConditionerFilter, preSatEQFilter, postSatEQFilter
-    );
-    // Medir LUFS pré-limiter (com clip1 paralelo/serial, sem alimiter)
-    const auditResult = await auditPreLimiterLUFS(
-      baseFile, preGainDB, sampleRate,
-      preConditionerFilter, preSatEQFilter, softClipperFilter, postSatEQFilter,
-      softClipperMix
-    );
-    if (auditResult) {
-      auditPreLimiterLUFSValue = auditResult.lufs;
-      effectiveLimiterGR = auditResult.lufs - finalLUFS;
-      const clipperGR = preClipAudit ? (auditResult.lufs - preClipAudit.lufs) : null;
-      auditedClipperGR = clipperGR;  // [CLIPPER CAP] hoisted para check pós-audit
-      console.error('');
-      console.error('══════════════════════════════════════════════════════════');
-      console.error('📊 AUDIT v6 — DISTRIBUIÇÃO DE GANHO (CLIPPER + LIMITER)');
-      console.error(`   CF input:             ${typeof crestFactor === 'number' ? crestFactor.toFixed(1) : 'N/A'}`);
-      console.error(`   Clipper mode:         ${softClipperMix < 1.0 ? `PARALELO mix=${softClipperMix}` : 'SERIAL'}`);
-      if (preClipAudit) {
-        console.error(`   LUFS pré-clipper:     ${preClipAudit.lufs.toFixed(2)} LUFS`);
-      }
-      console.error(`   LUFS pré-limiter:     ${auditResult.lufs.toFixed(2)} LUFS  (TP: ${auditResult.tp.toFixed(2)} dBTP)`);
-      console.error(`   LUFS pós-limiter:     ${finalLUFS.toFixed(2)} LUFS`);
-      if (clipperGR !== null) {
-        const cgAbs = Math.abs(clipperGR);
-        // Estimar % de ativação do clipper pelo GR integrado
-        // GR alto = clipper ativo contínuo; GR baixo = só picos esporádicos
-        const activationEst = cgAbs > 3.0 ? '~50%+ dos samples (contínuo — cola)' :
-                              cgAbs > 2.0 ? '~30-40% dos samples (moderado)' :
-                              cgAbs > 1.0 ? '~10-20% dos samples (picos altos)' :
-                                            '<10% dos samples (picos extremos apenas)';
-        const cgIcon = cgAbs > 2.5 ? '⚠️ ' : cgAbs > 1.5 ? '⚡ ' : '✅ ';
-        console.error(`   GR efetivo (clipper): ${clipperGR.toFixed(2)} dB  ${cgIcon}${activationEst}`);
-      }
-      console.error(`   GR efetivo (limiter): ${effectiveLimiterGR.toFixed(2)} dB`);
-      if (effectiveLimiterGR < -4.0) {
-        console.error(`   ⚠️  LIMITER SOBRECARREGADO: GR=${Math.abs(effectiveLimiterGR).toFixed(1)} dB > 4 dB — waveform possivelmente colada`);
-      } else if (effectiveLimiterGR < -2.0) {
-        console.error(`   ⚡  GR moderado (${Math.abs(effectiveLimiterGR).toFixed(1)} dB) — aceitável para loudness competitivo`);
-      } else {
-        console.error(`   ✅  GR controlado (${Math.abs(effectiveLimiterGR).toFixed(1)} dB) — limiter não sobrecarregado`);
-      }
-      console.error('══════════════════════════════════════════════════════════');
-    }
-  } catch (auditErr) {
-    console.error(`[AUDIT] Falha na medição: ${auditErr.message}`);
-  }
-
-  // [CLIPPER CAP] Abortar se GR do clipper for excessivo — indica clipping contínuo
-  // Serial (mix=1.0): cap 3.0 dB | Parallel (mix<1.0): cap 4.5 dB
-  if (auditedClipperGR !== null) {
-    const clipperGRCap = softClipperMix < 1.0 ? 4.5 : 3.0;
-    if (Math.abs(auditedClipperGR) > clipperGRCap) {
-      console.error(`[CLIPPER CAP] GR do clipper: ${auditedClipperGR.toFixed(2)} dB > -${clipperGRCap} dB (modo ${softClipperMix < 1.0 ? 'PARALELO' : 'SERIAL'})`);
-      console.error(`[CLIPPER CAP] Clipping contínuo detectado — resultado descartado para proteger qualidade`);
-      console.error(`[FALLBACK REASON] Clipper GR excessivo (${Math.abs(auditedClipperGR).toFixed(2)} dB > ${clipperGRCap} dB) → fallback`);
-      const clipperCapErr = new Error(`[CLIPPER CAP] GR do clipper ${Math.abs(auditedClipperGR).toFixed(2)} dB > ${clipperGRCap} dB — fallback para loudnorm`);
-      clipperCapErr.bestCandidate   = bestCandidate;           // [BEST CANDIDATE] para recuperação no fallback
-      clipperCapErr.iterationFiles  = [...iterationFiles];     // para limpeza no catch
-      clipperCapErr.stabilizerFile  = stabilizerTempFile;      // para limpeza no catch
-      throw clipperCapErr;
-    }
-  }
-
-  // ============================================================
   // STEP 3: Copiar resultado final e limpar temporários
   // ============================================================
   console.error('[STEP 3] Finalizing output...');
@@ -3295,7 +3227,7 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
   }
   
   // Limpar todos os arquivos temporários
-  const tempFiles = [...iterationFiles, stabilizerTempFile];
+  const tempFiles = [...iterationFiles];
   for (const tempFile of tempFiles) {
     if (fs.existsSync(tempFile) && tempFile !== outputPath) {
       await fs.promises.unlink(tempFile).catch(() => {});
@@ -3370,9 +3302,6 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
     tp_fix_applied: highModeFixApplied,
     iterations: convergedIteration > 0 ? convergedIteration : MAX_ITERATIONS,
     converged: convergedIteration > 0,
-    // AUDIT: distribuição de ganho
-    pre_limiter_lufs: auditPreLimiterLUFSValue,
-    effective_limiter_gr: effectiveLimiterGR,
     cf_input: crestFactor
   };
 }
@@ -4829,6 +4758,11 @@ async function processAudio(config) {
         console.error(`[FALLBACK TARGET DOWNGRADE] Target: ${validTarget.toFixed(1)} → ${fallbackTarget.toFixed(1)} LUFS (+2.0 LU conservador)`);
         console.error(`[FALLBACK REASON] Target original incompatível com material — loudnorm opera em modo conservador`);
       }
+      // [FALLBACK FLOOR] Elevar target se abaixo do piso do modo — evita MIN LOUDNESS RERENDER
+      if (fallbackTarget < minLUFSForMode) {
+        console.error(`[FALLBACK FLOOR] Target ${fallbackTarget.toFixed(1)} < piso ${minLUFSForMode.toFixed(1)} para modo ${mode} → ajustado para piso`);
+        fallbackTarget = minLUFSForMode;
+      }
 
       // Executar fallback loudnorm com target downgraded
       const loudnormResult = await runTwoPassLoudnorm({
@@ -4937,9 +4871,12 @@ async function processAudio(config) {
       // Se o resultado final (fallback ou candidato selecionado) ficou abaixo do piso do modo,
       // fazer 1 rerender conservador com target = minLUFSForMode — sem loop.
       // Prioridade: 1) candidato ok, 2) fallback ok, 3) rerender para mínimo, 4) aceitar abaixo
+      // Tolerância: loudnorm linear tem ±0.5 LU de imprecisão + TP fix pode reduzir até 0.5 dB.
+      // Valores dentro de 0.8 LU do piso são aceitos sem rerender (evita loop inútil).
       const finalResultLUFS = loudnormResult.final_lufs;
-      if (typeof finalResultLUFS === 'number' && finalResultLUFS < minLUFSForMode) {
-        console.error(`[MIN LOUDNESS RERENDER] LUFS final ${finalResultLUFS.toFixed(2)} < mínimo ${minLUFSForMode.toFixed(1)} para modo ${mode}`);
+      const minLoudnessThreshold = minLUFSForMode - 0.8;
+      if (typeof finalResultLUFS === 'number' && finalResultLUFS < minLoudnessThreshold) {
+        console.error(`[MIN LOUDNESS RERENDER] LUFS final ${finalResultLUFS.toFixed(2)} < threshold ${minLoudnessThreshold.toFixed(1)} (piso ${minLUFSForMode.toFixed(1)} - 0.8 tolerância) para modo ${mode}`);
         console.error(`[MIN LOUDNESS RERENDER] 1 rerender para atingir piso mínimo (target=${minLUFSForMode.toFixed(1)} LUFS) — sem loop`);
         try {
           await runTwoPassLoudnorm({
@@ -4968,7 +4905,7 @@ async function processAudio(config) {
           console.error(`[MIN LOUDNESS RERENDER] ⚠️ Resultado final LUFS ${finalResultLUFS.toFixed(2)} abaixo do mínimo ${minLUFSForMode.toFixed(1)} para modo ${mode}`);
         }
       } else if (typeof finalResultLUFS === 'number') {
-        console.error(`[MIN LOUDNESS CHECK] ✅ LUFS ${finalResultLUFS.toFixed(2)} ≥ mínimo ${minLUFSForMode.toFixed(1)} para modo ${mode}`);
+        console.error(`[MIN LOUDNESS CHECK] ✅ LUFS ${finalResultLUFS.toFixed(2)} ≥ threshold ${minLoudnessThreshold.toFixed(1)} (piso ${minLUFSForMode.toFixed(1)} -0.8) para modo ${mode}`);
       }
 
       return loudnormResult;
