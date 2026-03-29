@@ -2997,9 +2997,86 @@ function showModalLoading() {
 // (função de simulação de progresso removida — não utilizada)
 
 // Abre / fecha o painel de diagnóstico expansível (vinculado ao dt-toggle-btn)
+function resolveGenreTargetsForDiagnostic(analysis) {
+    const genre = extractGenreName(analysis) || window.PROD_AI_REF_GENRE || 'default';
+
+    if (analysis?.data?.genreTargets) {
+        return {
+            genre,
+            targets: analysis.data.genreTargets
+        };
+    }
+
+    if (window.PROD_AI_REF_DATA && typeof window.PROD_AI_REF_DATA === 'object' && window.PROD_AI_REF_DATA[genre]) {
+        return {
+            genre,
+            targets: JSON.parse(JSON.stringify(window.PROD_AI_REF_DATA[genre]))
+        };
+    }
+
+    if (window.__activeRefData) {
+        return {
+            genre,
+            targets: JSON.parse(JSON.stringify(window.__activeRefData))
+        };
+    }
+
+    const extractedTargets = extractGenreTargets(analysis);
+    if (extractedTargets) {
+        return {
+            genre,
+            targets: extractedTargets
+        };
+    }
+
+    return {
+        genre,
+        targets: loadDefaultGenreTargets(genre)
+    };
+}
+
+function handleGenreDiagnosticToggle() {
+    const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__ || window.latestAnalysis?.current || window.latestAnalysis;
+    const mode = analysis?.mode || window.currentAnalysisMode;
+
+    console.log('[CLICK DEBUG] modo atual:', mode);
+
+    if (mode !== 'genre' || !analysis) {
+        return false;
+    }
+
+    const oldContainer = document.getElementById('referenceComparisons');
+    if (oldContainer) {
+        oldContainer.innerHTML = '';
+        oldContainer.style.display = 'none';
+    }
+
+    const { genre, targets } = resolveGenreTargetsForDiagnostic(analysis);
+    renderGenreComparisonTable({ analysis, genre, targets });
+
+    const genreContainer = document.getElementById('modalTechnicalData');
+    const toggleBtn = genreContainer?.querySelector('.dt-toggle-btn');
+    const body = toggleBtn?.nextElementSibling;
+
+    if (toggleBtn && body) {
+        body.removeAttribute('hidden');
+        toggleBtn.setAttribute('aria-expanded', 'true');
+        const arrow = toggleBtn.querySelector('.dt-toggle-arrow');
+        if (arrow) arrow.textContent = '▲';
+    }
+
+    console.log('🚫 BLOQUEADO render antigo no modo gênero');
+    return true;
+}
+
 window.toggleDiagTable = function toggleDiagTable(btn) {
     // Marcar para o guard da delegação não disparar duas vezes
     btn.__diagHandledByOnclick__ = true;
+
+    if (handleGenreDiagnosticToggle()) {
+        return;
+    }
+
     const body = btn.nextElementSibling;
     if (!body) return;
     const willExpand = body.hasAttribute('hidden');
@@ -10302,6 +10379,10 @@ function renderGenreComparisonTable(options) {
         // O onclick define __DIAG_HANDLED__ = true no mesmo tick de execução.
         if (toggleBtn.__diagHandledByOnclick__) {
             delete toggleBtn.__diagHandledByOnclick__;
+            return;
+        }
+
+        if (handleGenreDiagnosticToggle()) {
             return;
         }
 
