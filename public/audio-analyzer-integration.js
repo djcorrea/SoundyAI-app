@@ -9006,6 +9006,62 @@ function applyGenreBandConversion(analysis) {
     return analysis;
 }
 
+/**
+ * Extrai nome do gênero SOMENTE no modo genre
+ * ⚠️ IMPORTANTE: Retorna genre normal se não for modo genre
+ * @param {Object} analysis - Objeto de análise
+ * @returns {string} Nome do gênero
+ */
+function extractGenreName(analysis) {
+    // 🛡️ BARREIRA: Se não for modo genre, retorna genre normal
+    if (analysis?.mode !== "genre") {
+        return analysis?.genre || null;
+    }
+
+    console.log('[GENRE-ONLY-UTILS] 🎵 Extraindo nome do gênero no modo GENRE');
+
+    // 🎯 FONTE OFICIAL: analysis.data.genre
+    if (analysis?.data?.genre) {
+        console.log('[GENRE-ONLY-UTILS] ✅ Gênero encontrado:', analysis.data.genre);
+        return analysis.data.genre;
+    }
+
+    // Fallback para analysis.genre
+    if (analysis?.genre) {
+        console.log('[GENRE-ONLY-UTILS] ⚠️ Usando fallback analysis.genre:', analysis.genre);
+        return analysis.genre;
+    }
+
+    console.warn('[GENRE-ONLY-UTILS] ❌ Gênero não encontrado, usando "default"');
+    return "default";
+}
+
+/**
+ * Carrega targets padrão para um gênero
+ * @param {string} genreName - Nome do gênero
+ * @returns {Object} Targets padrão
+ */
+function loadDefaultGenreTargets(genreName = "default") {
+    console.log('[GENRE-ONLY-UTILS] 📦 Carregando targets padrão para:', genreName);
+
+    // Tentar carregar de window.GENRE_TARGETS_DB
+    if (window.GENRE_TARGETS_DB && window.GENRE_TARGETS_DB[genreName]) {
+        console.log('[GENRE-ONLY-UTILS] ✅ Targets carregados de GENRE_TARGETS_DB');
+        return window.GENRE_TARGETS_DB[genreName];
+    }
+
+    // Fallback: targets genéricos
+    console.warn('[GENRE-ONLY-UTILS] ⚠️ Usando targets genéricos');
+    return {
+        lufs_target: -14,
+        true_peak_target: -1,
+        dr_target: 8,
+        lra_target: 6,
+        stereo_target: 0.85,
+        bands: {}
+    };
+}
+
 function renderGenreView(analysis) {
     console.log("STEP 7 - entrou renderGenreView");
     console.group('%c[GENRE-VIEW] 🎨 Renderizando UI exclusiva de gênero', 'color:#00C9FF;font-weight:bold;font-size:14px;');
