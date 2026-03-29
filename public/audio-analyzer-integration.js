@@ -14359,6 +14359,24 @@ function renderReducedMode(data) {
 
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
+    console.log("🔥 RESETANDO ESTADO PARA TESTE");
+
+    try {
+        localStorage.removeItem("referenceJobId");
+        delete window.__REFERENCE_JOB_ID__;
+        delete window.referenceAnalysisData;
+        delete window.__FIRST_ANALYSIS_FROZEN__;
+        delete window.currentAnalysisMode;
+    } catch (e) {
+        console.warn("Erro ao limpar estado", e);
+    }
+
+    console.log("Estado limpo:", {
+        referenceJobId: localStorage.getItem("referenceJobId"),
+        globalRef: window.__REFERENCE_JOB_ID__,
+        mode: window.currentAnalysisMode
+    });
+
     console.log("STEP 1 - entrou displayModalResults");
     log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
 
