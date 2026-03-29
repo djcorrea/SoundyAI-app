@@ -1,4 +1,4 @@
-// 🎵 AUDIO ANALYZER V1 - Ponte para V2 com cache-busting agressivo
+﻿// 🎵 AUDIO ANALYZER V1 - Ponte para V2 com cache-busting agressivo
 // Versão v1.5-FIXED-CLEAN-NOHIGH sem duplicações (removido "muito alto")
 // Implementação usando Web Audio API (100% gratuito)
 // 🔄 Cache determinístico: genre:fileHash:refsVer para invalidação precisa
@@ -10,12 +10,7 @@ if (typeof window !== 'undefined' && window.NEW_CACHE_KEY === undefined) {
   log('🔧 NEW_CACHE_KEY inicializado:', window.NEW_CACHE_KEY);
 }
 
-// 🚩 FEATURE FLAG: RUNID_ENFORCED - Modo rigoroso para dev/staging
-const RUNID_ENFORCED = (typeof window !== 'undefined') ? 
-  (window.location?.hostname === 'localhost' || 
-   window.location?.hostname?.includes('staging') ||
-   window.NODE_ENV === 'development' ||
-   window.DEBUG_RUNID === true) : false;
+// RUNID_ENFORCED herdado de audio-analyzer.js (declarado antes da injecao dinamica)
 
 class AudioAnalyzer {
   constructor() {

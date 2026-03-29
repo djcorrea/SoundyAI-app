@@ -1,4 +1,4 @@
-// 🚀 AI SUGGESTIONS INTEGRATION SYSTEM
+﻿// 🚀 AI SUGGESTIONS INTEGRATION SYSTEM
 // Sistema de integração das sugestões IA com o modal expandido
 
 class AISuggestionsIntegration {
@@ -1491,186 +1491,52 @@ class AISuggestionsIntegration {
      * Integração com sistema existente
      */
     integrateWithExistingSystem() {
-        // ✅ Correção definitiva — preserva dados completos da análise, inclusive no modo reference
+        // Usa evento central de render (substituiu interceptacao de window.displayModalResults)
         if (!window.__AI_SUGGESTIONS_INTERCEPTOR__) {
             window.__AI_SUGGESTIONS_INTERCEPTOR__ = true;
-
-            const originalDisplayModalResults = window.displayModalResults;
-
-            window.displayModalResults = function (analysis) {
+            document.addEventListener('analysis:rendered', async (event) => {
+                const fullAnalysis = event.detail;
                 try {
-                    console.groupCollapsed("[SAFE_INTERCEPT-AI] displayModalResults interceptado (ai-suggestions)");
-                    log("📊 Modo:", analysis?.mode);
-                    log("📈 hasUserAnalysis:", !!analysis?.userAnalysis);
-                    log("📉 hasReferenceAnalysis:", !!analysis?.referenceAnalysis);
-                    log("🎯 suggestionsCount:", analysis?.suggestions?.length || 0);
-                    log("🔧 hasTechnicalData:", !!analysis?.technicalData);
-                    log("📐 hasMetrics:", !!analysis?.metrics);
-                    log("🎼 hasScores:", !!analysis?.scores);
+                    // Post-render: Processar sugestoes de IA
+                    if (fullAnalysis && fullAnalysis.suggestions) {
+                        const genre = fullAnalysis.metadata?.genre || fullAnalysis.genre || window.PROD_AI_REF_GENRE;
+                        const metrics = fullAnalysis.technicalData || {};
+                        const originalSuggestions = fullAnalysis.suggestions || [];
 
-                    // � Garante que o objeto completo seja preservado (sem sobrescrever)
-                    // 🚨 CORREÇÃO CRÍTICA: Clonagem profunda (structuredClone/JSON) em vez de spread operator
-                    const fullAnalysis = typeof structuredClone === 'function' 
-                        ? structuredClone(analysis) 
-                        : JSON.parse(JSON.stringify(analysis));
+                        log('[AI-INTEGRATION] analysis:rendered — processando sugestoes (modo:', fullAnalysis.mode, ')');
 
-                    // � Log de debug após clonagem
-                    log("🔍 [DEBUG] Após clonagem profunda:", {
-                        method: typeof structuredClone === 'function' ? 'structuredClone' : 'JSON',
-                        hasUserAnalysis: !!fullAnalysis.userAnalysis,
-                        hasReferenceAnalysis: !!fullAnalysis.referenceAnalysis,
-                        hasTechnicalData: !!fullAnalysis.technicalData
-                    });
-
-                    // �🔧 Garante modo reference intacto
-                    if (analysis?.mode === "reference") {
-                        log("🧩 [AI-FIX] Reforçando estrutura A/B antes de renderizar...");
-                        
-                        if (window.referenceAnalysisData && !fullAnalysis.referenceAnalysis) {
-                            fullAnalysis.referenceAnalysis = window.referenceAnalysisData;
-                            log("🧩 [AI-FIX] referenceAnalysis restaurado a partir do estado global");
-                        }
-                        
-                        if (window.__FIRST_ANALYSIS_FROZEN__ && !fullAnalysis.userAnalysis) {
-                            fullAnalysis.userAnalysis = window.__FIRST_ANALYSIS_FROZEN__;
-                            log("🧩 [AI-FIX] userAnalysis restaurado a partir do cache da primeira faixa");
-                        }
-                        
-                        // Garantir que technicalData não seja perdido
-                        if (!fullAnalysis.technicalData && fullAnalysis.userAnalysis?.technicalData) {
-                            fullAnalysis.technicalData = fullAnalysis.userAnalysis.technicalData;
-                            log("🧩 [AI-FIX] technicalData restaurado de userAnalysis");
-                        }
-                        
-                        // Garantir que scores não sejam perdidos
-                        if (!fullAnalysis.scores && fullAnalysis.userAnalysis?.scores) {
-                            fullAnalysis.scores = fullAnalysis.userAnalysis.scores;
-                            log("🧩 [AI-FIX] scores restaurado de userAnalysis");
-                        }
-                        
-                        // Garantir que metrics não sejam perdidos
-                        if (!fullAnalysis.metrics && fullAnalysis.userAnalysis?.metrics) {
-                            fullAnalysis.metrics = fullAnalysis.userAnalysis.metrics;
-                            log("🧩 [AI-FIX] metrics restaurado de userAnalysis");
-                        }
-
-                        fullAnalysis.isSecondTrack = true;
-                    }
-                    
-                    // 🔍 Log final antes de chamar função original
-                    log("📊 Dados finais antes da renderização:", {
-                        mode: fullAnalysis.mode,
-                        hasUserAnalysis: !!fullAnalysis.userAnalysis,
-                        hasReferenceAnalysis: !!fullAnalysis.referenceAnalysis,
-                        hasTechnicalData: !!fullAnalysis.technicalData,
-                        hasMetrics: !!fullAnalysis.metrics,
-                        hasScores: !!fullAnalysis.scores,
-                        isSecondTrack: fullAnalysis.isSecondTrack
-                    });
-
-                    // ✅ Chama função original SEM perder os dados técnicos
-                    if (typeof originalDisplayModalResults === "function") {
-                        log("[SAFE_INTERCEPT-AI] ✅ Chamando função original (modo detectado):", fullAnalysis.mode);
-                        
-                        // Chamar função original com dados completos
-                        const result = originalDisplayModalResults(fullAnalysis);
-                        
-                        // ✅ APÓS renderização, processar sugestões de IA (não bloqueia renderização)
-                        if (fullAnalysis && fullAnalysis.suggestions) {
-                            const genre = fullAnalysis.metadata?.genre || fullAnalysis.genre || window.PROD_AI_REF_GENRE;
-                            const metrics = fullAnalysis.technicalData || {};
-                            
-                            log('🔗 [AI-INTEGRATION] Processando sugestões (modo:', fullAnalysis.mode, ')');
-                            setTimeout(async () => {
-                                // Verificar se this.processWithAI existe (contexto pode estar perdido)
-                                if (window.aiSuggestionsSystem && typeof window.aiSuggestionsSystem.processWithAI === 'function') {
-                                    log('[AI-GENERATION] 🚀 Chamando processWithAI...');
-                                    
-                                    // ✅ PRESERVAR sugestões básicas ANTES de chamar IA
-                                    const originalSuggestions = fullAnalysis.suggestions || [];
-                                    
-                                    log('[SUG-AUDIT] Preservando base antes de enriquecer:', {
-                                        originalSuggestionsLength: originalSuggestions.length,
-                                        willPreserve: true
-                                    });
-                                    
-                                    // ✅ CORRIGIDO: AGUARDAR e CAPTURAR resultado
-                                    const enrichedSuggestions = await window.aiSuggestionsSystem.processWithAI(
-                                        fullAnalysis.suggestions, 
-                                        metrics, 
-                                        genre
-                                    );
-                                    
-                                    // ✅ CORRIGIDO: NÃO sobrescrever fullAnalysis.suggestions
-                                    if (enrichedSuggestions && enrichedSuggestions.length > 0) {
-                                        fullAnalysis.aiSuggestions = enrichedSuggestions;
-                                        // ✅ MANTER sugestões básicas como fallback
-                                        fullAnalysis.suggestions = originalSuggestions;
-                                        
-                                        log('[SUG-AUDIT] processWithAI > enrich out -> ' + fullAnalysis.aiSuggestions.length + ' sugestões enriquecidas');
-                                        log('[AI-GENERATION] ✅ Sugestões enriquecidas atribuídas:', {
-                                            aiSuggestionsLength: fullAnalysis.aiSuggestions.length,
-                                            originalSuggestionsLength: fullAnalysis.suggestions.length
-                                        });
-                                        
-                                        // ✅ Forçar re-check com sugestões atualizadas
-                                        if (window.aiUIController) {
-                                            log('[AI-GENERATION] 🔄 Re-chamando checkForAISuggestions com sugestões enriquecidas');
-                                            window.aiUIController.checkForAISuggestions(fullAnalysis, true);
-                                        }
-                                    } else {
-                                        warn('[AI-GENERATION] ⚠️ IA não retornou sugestões - mantendo básicas');
-                                        // ✅ Preservar sugestões básicas se IA falhar
-                                        fullAnalysis.aiSuggestions = [];
-                                        fullAnalysis.suggestions = originalSuggestions;
-                                    }
-                                }
-                            }, 100);
-                        }
-                        
-                        // ✅ Verificar DOM após renderização (não bloqueia)
-                        setTimeout(() => {
-                            const technicalData = document.getElementById('modalTechnicalData');
-                            if (!technicalData || !technicalData.innerHTML.trim()) {
-                                warn('[SAFE_INTERCEPT-AI] ⚠️ DOM vazio após renderização - possível problema');
-                            } else {
-                                log('[SAFE_INTERCEPT-AI] ✅ DOM renderizado corretamente (modo:', fullAnalysis.mode, ')');
-                                
-                                // ✅ Chamar sugestões de IA se disponível
-                                if (window.aiUIController) {
-                                    log('[SAFE_INTERCEPT-AI] ✅ Chamando aiUIController.checkForAISuggestions');
-                                    window.aiUIController.checkForAISuggestions(fullAnalysis, true);
+                        setTimeout(async () => {
+                            if (window.aiSuggestionsSystem && typeof window.aiSuggestionsSystem.processWithAI === 'function') {
+                                const enrichedSuggestions = await window.aiSuggestionsSystem.processWithAI(
+                                    fullAnalysis.suggestions,
+                                    metrics,
+                                    genre
+                                );
+                                if (enrichedSuggestions && enrichedSuggestions.length > 0) {
+                                    fullAnalysis.aiSuggestions = enrichedSuggestions;
+                                    fullAnalysis.suggestions = originalSuggestions;
+                                } else {
+                                    fullAnalysis.aiSuggestions = [];
+                                    fullAnalysis.suggestions = originalSuggestions;
                                 }
                             }
-                        }, 200);
-                        
-                        log("[SAFE_INTERCEPT-AI] 🧠 Intercept finalizado. Modo atual:", fullAnalysis.mode);
-                        console.groupEnd();
-                        
-                        return result;
-                        
-                    } else {
-                        warn("[SAFE_INTERCEPT-AI] ⚠️ Função original não encontrada!");
-                        console.groupEnd();
-                        return null;
+                        }, 100);
                     }
+
+                    // Verificar DOM e chamar aiUIController
+                    setTimeout(() => {
+                        if (window.aiUIController) {
+                            window.aiUIController.checkForAISuggestions(fullAnalysis, true);
+                        }
+                    }, 200);
+
                 } catch (err) {
-                    error("[SAFE_INTERCEPT-AI] ❌ Erro ao interceptar displayModalResults:", err);
-                    error("[SAFE_INTERCEPT-AI] Stack trace:", err.stack);
-                    console.groupEnd();
-                    
-                    // Tentar chamar backup se disponível
-                    if (window.__displayModalResultsOriginal) {
-                        warn("[SAFE_INTERCEPT-AI] Tentando backup __displayModalResultsOriginal");
-                        return window.__displayModalResultsOriginal(analysis);
-                    }
-                    throw err;
+                    error('[SAFE_INTERCEPT-AI] Erro ao processar analysis:rendered:', err);
                 }
-            };
-            
-            log('✅ [AI-INTEGRATION] Integração com displayModalResults configurada (interceptador único)');
+            });
+            log('[AI-INTEGRATION] Listener de analysis:rendered configurado');
         } else {
-            log('⚠️ [AI-INTEGRATION] Interceptador já configurado, ignorando duplicação');
+            log('[AI-INTEGRATION] Listener ja configurado, ignorando duplicacao');
         }
     }
 }

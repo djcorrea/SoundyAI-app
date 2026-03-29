@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 🔥 SOUNDYAI - CTA DEMO (VERSÃO PROFISSIONAL)
  * Injeta CTA imediatamente após displayModalResults() concluir
  * 
@@ -218,46 +218,11 @@
         document.head.appendChild(styles);
     }
     
-    /**
-     * 🔒 Intercepta displayModalResults() - ESTRATÉGIA PRINCIPAL
-     */
-    function interceptDisplayModalResults() {
-        // Aguardar função estar disponível
-        const checkInterval = setInterval(() => {
-            if (typeof window.displayModalResults === 'function') {
-                clearInterval(checkInterval);
-                console.log('✅ [CTA-DEMO-V3] displayModalResults encontrada, interceptando...');
-                
-                // Salvar original
-                const originalDisplayModalResults = window.displayModalResults;
-                
-                // Interceptar
-                window.displayModalResults = async function(...args) {
-                    console.log('🎯 [CTA-DEMO-V3] displayModalResults() executando...');
-                    
-                    // Executar original
-                    const result = await originalDisplayModalResults.apply(this, args);
-                    
-                    // Aguardar DOM renderizar completamente
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    
-                    // Injetar CTA
-                    console.log('🎯 [CTA-DEMO-V3] Renderização completa, injetando CTA...');
-                    injectCTAIntoModal();
-                    
-                    return result;
-                };
-                
-                console.log('✅ [CTA-DEMO-V3] Interceptação configurada com sucesso!');
-            }
-        }, 100);
-        
-        // Timeout após 30s
-        setTimeout(() => clearInterval(checkInterval), 30000);
-    }
-    
-    // Iniciar interceptação
-    interceptDisplayModalResults();
+    // 📡 Escuta evento central de render (substituiu interceptação de window.displayModalResults)
+    document.addEventListener('analysis:rendered', function() {
+        console.log('🎯 [CTA-DEMO-V3] analysis:rendered recebido, injetando CTA...');
+        injectCTAIntoModal();
+    });
     
     console.log('✅ [CTA-DEMO-V3] Sistema profissional inicializado');
     

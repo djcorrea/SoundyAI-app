@@ -1,4 +1,4 @@
-/**
+﻿/**
  * VERDICT ENGINE (MIX) v4.0
  *
  * Camada de interpretacao pos-render — ativada por MutationObserver em
@@ -535,32 +535,15 @@
   // ─────────────────────────────────────────────────────────────
 
   function _installFallbackPatch() {
-    var fn = window.displayModalResults;
-    if (typeof fn !== 'function' || fn.__verdictPatched__) { return; }
-
-    var _orig = fn;
-    window.displayModalResults = function verdictDisplayWrapper(analysis) {
+    // 📡 Usa evento central de render (substituiu monkey-patching de window.displayModalResults)
+    if (window.__VERDICT_EVENT_LISTENER_INSTALLED__) { return; }
+    window.__VERDICT_EVENT_LISTENER_INSTALLED__ = true;
+    document.addEventListener('analysis:rendered', function(event) {
+      var analysis = event.detail;
       if (analysis) { window.__VERDICT_SOURCE_DATA__ = analysis; }
-      var result;
-      try {
-        result = _orig.apply(this, arguments);
-      } catch (syncErr) {
-        vwarn('[VERDICT-AUDIT] erro síncrono em displayModalResults (fallback):', syncErr);
-        applyMixVerdictToRenderedModal(analysis);
-        return;
-      }
-      if (result && typeof result.then === 'function') {
-        result.then(
-          function () { applyMixVerdictToRenderedModal(analysis); },
-          function () { applyMixVerdictToRenderedModal(analysis); }
-        );
-      } else {
-        setTimeout(function () { applyMixVerdictToRenderedModal(analysis); }, 500);
-      }
-      return result;
-    };
-    window.displayModalResults.__verdictPatched__ = true;
-    vwarn('[VERDICT-AUDIT] ⚠️ Fallback patch instalado em window.displayModalResults');
+      applyMixVerdictToRenderedModal(analysis);
+    });
+    vwarn('[VERDICT-AUDIT] 📡 Listener analysis:rendered instalado (substituiu fallback patch)');
   }
 
   // ─────────────────────────────────────────────────────────────
