@@ -9887,7 +9887,20 @@ function renderGenreComparisonTable(options) {
         tableHTMLLength: tableHTML.length,
         rowsCount: rows.length
     });
-    
+
+    // ── PASSO 1: Log do container destino alternativo (modalTechnicalData) ──
+    console.log('[DEBUG DOM] container destino:', document.getElementById('modalTechnicalData'));
+
+    // ── PASSO 2: Log do HTML gerado ──
+    console.log('[DEBUG DOM] HTML tabela nova (primeiros 500 chars):', tableHTML.substring(0, 500));
+
+    // ── PASSO 3: Limpar tabela antiga de referenceComparisons antes de renderizar ──
+    const old = document.getElementById('referenceComparisons');
+    if (old) {
+        old.innerHTML = '';
+        old.style.display = 'none';
+    }
+
     try {
         container.innerHTML = tableHTML;
         
@@ -9902,12 +9915,25 @@ function renderGenreComparisonTable(options) {
         console.error('[GENRE-TABLE-ERROR] ❌ Erro ao inserir HTML:', err);
         container.innerHTML = `<div class="error-message">❌ Erro ao renderizar tabela: ${err.message}</div>`;
     }
-    
-    // Forçar visibilidade
+
+    // Forçar visibilidade do container de destino (referenceComparisons — onde a tabela nova vive)
     container.classList.remove('hidden');
     container.style.display = 'block';
     container.style.visibility = 'visible';
     container.style.opacity = '1';
+    container.style.height = 'auto';
+
+    // ── PASSO 4: Forçar visibilidade do modalTechnicalData também ──
+    const newContainer = document.getElementById('modalTechnicalData');
+    if (newContainer) {
+        newContainer.style.display = 'block';
+        newContainer.style.opacity = '1';
+        newContainer.style.visibility = 'visible';
+        newContainer.style.height = 'auto';
+    }
+
+    // ── PASSO 5: Log final ──
+    console.log('[DEBUG DOM] tabela nova aplicada no container correto');
     
     // 🔥 AUDITORIA FINAL: Verificar visibilidade computada
     const computedStyle = window.getComputedStyle(container);
