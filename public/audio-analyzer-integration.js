@@ -20411,7 +20411,7 @@ async function displayModalResults(analysis) {
             log('🎵 [REFERENCE-MODE] ═══════════════════════════════════════');
             
             // 🎯 Usar helper getCompareMode (NUNCA ctx.mode como fallback)
-            const compareMode = getCompareMode(analysis);
+            const compareMode = !genreRenderComplete ? getCompareMode(analysis) : null;
             
             log(`📊 [RENDER-FLOW] Preparando renderReferenceComparisons() - compareMode: ${compareMode}`);
             log('[RENDER-FLOW] mustBeReference:', mustBeReference);
@@ -20483,7 +20483,7 @@ async function displayModalResults(analysis) {
         } catch(e){ 
             console.error('❌ [RENDER-FLOW] ERRO em renderReferenceComparisons:', e);
             console.error('❌ Stack trace:', e.stack);
-        }    
+        }
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ warn('validation controls fail', e); }
         
         // 🔍 Verificação de debug: Detecta whitespace restante
