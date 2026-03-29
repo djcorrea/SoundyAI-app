@@ -3047,16 +3047,13 @@ window.toggleDiagTable = function toggleDiagTable(btn) {
         renderGenreComparisonTable(analysis);
     }
 
-    const body = btn.nextElementSibling;
-    if (!body) return;
-    const willExpand = body.hasAttribute('hidden');
-    if (willExpand) {
-        body.removeAttribute('hidden');
-        btn.setAttribute('aria-expanded', 'true');
-    } else {
-        body.setAttribute('hidden', '');
-        btn.setAttribute('aria-expanded', 'false');
-    }
+    const expanded = document.getElementById('diagnosticExpandedContent');
+    if (!expanded) return;
+
+    const willExpand = expanded.style.display === 'none';
+    expanded.style.display = willExpand ? 'block' : 'none';
+    btn.setAttribute('aria-expanded', willExpand ? 'true' : 'false');
+
     const arrow = btn.querySelector('.dt-toggle-arrow');
     if (arrow) arrow.textContent = willExpand ? '▲' : '▼';
 };
@@ -9407,12 +9404,20 @@ function renderGenreComparisonTable(options) {
         old.style.display = 'none';
     }
 
-    // Buscar container correto (nova UI de gênero)
-    const container = document.getElementById('modalTechnicalData');
-    if (!container) {
+    // Buscar parent e criar container exclusivo de expansão
+    const parent = document.getElementById('modalTechnicalData');
+    if (!parent) {
         console.error('[GENRE-TABLE] ❌ Container #modalTechnicalData não encontrado!');
         console.groupEnd();
         return;
+    }
+
+    let container = document.getElementById('diagnosticExpandedContent');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'diagnosticExpandedContent';
+        container.style.display = 'none';
+        parent.appendChild(container);
     }
     
     // � STREAMING OVERRIDE: Aplicar targets de streaming se necessário
@@ -9920,34 +9925,20 @@ function renderGenreComparisonTable(options) {
     };
 
     const tableHTML = `
-        <div class="card genre-comparison-classic" style="margin-top:12px;">
-            <h2 class="sa-diagnostico-title">Diagnóstico Técnico${isStreamingMode ? ' <span class="streaming-mode-label">📡 Streaming</span>' : ''}</h2>
-            <p class="sa-diagnostico-subtitle">Resumo visual das principais métricas.</p>
-            <div class="diag-summary-grid">
-                ${_buildDscCard('🔊', 'Loudness', _summaryLufs)}
-                ${_buildDscCard('🎚️', 'True Peak', _summaryTp)}
-                ${_buildDscCard('📊', 'Dinâmica', _summaryDr)}
-                ${_buildDscCard('📈', 'LRA', _summaryLra)}
-                ${_buildDscCard('🎧', 'Estéreo', _summaryStereo)}
-            </div>
-            <button class="dt-toggle-btn" onclick="window.toggleDiagTable(this)" aria-expanded="false">
-                <span class="dt-toggle-arrow">▼</span> Diagnóstico completo
-            </button>
-            <div class="dt-expand-body" hidden>
-                <table class="classic-genre-table">
-                    <thead>
-                        <tr>
-                            <th>Métrica</th>
-                            <th>Valor</th>
-                            <th>Severidade</th>
-                            <th>Ação Sugerida</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows.join('')}
-                    </tbody>
-                </table>
-            </div>
+        <div class="genre-expanded-table">
+            <table class="classic-genre-table">
+                <thead>
+                    <tr>
+                        <th>Métrica</th>
+                        <th>Valor</th>
+                        <th>Severidade</th>
+                        <th>Ação Sugerida</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.join('')}
+                </tbody>
+            </table>
         </div>
     `;
     
@@ -9961,7 +9952,7 @@ function renderGenreComparisonTable(options) {
         rowsCount: rows.length
     });
 
-    // ── PASSO 1: Log do container destino (modalTechnicalData) ──
+    // ── PASSO 1: Log do container destino (diagnosticExpandedContent) ──
     console.log('[DEBUG DOM] container destino:', container);
 
     // ── PASSO 2: Log do HTML gerado ──
@@ -9982,9 +9973,8 @@ function renderGenreComparisonTable(options) {
         container.innerHTML = `<div class="error-message">❌ Erro ao renderizar tabela: ${err.message}</div>`;
     }
 
-    // Forçar visibilidade do container de destino
+    // Garantir que container expandido mantém estado visual previsível
     container.classList.remove('hidden');
-    container.style.display = 'block';
     container.style.visibility = 'visible';
     container.style.opacity = '1';
     container.style.height = 'auto';
@@ -10371,17 +10361,12 @@ function renderGenreComparisonTable(options) {
             return;
         }
 
-        const body = toggleBtn.nextElementSibling;
-        if (!body) return;
+        const expanded = document.getElementById('diagnosticExpandedContent');
+        if (!expanded) return;
 
-        const willExpand = body.hasAttribute('hidden');
-        if (willExpand) {
-            body.removeAttribute('hidden');
-            toggleBtn.setAttribute('aria-expanded', 'true');
-        } else {
-            body.setAttribute('hidden', '');
-            toggleBtn.setAttribute('aria-expanded', 'false');
-        }
+        const willExpand = expanded.style.display === 'none';
+        expanded.style.display = willExpand ? 'block' : 'none';
+        toggleBtn.setAttribute('aria-expanded', willExpand ? 'true' : 'false');
 
         const arrow = toggleBtn.querySelector('.dt-toggle-arrow');
         if (arrow) arrow.textContent = willExpand ? '▲' : '▼';
