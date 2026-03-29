@@ -20505,6 +20505,18 @@ function deriveTolerance(rangeOrValue, fallback = 2.0) {
 
 // 🎯 HELPER: Computar se tem dados necessários para referenceComparisonMetrics
 /**
+ * 🎯 FONTE-DE-VERDADE: Detecta se há contexto de referência ativo
+ * Verifica múltiplas fontes para garantir detecção robusta
+ */
+function hasActiveReferenceContext() {
+    const hasRefJobId = !!(window.__REFERENCE_JOB_ID__ || window.__soundyState?.referenceJobId);
+    const hasFirstStore = !!(window.FirstAnalysisStore?.has?.());
+    const hasRefData = !!(window.referenceAnalysisData || window.__FIRST_ANALYSIS_FROZEN__);
+
+    return hasRefJobId && (hasFirstStore || hasRefData);
+}
+
+/**
  * 🎯 FUNÇÃO CRÍTICA: Obter métricas de comparação ativas (modo referência OU gênero)
  * 
  * Esta função resolve o bug onde modo gênero não detectava targets carregados.
