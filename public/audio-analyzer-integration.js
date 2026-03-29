@@ -9366,24 +9366,17 @@ function renderGenreComparisonTable(options) {
 
     console.log('ANALYSIS COMPLETO:', analysis);
 
-    const safeMetrics = analysis.metrics || {};
-    const lufs = analysis?.lufs ?? safeMetrics?.lufsIntegrated ?? safeMetrics?.lufs;
-    const truePeak = analysis?.truePeak ?? safeMetrics?.truePeakDbtp ?? safeMetrics?.truePeak;
-    const dynamicRange = analysis?.dynamicRange ?? safeMetrics?.dr ?? safeMetrics?.dynamicRange;
+    const lufs = analysis?.lufs ?? analysis?.lufsIntegrated ?? analysis?.metrics?.lufsIntegrated;
+    const truePeak = analysis?.truePeak ?? analysis?.truePeakDbtp ?? analysis?.metrics?.truePeakDbtp;
+    const dynamicRange = analysis?.dynamicRange ?? analysis?.dr ?? analysis?.metrics?.dr ?? analysis?.lra;
+    const safe = (v) => v ?? 'N/D';
 
-    const hasMetrics = !!analysis?.metrics;
-    const hasLufs = lufs !== undefined && lufs !== null;
-    const hasTruePeak = truePeak !== undefined && truePeak !== null;
-    const hasDynamicRange = dynamicRange !== undefined && dynamicRange !== null;
-
-    if (!hasMetrics || !hasLufs || !hasTruePeak || !hasDynamicRange) {
-        console.error('[GENRE-TABLE] ❌ Erro de dados antes do render:', {
-            hasMetrics,
-            hasLufs,
-            hasTruePeak,
-            hasDynamicRange
+    if (lufs === undefined || lufs === null || dynamicRange === undefined || dynamicRange === null) {
+        console.warn('[GENRE-TABLE] dados incompletos, usando fallback', {
+            lufs: safe(lufs),
+            truePeak: safe(typeof truePeak === 'object' ? truePeak?.maxDbtp : truePeak),
+            dynamicRange: safe(dynamicRange)
         });
-        return;
     }
     
     console.group('[GENRE-TABLE] 📊 RENDERIZAÇÃO COMPLETA DE GÊNERO');
