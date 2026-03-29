@@ -9365,10 +9365,16 @@ function renderGenreComparisonTable(options) {
     const targets = isDirectAnalysis ? resolved.targets : options?.targets;
 
     console.log('ANALYSIS COMPLETO:', analysis);
+
+    const safeMetrics = analysis.metrics || {};
+    const lufs = analysis?.lufs ?? safeMetrics?.lufsIntegrated ?? safeMetrics?.lufs;
+    const truePeak = analysis?.truePeak ?? safeMetrics?.truePeakDbtp ?? safeMetrics?.truePeak;
+    const dynamicRange = analysis?.dynamicRange ?? safeMetrics?.dr ?? safeMetrics?.dynamicRange;
+
     const hasMetrics = !!analysis?.metrics;
-    const hasLufs = analysis?.lufs !== undefined && analysis?.lufs !== null;
-    const hasTruePeak = analysis?.truePeak !== undefined && analysis?.truePeak !== null;
-    const hasDynamicRange = analysis?.dynamicRange !== undefined && analysis?.dynamicRange !== null;
+    const hasLufs = lufs !== undefined && lufs !== null;
+    const hasTruePeak = truePeak !== undefined && truePeak !== null;
+    const hasDynamicRange = dynamicRange !== undefined && dynamicRange !== null;
 
     if (!hasMetrics || !hasLufs || !hasTruePeak || !hasDynamicRange) {
         console.error('[GENRE-TABLE] ❌ Erro de dados antes do render:', {
@@ -9449,16 +9455,16 @@ function renderGenreComparisonTable(options) {
     });
     
     // 🎯 EXTRAIR VALORES DO ANALYSIS (mesmas fontes usadas em calculateScore)
-    const lufsIntegrated = analysis.loudness?.integrated ?? analysis.technicalData?.lufsIntegrated ?? null;
-    const truePeakDbtp = analysis.truePeakDbtp ?? analysis.truePeak?.maxDbtp ?? analysis.technicalData?.truePeakDbtp ?? null;
-    const dynamicRange = analysis.dynamicRange ?? analysis.dynamics?.range ?? analysis.technicalData?.dynamicRange ?? null;
+    const lufsIntegrated = lufs ?? analysis.loudness?.integrated ?? analysis.technicalData?.lufsIntegrated ?? null;
+    const truePeakDbtp = (typeof truePeak === 'object' ? truePeak?.maxDbtp : truePeak) ?? analysis.truePeakDbtp ?? analysis.technicalData?.truePeakDbtp ?? null;
+    const dynamicRangeValue = dynamicRange ?? analysis.dynamics?.range ?? analysis.technicalData?.dynamicRange ?? null;
     const lra = analysis.lra ?? analysis.loudness?.lra ?? analysis.technicalData?.lra ?? null;
     const stereoCorrelation = analysis.stereoCorrelation ?? analysis.stereo?.correlation ?? analysis.technicalData?.stereoCorrelation ?? null;
     
     log('[GENRE-TABLE] 📊 Valores extraídos do analysis:', {
         lufsIntegrated,
         truePeakDbtp,
-        dynamicRange,
+        dynamicRange: dynamicRangeValue,
         lra,
         stereoCorrelation
     });
@@ -9698,7 +9704,7 @@ function renderGenreComparisonTable(options) {
     
     // 📊 Dynamic Range (DR)
     if (genreData.dr_target !== null && genreData.dr_target !== undefined) {
-        const drValue = dynamicRange;
+        const drValue = dynamicRangeValue;
         if (Number.isFinite(drValue) && Number.isFinite(genreData.dr_target)) {
             const result = calcSeverity(drValue, genreData.dr_target, genreData.tol_dr || 1.0);
             if (result && Number.isFinite(result.diff)) {
