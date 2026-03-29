@@ -20250,13 +20250,13 @@ async function displayModalResults(analysis) {
         document.dispatchEvent(new CustomEvent('analysis:rendered', { detail: analysis }));
     }
 
-// 🔒 DONO ÚNICO: expõe displayModalResults de forma imutável — previne sobrescrita por outros scripts
-window.displayModalResults = displayModalResults;
-try {
-    Object.defineProperty(window, 'displayModalResults', { writable: false, configurable: false });
-} catch (e) {
-    console.warn('[RENDER-LOCK] Não foi possível travar window.displayModalResults:', e.message);
-}
+// TRACE temporário: não bloqueia propriedade, apenas rastreia chamadas
+const originalDisplay = displayModalResults;
+
+window.displayModalResults = function (...args) {
+    console.log('[TRACE] displayModalResults chamado por:', new Error().stack);
+    return originalDisplay.apply(this, args);
+};
 
     // === Controles de Validação (Suite Objetiva + Subjetiva) ===
     function injectValidationControls(){
