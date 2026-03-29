@@ -539,11 +539,6 @@
     if (window.__VERDICT_EVENT_LISTENER_INSTALLED__) { return; }
     window.__VERDICT_EVENT_LISTENER_INSTALLED__ = true;
     document.addEventListener('analysis:rendered', function(event) {
-      if (window.__GENRE_RENDER_LOCK__ && document.getElementById('modalTechnicalData')?.getAttribute('data-locked') === 'true') {
-        console.warn('🚫 DOM protegido (modo gênero)');
-        return;
-      }
-
       var analysis = event.detail;
       if (analysis) { window.__VERDICT_SOURCE_DATA__ = analysis; }
       applyMixVerdictToRenderedModal(analysis);

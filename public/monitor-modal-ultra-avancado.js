@@ -27,11 +27,6 @@ function interceptarDisplayModalResults() {
                 
                 // ✅ Verificar DOM após renderização
                 setTimeout(() => {
-                    if (window.__GENRE_RENDER_LOCK__ && document.getElementById('modalTechnicalData')?.getAttribute('data-locked') === 'true') {
-                        console.warn('🚫 DOM protegido (modo gênero)');
-                        return;
-                    }
-
                     const technicalData = document.getElementById('modalTechnicalData');
                     if (!technicalData || !technicalData.innerHTML.trim()) {
                         warn('[FIX] ⚠️ DOM vazio após interceptação, forçando chamada original');
@@ -92,11 +87,6 @@ function interceptarDisplayModalResults() {
             
             // ✅ Verificar DOM após renderização
             setTimeout(() => {
-                if (window.__GENRE_RENDER_LOCK__ && document.getElementById('modalTechnicalData')?.getAttribute('data-locked') === 'true') {
-                    console.warn('🚫 DOM protegido (modo gênero)');
-                    return;
-                }
-
                 const technicalData = document.getElementById('modalTechnicalData');
                 if (!technicalData || !technicalData.innerHTML.trim()) {
                     warn('[FIX] ⚠️ DOM vazio após interceptação (modo não-reference), forçando chamada original');
