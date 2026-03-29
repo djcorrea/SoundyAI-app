@@ -14357,6 +14357,194 @@ function renderReducedMode(data) {
     log('[PLAN-FILTER] ✅ Modo reduzido renderizado com JSON COMPLETO e máscaras visuais');
 }
 
+/**
+ * 🎵 RENDERIZAR BLOCO DE IDENTIFICAÇÃO DA MÚSICA
+ * Exibe nome do arquivo, duração, sample rate, bit depth, canais, gênero e timestamp
+ * @param {Object} analysis - Objeto de análise completo
+ * @returns {string} HTML do bloco de identificação
+ */
+function renderMusicIdentificationBlock(analysis) {
+    // Validação de entrada
+    if (!analysis || typeof analysis !== 'object') {
+        console.warn('[MUSIC-ID] ⚠️ analysis inválido ou ausente');
+        return '';
+    }
+
+    // Extrair metadados
+    const metadata = analysis.metadata || {};
+    const fileName = metadata.fileName || analysis.fileName || 'Arquivo de áudio';
+
+    // Duração (converter segundos para mm:ss)
+    const durationSeconds = metadata.duration || 0;
+    const minutes = Math.floor(durationSeconds / 60);
+    const seconds = Math.floor(durationSeconds % 60);
+    const durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+    // Sample Rate (converter Hz para kHz)
+    const sampleRate = metadata.sampleRate || 48000;
+    const sampleRateKHz = (sampleRate / 1000).toFixed(0);
+
+    // Bit Depth
+    const bitDepth = metadata.bitDepth || 32;
+
+    // Canais (1=Mono, 2=Estéreo, >2=Multicanal)
+    const channels = metadata.channels || 2;
+    const channelLabel = channels === 1 ? 'Mono' : channels === 2 ? 'Estéreo' : `${channels} canais`;
+
+    // Gênero (se modo gênero)
+    const mode = analysis.mode || 'genre';
+    const genre = analysis.genre || analysis.genreName || null;
+
+    // Timestamp da análise
+    const timestamp = analysis.timestamp || Date.now();
+    const now = new Date();
+    const analysisDate = new Date(timestamp);
+    const isToday = now.toDateString() === analysisDate.toDateString();
+    const timestampLabel = isToday
+        ? `Analisado agora`
+        : `Analisado em ${analysisDate.toLocaleDateString('pt-BR')}`;
+
+    // Logs de debug
+    console.log('[MUSIC-ID] 🎵 Renderizando bloco de identificação:', {
+        fileName,
+        duration: durationFormatted,
+        sampleRate: `${sampleRateKHz} kHz`,
+        bitDepth: `${bitDepth}-bit`,
+        channels: channelLabel,
+        genre,
+        mode,
+        timestamp: timestampLabel
+    });
+
+    // Construir HTML
+    const html = `
+        <div class="music-identification-block">
+            <div class="music-id-content">
+                <!-- Título: Nome do arquivo com container -->
+                <div class="music-id-title-container">
+                    <h3 class="music-id-title">${escapeHtml(fileName)}</h3>
+                </div>
+
+                <!-- Linha separadora -->
+                <div class="music-id-divider"></div>
+
+                <!-- Especificações técnicas -->
+                <div class="music-id-specs">
+                    ${durationSeconds > 0 ? `
+                        <div class="music-id-spec-item">
+                            <span class="music-id-spec-icon">⏱️</span>
+                            <span class="music-id-spec-value">${durationFormatted}</span>
+                        </div>
+                    ` : ''}
+
+                    <div class="music-id-spec-item">
+                        <span class="music-id-spec-icon">📊</span>
+                        <span class="music-id-spec-value">${sampleRateKHz} kHz</span>
+                    </div>
+
+                    <div class="music-id-spec-item">
+                        <span class="music-id-spec-icon">🎚️</span>
+                        <span class="music-id-spec-value">${bitDepth}-bit</span>
+                    </div>
+
+                    <div class="music-id-spec-item">
+                        <span class="music-id-spec-icon">🔊</span>
+                        <span class="music-id-spec-value">${channelLabel}</span>
+                    </div>
+                </div>
+
+                <!-- Contexto: Gênero + Timestamp -->
+                <div class="music-id-context">
+                    ${mode === 'genre' && genre ? `
+                        <span class="music-id-genre-badge">
+                            <span>🎵</span>
+                            <span>${formatGenreName(genre)}</span>
+                        </span>
+                    ` : ''}
+
+                    <span class="music-id-timestamp">${timestampLabel}</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    return html;
+}
+
+/**
+ * 🛡️ Helper: Escapa HTML para prevenir XSS
+ * @param {string} text - Texto a ser escapado
+ * @returns {string} Texto escapado
+ */
+function escapeHtml(text) {
+    if (!text || typeof text !== 'string') return '';
+
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+/**
+ * 🎨 Helper: Formata nome de gênero para exibição
+ * @param {string} genre - Nome do gênero (snake_case)
+ * @returns {string} Nome formatado (Title Case)
+ */
+function formatGenreName(genre) {
+    if (!genre || typeof genre !== 'string') return '';
+
+    // Mapa de nomes customizados
+    const customNames = {
+        'progressive_trance': 'Progressive Trance',
+        'funk_mandela': 'Funk Mandela',
+        'funk_bruxaria': 'Funk Bruxaria',
+        'funk_bh': 'Funk BH',
+        'edm': 'EDM',
+        'eletronico': 'Eletrônico'
+    };
+
+    if (customNames[genre]) {
+        return customNames[genre];
+    }
+
+    // Fallback: converter snake_case para Title Case
+    return genre
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
+// 🛡️ HELPER: Comparador robusto de faixas (evita falso self-compare)
+function areSameTrack(a, b) {
+    if (!a || !b) return false;
+
+    // Prioridade 1: jobId
+    const aj = a.jobId || a.id;
+    const bj = b.jobId || b.id;
+    if (aj && bj) return aj === bj;
+
+    // Prioridade 2: fileKey
+    if (a.fileKey && b.fileKey) return a.fileKey === b.fileKey;
+
+    // Prioridade 3: fileName + sampleRate + duração aproximada
+    const nameEqual = a.fileName && b.fileName && a.fileName === b.fileName;
+    const srA = a.sampleRate || a.metadata?.sampleRate;
+    const srB = b.sampleRate || b.metadata?.sampleRate;
+    const durA = a.duration || a.metadata?.duration;
+    const durB = b.duration || b.metadata?.duration;
+    if (nameEqual && srA && srB && srA === srB) {
+        const diff = Math.abs((durA || 0) - (durB || 0));
+        return diff < 0.2;
+    }
+
+    return false;
+}
+
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
     console.log("🔥 RESETANDO ESTADO PARA TESTE");
