@@ -9080,13 +9080,8 @@ function renderGenreView(analysis) {
         return;
     }
     
-    // 2️⃣ Garantir limpeza completa
-    log('[GENRE-VIEW] 1️⃣ Executando limpeza preventiva...');
-    // 🎯 PRESERVAR GÊNERO durante o reset - USANDO extractGenreName
+    // 2️⃣ Garantir que analysis.genre está definido
     const genreToPreserve = extractGenreName(analysis) || window.PROD_AI_REF_GENRE;
-    resetReferenceStateFully(genreToPreserve);
-    
-    // 🎯 GARANTIR que analysis.genre está definido
     if (genreToPreserve && !analysis.genre) {
         analysis.genre = genreToPreserve;
     }
