@@ -9334,10 +9334,17 @@ function renderGenreComparisonTable(options) {
         return;
     }
     
-    // Buscar container
-    const container = document.getElementById('referenceComparisons');
+    // Limpar container antigo (tabela legada)
+    const old = document.getElementById('referenceComparisons');
+    if (old) {
+        old.innerHTML = '';
+        old.style.display = 'none';
+    }
+
+    // Buscar container correto (nova UI de gênero)
+    const container = document.getElementById('modalTechnicalData');
     if (!container) {
-        console.error('[GENRE-TABLE] ❌ Container #referenceComparisons não encontrado!');
+        console.error('[GENRE-TABLE] ❌ Container #modalTechnicalData não encontrado!');
         console.groupEnd();
         return;
     }
@@ -9888,18 +9895,11 @@ function renderGenreComparisonTable(options) {
         rowsCount: rows.length
     });
 
-    // ── PASSO 1: Log do container destino alternativo (modalTechnicalData) ──
-    console.log('[DEBUG DOM] container destino:', document.getElementById('modalTechnicalData'));
+    // ── PASSO 1: Log do container destino (modalTechnicalData) ──
+    console.log('[DEBUG DOM] container destino:', container);
 
     // ── PASSO 2: Log do HTML gerado ──
     console.log('[DEBUG DOM] HTML tabela nova (primeiros 500 chars):', tableHTML.substring(0, 500));
-
-    // ── PASSO 3: Limpar tabela antiga de referenceComparisons antes de renderizar ──
-    const old = document.getElementById('referenceComparisons');
-    if (old) {
-        old.innerHTML = '';
-        old.style.display = 'none';
-    }
 
     try {
         container.innerHTML = tableHTML;
@@ -9916,21 +9916,12 @@ function renderGenreComparisonTable(options) {
         container.innerHTML = `<div class="error-message">❌ Erro ao renderizar tabela: ${err.message}</div>`;
     }
 
-    // Forçar visibilidade do container de destino (referenceComparisons — onde a tabela nova vive)
+    // Forçar visibilidade do container de destino
     container.classList.remove('hidden');
     container.style.display = 'block';
     container.style.visibility = 'visible';
     container.style.opacity = '1';
     container.style.height = 'auto';
-
-    // ── PASSO 4: Forçar visibilidade do modalTechnicalData também ──
-    const newContainer = document.getElementById('modalTechnicalData');
-    if (newContainer) {
-        newContainer.style.display = 'block';
-        newContainer.style.opacity = '1';
-        newContainer.style.visibility = 'visible';
-        newContainer.style.height = 'auto';
-    }
 
     // ── PASSO 5: Log final ──
     console.log('[DEBUG DOM] tabela nova aplicada no container correto');
