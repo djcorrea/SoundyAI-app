@@ -1495,6 +1495,11 @@ class AISuggestionsIntegration {
         if (!window.__AI_SUGGESTIONS_INTERCEPTOR__) {
             window.__AI_SUGGESTIONS_INTERCEPTOR__ = true;
             document.addEventListener('analysis:rendered', async (event) => {
+                if (window.__GENRE_RENDER_LOCK__ && document.getElementById('modalTechnicalData')?.getAttribute('data-locked') === 'true') {
+                    console.warn('🚫 DOM protegido (modo gênero)');
+                    return;
+                }
+
                 const fullAnalysis = event.detail;
                 try {
                     // Post-render: Processar sugestoes de IA

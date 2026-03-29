@@ -2778,6 +2778,10 @@ function generateReferenceSuggestions(comparison) {
 
 // 🎯 NOVO: Adicionar seção de comparação com referência
 function addReferenceComparisonSection(analysis) {
+    if (shouldBlockLegacyGenreRender()) {
+        return;
+    }
+
     const results = document.getElementById('audioAnalysisResults');
     if (!results) return;
     
@@ -3035,6 +3039,58 @@ function resolveGenreTargetsForDiagnostic(analysis) {
     };
 }
 
+function isGenreRenderLockActive() {
+    const currentAnalysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__ || window.latestAnalysis?.current || window.latestAnalysis;
+    const mode = currentAnalysis?.mode || window.currentAnalysisMode;
+    return !!window.__GENRE_RENDER_LOCK__ && mode === 'genre';
+}
+
+function shouldBlockLegacyGenreRender() {
+    if (isGenreRenderLockActive()) {
+        console.warn('🚫 BLOQUEADO render legacy após gênero');
+        return true;
+    }
+    return false;
+}
+
+function activateGenreDomLock(container) {
+    if (!container) return;
+
+    window.__GENRE_RENDER_LOCK__ = true;
+    container.setAttribute('data-locked', 'true');
+
+    const legacyContainer = document.getElementById('referenceComparisons');
+    if (legacyContainer) {
+        legacyContainer.innerHTML = '';
+        legacyContainer.style.display = 'none';
+    }
+
+    window.__GENRE_RENDER_LOCK_HTML__ = container.innerHTML;
+
+    if (window.__GENRE_DOM_LOCK_OBSERVER__) {
+        window.__GENRE_DOM_LOCK_OBSERVER__.disconnect();
+    }
+
+    const observer = new MutationObserver(() => {
+        if (!isGenreRenderLockActive()) {
+            observer.disconnect();
+            return;
+        }
+
+        if (container.innerHTML !== window.__GENRE_RENDER_LOCK_HTML__) {
+            console.warn('🚫 Tentativa de sobrescrever DOM bloqueada');
+            observer.disconnect();
+            container.innerHTML = window.__GENRE_RENDER_LOCK_HTML__;
+            container.setAttribute('data-locked', 'true');
+            observer.observe(container, { childList: true, subtree: true });
+        }
+    });
+
+    observer.observe(container, { childList: true, subtree: true });
+    window.__GENRE_DOM_LOCK_OBSERVER__ = observer;
+    console.log('🔒 GENRE DOM LOCK ATIVADO');
+}
+
 function handleGenreDiagnosticToggle() {
     const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__ || window.latestAnalysis?.current || window.latestAnalysis;
     const mode = analysis?.mode || window.currentAnalysisMode;
@@ -3044,6 +3100,8 @@ function handleGenreDiagnosticToggle() {
     if (mode !== 'genre' || !analysis) {
         return false;
     }
+
+    window.__GENRE_RENDER_LOCK__ = true;
 
     const oldContainer = document.getElementById('referenceComparisons');
     if (oldContainer) {
@@ -9142,6 +9200,7 @@ function loadDefaultGenreTargets(genreName = "default") {
 function renderGenreView(analysis) {
     console.log("STEP 7 - entrou renderGenreView");
     console.group('%c[GENRE-VIEW] 🎨 Renderizando UI exclusiva de gênero', 'color:#00C9FF;font-weight:bold;font-size:14px;');
+    window.__GENRE_RENDER_LOCK__ = true;
     
     // 🔥 ISOLAMENTO TOTAL: Limpar TODAS as variáveis de referência
     log('[GENRE-VIEW] 🧹 LIMPANDO variáveis de referência...');
@@ -9389,6 +9448,7 @@ function sanitizeActionText(actionText) {
 
 function renderGenreComparisonTable(options) {
     const { analysis, genre, targets } = options;
+    window.__GENRE_RENDER_LOCK__ = true;
     
     console.group('[GENRE-TABLE] 📊 RENDERIZAÇÃO COMPLETA DE GÊNERO');
     log('[GENRE-TABLE] 🎯 Gênero:', genre);
@@ -9999,6 +10059,7 @@ function renderGenreComparisonTable(options) {
     container.style.visibility = 'visible';
     container.style.opacity = '1';
     container.style.height = 'auto';
+    activateGenreDomLock(container);
 
     // ── PASSO 5: Log final ──
     console.log('[DEBUG DOM] tabela nova aplicada no container correto');
@@ -13367,6 +13428,10 @@ function generateReferenceSuggestions(comparison) {
 
 // 🎯 NOVO: Adicionar seção de comparação com referência
 function addReferenceComparisonSection(analysis) {
+    if (shouldBlockLegacyGenreRender()) {
+        return;
+    }
+
     const results = document.getElementById('audioAnalysisResults');
     if (!results) return;
     
@@ -21302,6 +21367,10 @@ function buildComparisonRows(metricsA, metricsB) {
 
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(ctx) {
+    if (shouldBlockLegacyGenreRender()) {
+        return;
+    }
+
     // ========================================
     // 🎯 PASSO 0A: DECLARAÇÃO LOCAL DE `analysis` (FIX: ReferenceError)
     // ========================================
@@ -24350,6 +24419,10 @@ if (!window.__displayModalResultsOriginal) {
  * @param {Object} currentAnalysis - Dados da segunda faixa (usuário)
  */
 function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
+    if (shouldBlockLegacyGenreRender()) {
+        return;
+    }
+
     // 🎯 PARÂMETROS CORRIGIDOS:
     // baseAnalysis = primeira faixa (alvo/base da comparação)
     // referenceAnalysis = segunda faixa (atual/sendo comparada)
