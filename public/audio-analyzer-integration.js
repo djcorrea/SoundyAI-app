@@ -3044,7 +3044,7 @@ window.toggleDiagTable = function toggleDiagTable(btn) {
     console.log('[CLICK DEBUG] modo atual:', mode);
 
     const expandedBeforeRender = document.getElementById('diagnosticExpandedContent');
-    const needsRender = !expandedBeforeRender || !expandedBeforeRender.querySelector('.classic-genre-table');
+    const needsRender = !expandedBeforeRender || !expandedBeforeRender.querySelector('.diag-expanded-grid');
 
     if (mode === 'genre' && analysis && needsRender) {
         renderGenreComparisonTable(analysis);
@@ -9949,21 +9949,85 @@ function renderGenreComparisonTable(options) {
         return;
     }
 
+    const readBandValue = (bandKey) => {
+        const bandData = userBands?.[bandKey];
+        if (typeof bandData === 'number') return bandData;
+        if (bandData && typeof bandData === 'object') {
+            return bandData.energy_db ?? bandData.rms_db ?? bandData.db ?? null;
+        }
+        return null;
+    };
+
+    const metricCards = [
+        { icon: '🔊', title: 'LUFS Integrado', value: lufsIntegrated, target: genreData.lufs_target, tol: genreData.tol_lufs || 1.0, unit: ' LUFS' },
+        { icon: '🎚️', title: 'True Peak', value: truePeakDbtp, target: genreData.true_peak_target, tol: genreData.tol_true_peak || 0.5, unit: ' dBTP' },
+        { icon: '📊', title: 'Dinâmica (DR)', value: dynamicRangeValue, target: genreData.dr_target, tol: genreData.tol_dr || 1.0, unit: ' DR' },
+        { icon: '📈', title: 'LRA', value: lra, target: genreData.lra_target, tol: genreData.tol_lra || 2.0, unit: ' LU' },
+        { icon: '🎧', title: 'Imagem Estéreo', value: stereoCorrelation, target: genreData.stereo_target, tol: genreData.tol_stereo || 0.1, unit: '' }
+    ]
+        .filter((item) => Number.isFinite(item.value) && Number.isFinite(item.target))
+        .map((item) => {
+            const result = calcSeverity(item.value, item.target, item.tol);
+            return `
+                <article class="diag-expanded-card dec-${result.severityClass}">
+                    <div class="dec-head">${item.icon} ${item.title}</div>
+                    <div class="dec-value">${item.value.toFixed(2)}${item.unit}</div>
+                    <div class="dec-meta">Alvo: ${item.target.toFixed(2)}${item.unit || ''}</div>
+                    <div class="dec-sev dec-sev-${result.severityClass}">${result.severity}</div>
+                    <div class="dec-action">${sanitizeActionText(result.action)}</div>
+                </article>
+            `;
+        });
+
+    const bandCards = Object.keys(targetBands || {})
+        .map((key) => {
+            const targetBand = targetBands[key];
+            if (!targetBand || typeof targetBand !== 'object') return null;
+
+            const bandValue = readBandValue(key);
+            if (!Number.isFinite(bandValue)) return null;
+
+            const hasRange = targetBand.target_range && (
+                Number.isFinite(targetBand.target_range.min ?? targetBand.target_range.min_db) &&
+                Number.isFinite(targetBand.target_range.max ?? targetBand.target_range.max_db)
+            );
+
+            const targetValue = Number.isFinite(targetBand.target_db) ? targetBand.target_db : null;
+            const result = calcSeverity(
+                bandValue,
+                hasRange ? targetValue : targetValue,
+                2.0,
+                { targetRange: hasRange ? targetBand.target_range : null }
+            );
+
+            let targetText = 'N/A';
+            if (hasRange) {
+                const min = targetBand.target_range.min ?? targetBand.target_range.min_db;
+                const max = targetBand.target_range.max ?? targetBand.target_range.max_db;
+                targetText = `${min.toFixed(1)} a ${max.toFixed(1)} dB`;
+            } else if (Number.isFinite(targetValue)) {
+                targetText = `${targetValue.toFixed(1)} dB`;
+            }
+
+            const title = nomesBandas[key] || key;
+            return `
+                <article class="diag-expanded-card dec-${result.severityClass} dec-compact">
+                    <div class="dec-head">${title}</div>
+                    <div class="dec-value">${bandValue.toFixed(2)} dB</div>
+                    <div class="dec-meta">Alvo: ${targetText}</div>
+                    <div class="dec-sev dec-sev-${result.severityClass}">${result.severity}</div>
+                    <div class="dec-action">${sanitizeActionText(result.action)}</div>
+                </article>
+            `;
+        })
+        .filter(Boolean);
+
     const tableHTML = `
-        <div class="genre-expanded-table">
-            <table class="classic-genre-table">
-                <thead>
-                    <tr>
-                        <th>Métrica</th>
-                        <th>Valor</th>
-                        <th>Severidade</th>
-                        <th>Ação Sugerida</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows.join('')}
-                </tbody>
-            </table>
+        <div class="diag-expanded-grid">
+            <div class="diag-expanded-section-title">Métricas principais</div>
+            <div class="diag-expanded-cards">${metricCards.join('')}</div>
+            <div class="diag-expanded-section-title">Bandas espectrais</div>
+            <div class="diag-expanded-cards">${bandCards.length ? bandCards.join('') : '<div class="diag-empty">Sem bandas disponíveis para exibição.</div>'}</div>
         </div>
     `;
     
@@ -9990,7 +10054,7 @@ function renderGenreComparisonTable(options) {
         log('[GENRE-TABLE-AUDIT] 🔍 DEPOIS de innerHTML:', {
             containerInnerHTMLLength: container.innerHTML.length,
             containerFirstChild: container.firstChild ? container.firstChild.className : 'N/A',
-            tableExists: !!container.querySelector('.classic-genre-table'),
+            cardsExists: !!container.querySelector('.diag-expanded-grid'),
             rowsInDOM: container.querySelectorAll('tr').length
         });
     } catch (err) {
@@ -10352,6 +10416,60 @@ function renderGenreComparisonTable(options) {
             }
             @media (max-width: 480px) {
                 .diag-summary-grid { grid-template-columns: repeat(2, 1fr); }
+            }
+
+            .diag-expanded-grid {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .diag-expanded-section-title {
+                font-size: 11px;
+                color: #8fa8c8;
+                letter-spacing: 0.6px;
+                text-transform: uppercase;
+                font-weight: 700;
+            }
+            .diag-expanded-cards {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 10px;
+            }
+            .diag-expanded-card {
+                border: 1px solid rgba(255,255,255,0.12);
+                background: rgba(255,255,255,0.04);
+                border-radius: 10px;
+                padding: 10px;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+            .diag-expanded-card.dec-ok { border-color: rgba(82, 247, 173, 0.35); }
+            .diag-expanded-card.dec-caution { border-color: rgba(255, 206, 77, 0.35); }
+            .diag-expanded-card.dec-warning { border-color: rgba(255, 165, 0, 0.35); }
+            .diag-expanded-card.dec-critical { border-color: rgba(255, 123, 123, 0.35); }
+            .dec-head { font-size: 11px; color: #9fc9ff; font-weight: 600; }
+            .dec-value { font-size: 14px; color: #f5f7fa; font-weight: 700; }
+            .dec-meta { font-size: 10px; color: #9ab0cc; }
+            .dec-sev { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+            .dec-sev-ok { color: #52f7ad; }
+            .dec-sev-caution { color: #ffce4d; }
+            .dec-sev-warning { color: #ffa500; }
+            .dec-sev-critical { color: #ff7b7b; }
+            .dec-action { font-size: 10px; color: #d7e4f5; line-height: 1.3; }
+            .diag-empty {
+                grid-column: 1 / -1;
+                padding: 10px;
+                border: 1px dashed rgba(255,255,255,0.2);
+                border-radius: 8px;
+                color: #9ab0cc;
+                font-size: 11px;
+            }
+            @media (max-width: 768px) {
+                .diag-expanded-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            }
+            @media (max-width: 480px) {
+                .diag-expanded-cards { grid-template-columns: 1fr; }
             }
         `;
         document.head.appendChild(diagStyle);
