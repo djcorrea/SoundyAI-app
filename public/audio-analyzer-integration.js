@@ -3043,7 +3043,10 @@ window.toggleDiagTable = function toggleDiagTable(btn) {
     const mode = analysis?.mode || window.currentAnalysisMode;
     console.log('[CLICK DEBUG] modo atual:', mode);
 
-    if (mode === 'genre' && analysis) {
+    const expandedBeforeRender = document.getElementById('diagnosticExpandedContent');
+    const needsRender = !expandedBeforeRender || !expandedBeforeRender.querySelector('.classic-genre-table');
+
+    if (mode === 'genre' && analysis && needsRender) {
         renderGenreComparisonTable(analysis);
     }
 
@@ -9404,20 +9407,12 @@ function renderGenreComparisonTable(options) {
         old.style.display = 'none';
     }
 
-    // Buscar parent e criar container exclusivo de expansão
+    // Buscar parent do bloco técnico
     const parent = document.getElementById('modalTechnicalData');
     if (!parent) {
         console.error('[GENRE-TABLE] ❌ Container #modalTechnicalData não encontrado!');
         console.groupEnd();
         return;
-    }
-
-    let container = document.getElementById('diagnosticExpandedContent');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'diagnosticExpandedContent';
-        container.style.display = 'none';
-        parent.appendChild(container);
     }
     
     // � STREAMING OVERRIDE: Aplicar targets de streaming se necessário
@@ -9923,6 +9918,36 @@ function renderGenreComparisonTable(options) {
         if (!summary) return `<div class="diag-summary-card dsc-na"><span class="dsc-icon">${icon}</span><span class="dsc-label">${label}</span><span class="dsc-value">—</span><span class="dsc-badge">N/D</span></div>`;
         return `<div class="diag-summary-card dsc-${summary.severityClass}"><span class="dsc-icon">${icon}</span><span class="dsc-label">${label}</span><span class="dsc-value">${summary.displayValue}</span><span class="dsc-badge dsc-badge-${summary.severityClass}">${summary.severity}</span></div>`;
     };
+
+    // Shell principal do Diagnóstico Técnico (cards + botão + área expandida)
+    parent.innerHTML = `
+        <div class="genre-comparison-classic card">
+            <div class="card-title">Diagnóstico Técnico</div>
+            <div class="diag-summary-grid" id="diagnosticInnerCards">
+                ${_buildDscCard('🔊', 'Loudness', _summaryLufs)}
+                ${_buildDscCard('🎚️', 'True Peak', _summaryTp)}
+                ${_buildDscCard('📊', 'Dinâmica', _summaryDr)}
+                ${_buildDscCard('📈', 'LRA', _summaryLra)}
+                ${_buildDscCard('🎧', 'Estéreo', _summaryStereo)}
+            </div>
+            <button
+                type="button"
+                class="dt-toggle-btn"
+                aria-expanded="false"
+                onclick="window.toggleDiagTable(this)">
+                <span class="dt-toggle-arrow">▼</span>
+                Abrir diagnóstico completo
+            </button>
+            <div id="diagnosticExpandedContent" class="dt-expand-body" style="display:none;"></div>
+        </div>
+    `;
+
+    const container = document.getElementById('diagnosticExpandedContent');
+    if (!container) {
+        console.error('[GENRE-TABLE] ❌ Container #diagnosticExpandedContent não encontrado após render do shell');
+        console.groupEnd();
+        return;
+    }
 
     const tableHTML = `
         <div class="genre-expanded-table">
