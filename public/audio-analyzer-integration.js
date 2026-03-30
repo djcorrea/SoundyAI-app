@@ -9363,17 +9363,17 @@ function renderGenreComparisonTable(options) {
 
     console.log('ANALYSIS COMPLETO:', analysis);
 
-    const lufs = analysis?.lufs ?? analysis?.lufsIntegrated ?? analysis?.metrics?.lufsIntegrated;
-    const truePeak = analysis?.truePeak ?? analysis?.truePeakDbtp ?? analysis?.metrics?.truePeakDbtp;
-    const dynamicRange = analysis?.dynamicRange ?? analysis?.dr ?? analysis?.metrics?.dr ?? analysis?.lra;
-    const safe = (v) => v ?? 'N/D';
+    console.log('[DATA CHECK] analysis:', analysis);
+    console.log('[DATA CHECK] metrics:', analysis?.metrics);
+    console.log('[DATA CHECK] technicalData:', analysis?.technicalData);
 
-    if (lufs === undefined || lufs === null || dynamicRange === undefined || dynamicRange === null) {
-        console.warn('[GENRE-TABLE] dados incompletos, usando fallback', {
-            lufs: safe(lufs),
-            truePeak: safe(typeof truePeak === 'object' ? truePeak?.maxDbtp : truePeak),
-            dynamicRange: safe(dynamicRange)
-        });
+    const lufs = analysis?.technicalData?.lufsIntegrated ?? analysis?.lufs;
+    const truePeak = analysis?.technicalData?.truePeakDbtp ?? analysis?.truePeak;
+    const dynamicRange = analysis?.technicalData?.lra ?? analysis?.dynamicRange;
+
+    if (!lufs || !dynamicRange) {
+        console.warn('[GENRE-TABLE] dados incompletos — abortando render sem quebrar UI');
+        return;
     }
     
     console.group('[GENRE-TABLE] 📊 RENDERIZAÇÃO COMPLETA DE GÊNERO');
@@ -9453,9 +9453,9 @@ function renderGenreComparisonTable(options) {
     });
     
     // 🎯 EXTRAIR VALORES DO ANALYSIS (mesmas fontes usadas em calculateScore)
-    const lufsIntegrated = lufs ?? analysis.loudness?.integrated ?? analysis.technicalData?.lufsIntegrated ?? null;
-    const truePeakDbtp = (typeof truePeak === 'object' ? truePeak?.maxDbtp : truePeak) ?? analysis.truePeakDbtp ?? analysis.technicalData?.truePeakDbtp ?? null;
-    const dynamicRangeValue = dynamicRange ?? analysis.dynamics?.range ?? analysis.technicalData?.dynamicRange ?? null;
+    const lufsIntegrated = analysis?.technicalData?.lufsIntegrated ?? lufs ?? analysis.loudness?.integrated ?? null;
+    const truePeakDbtp = analysis?.technicalData?.truePeakDbtp ?? (typeof truePeak === 'object' ? truePeak?.maxDbtp : truePeak) ?? analysis.truePeakDbtp ?? null;
+    const dynamicRangeValue = analysis?.technicalData?.lra ?? dynamicRange ?? analysis.dynamics?.range ?? null;
     const lra = analysis.lra ?? analysis.loudness?.lra ?? analysis.technicalData?.lra ?? null;
     const stereoCorrelation = analysis.stereoCorrelation ?? analysis.stereo?.correlation ?? analysis.technicalData?.stereoCorrelation ?? null;
     
@@ -14666,19 +14666,6 @@ function areSameTrack(a, b) {
 
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
-    console.log("[TRACE] ANALYZER RENDER START");
-
-    if (!window.__DIAGNOSTIC_REMOVAL_OBSERVER__) {
-        const observer = new MutationObserver(() => {
-            if (!document.getElementById("diagnostic-container")) {
-                console.error("[CRITICAL] diagnostic-container FOI REMOVIDO DO DOM");
-            }
-        });
-
-        observer.observe(document.body, { childList: true, subtree: true });
-        window.__DIAGNOSTIC_REMOVAL_OBSERVER__ = observer;
-    }
-
     console.log("🔥 RESETANDO ESTADO PARA TESTE");
 
     try {
@@ -20586,7 +20573,6 @@ async function displayModalResults(analysis) {
         // 📡 Evento central: notifica scripts externos que o render foi concluído
         // Substitui o padrão de interceptação de window.displayModalResults
         document.dispatchEvent(new CustomEvent('analysis:rendered', { detail: analysis }));
-        console.log("[TRACE] ANALYZER RENDER END", document.getElementById("diagnostic-container"));
     }
 
 // TRACE temporário: não bloqueia propriedade, apenas rastreia chamadas
