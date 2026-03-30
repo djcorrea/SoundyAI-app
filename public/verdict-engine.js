@@ -423,15 +423,10 @@
       var ok = _renderMainTextAndCTA(verdict, techData);
       vlog('[VERDICT-AUDIT] _renderMainTextAndCTA retornou:', ok);
 
-      // ── 3. Remover bloco de diagnóstico antigo (gerado por renderFinalScoreAtTop) ──
+      // ── 3. Preservar bloco de diagnóstico renderizado pelo analyzer ──
       var oldDiagnostic = document.querySelector('#final-score-display #diagnostic-container');
-      vlog('[VERDICT-AUDIT] diagnostic antigo:', oldDiagnostic);
-      if (oldDiagnostic) {
-        oldDiagnostic.remove();
-        vlog('[VERDICT-AUDIT] #diagnostic-container removido');
-      }
-      // Proteção: garantir que não haja nenhuma instância restante
-      document.querySelectorAll('#diagnostic-container').forEach(function (el) { el.remove(); });
+      console.log('[TRACE] VERDICT PRESERVE DIAGNOSTIC', document.getElementById('diagnostic-container'));
+      vlog('[VERDICT-AUDIT] diagnostic encontrado (preservado):', oldDiagnostic);
 
       // ── 4. Snapshot de confirmação ──
       var verdictBoxEl = _scoreContainerAudit ? _scoreContainerAudit.querySelector('.verdict-main-text') : null;

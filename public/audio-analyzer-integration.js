@@ -14666,6 +14666,19 @@ function areSameTrack(a, b) {
 
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
+    console.log("[TRACE] ANALYZER RENDER START");
+
+    if (!window.__DIAGNOSTIC_REMOVAL_OBSERVER__) {
+        const observer = new MutationObserver(() => {
+            if (!document.getElementById("diagnostic-container")) {
+                console.error("[CRITICAL] diagnostic-container FOI REMOVIDO DO DOM");
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+        window.__DIAGNOSTIC_REMOVAL_OBSERVER__ = observer;
+    }
+
     console.log("🔥 RESETANDO ESTADO PARA TESTE");
 
     try {
@@ -20573,6 +20586,7 @@ async function displayModalResults(analysis) {
         // 📡 Evento central: notifica scripts externos que o render foi concluído
         // Substitui o padrão de interceptação de window.displayModalResults
         document.dispatchEvent(new CustomEvent('analysis:rendered', { detail: analysis }));
+        console.log("[TRACE] ANALYZER RENDER END", document.getElementById("diagnostic-container"));
     }
 
 // TRACE temporário: não bloqueia propriedade, apenas rastreia chamadas
