@@ -20161,7 +20161,9 @@ async function displayModalResults(analysis) {
             const scoreTooltipBody = scoreTooltipData?.body || 'Média ponderada de todos os subscores. Reflete a qualidade técnica geral do áudio.';
             
             // Renderizar HTML do score final - UI LIMPA (SEM TOOLTIP)
+            // Veredito (diagnostic-container) aparece ACIMA do score (reposicionado)
             container.innerHTML = `
+                <div id="diagnostic-container" class="diagnostic-container"></div>
                 <div class="score-final-label">🏆 SCORE FINAL</div>
                 <div class="score-final-value">0</div>
                 <div class="score-final-bar-container">
@@ -20170,7 +20172,6 @@ async function displayModalResults(analysis) {
                     </div>
                 </div>
                 <div class="score-final-status ${statusClass}">${statusMessage}</div>
-                <div id="diagnostic-container" class="diagnostic-container"></div>
             `;
             
             // Animar contagem do score (impacto visual) - inicia após pequeno delay

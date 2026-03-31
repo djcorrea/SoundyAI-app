@@ -5735,27 +5735,29 @@ details[open] summary {
     border: none;
     border-top: 1px solid rgba(106, 154, 255, 0.15);
     border-bottom: 1px solid rgba(106, 154, 255, 0.15);
-    padding: 24px 16px;
-    margin: 24px 0;
+    padding: 12px 16px;
+    margin: 16px 0;
     position: relative;
 }
 
-/* Container principal do conteúdo */
+/* Container principal do conteúdo — layout horizontal compacto */
 .music-id-content {
     position: relative;
     z-index: 1;
     display: flex;
-    flex-direction: column;
-    gap: 14px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px 12px;
     align-items: center;
+    justify-content: center;
 }
 
-/* Container badge em volta do título */
+/* Container badge em volta do título — compacto no layout horizontal */
 .music-id-title-container {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 12px 24px;
+    padding: 5px 12px;
     background: linear-gradient(135deg, 
         rgba(106, 154, 255, 0.08) 0%,
         rgba(106, 0, 255, 0.05) 100%
@@ -5793,22 +5795,14 @@ details[open] summary {
     word-break: break-word;
 }
 
-/* Linha separadora sutil */
+/* Linha separadora sutil — oculta no layout horizontal */
 .music-id-divider {
-    width: 40px;
-    height: 1px;
-    background: rgba(106, 154, 255, 0.3);
-    margin: 0 auto 12px auto;
+    display: none;
 }
 
-/* Grid de informações técnicas */
+/* Specs técnicas — display:contents para achatar filhos no flex-row pai */
 .music-id-specs {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px 16px;
-    align-items: center;
-    margin-bottom: 8px;
+    display: contents;
 }
 
 /* Item individual de especificação */
@@ -5833,16 +5827,11 @@ details[open] summary {
     color: rgba(106, 154, 255, 0.9);
 }
 
-/* Linha de contexto (gênero + data) */
+/* Contexto (gênero + data) — display:contents para achatar filhos no flex-row pai */
 .music-id-context {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px 16px;
-    align-items: center;
+    display: contents;
     font-size: 12px;
     color: rgba(255, 255, 255, 0.7);
-    margin-top: 4px;
 }
 
 /* Badge de gênero */
