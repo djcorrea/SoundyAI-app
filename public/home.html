@@ -1659,8 +1659,8 @@
     <!-- Results -->
     <div id="audioAnalysisResults" class="audio-results" style="display: none;">
 
-      <!-- 1. HEADLINE -->
-      <div class="results-header">
+      <!-- 1. HEADLINE (oculto visualmente; mantido no DOM como âncora JS para modo referência) -->
+      <div class="results-header" style="display:none;">
         <h4>Resultado da sua mix</h4>
         <button
           style="background:rgba(74,143,255,0.1);border:1px solid rgba(74,143,255,0.2);color:#8898b8;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;"
@@ -1668,16 +1668,16 @@
         >← New Track</button>
       </div>
 
-      <!-- 2. IDENTIFICAÇÃO DA FAIXA -->
-      <div id="musicIdentificationBlock" class="music-identification-container"></div>
-
-      <!-- 3. HERO: score + barra + status + veredito -->
+      <!-- 2. HERO: score + barra + status + veredito -->
       <div id="final-score-display"></div>
 
-      <!-- 4. CTA MASTERIZAR -->
+      <!-- 3. CTA MASTERIZAR -->
       <a id="btnMasterizar" class="action-btn primary" href="master.html" style="display:none;">
         ⚡ Masterizar Agora
       </a>
+
+      <!-- 4. IDENTIFICAÇÃO DA FAIXA (reposicionado: abaixo do score/CTA, acima do diagnóstico) -->
+      <div id="musicIdentificationBlock" class="music-identification-container"></div>
 
       <!-- 5. DIAGNÓSTICO TÉCNICO (host de render do bloco) -->
       <div class="technical-data" id="modalTechnicalData"></div>

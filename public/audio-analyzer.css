@@ -5944,9 +5944,9 @@ details[open] summary {
     margin-bottom: 20px;
 }
 
-/* Score display abaixo do bloco de identificação */
+/* Score display é o primeiro elemento visível do modal (bloco de id reposicionado abaixo) */
 #final-score-display {
-    margin-top: 20px;
+    margin-top: 0;
 }
 
 /* Cards abaixo do bloco de identificação */
