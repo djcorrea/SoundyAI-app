@@ -300,7 +300,7 @@
 .diagnostic-container {
   width: 100%;
   max-width: 740px;
-  margin: 0 auto 28px auto;
+  margin: 28px auto 0 auto;
   padding: 0;
   background: transparent;
   border: none;
