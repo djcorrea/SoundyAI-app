@@ -274,45 +274,46 @@
         'background:rgba(251,191,36,.08);border-radius:5px;' +
         'border:1px solid rgba(251,191,36,.22);' +
       '}' +
-      /* verdict-card — design integrado ao padrão azul do sistema */
+      /* verdict-card — design integrado ao padrão azul ciano do sistema */
       '.verdict-card{' +
         'padding:20px 24px;border-radius:12px;' +
-        'margin:0 auto 20px auto;' +          /* centralizado horizontalmente */
-        'max-width:780px;width:100%;' +        /* largura equilibrada, não estica */
-        'background:rgba(106,154,255,.04);' +  /* fundo azul sutil — padrão do sistema */
-        'border:1px solid rgba(106,154,255,.25);' + /* azul padrão de cards */
-        'box-shadow:0 0 20px rgba(106,154,255,.08);' + /* glow azul neon suave */
-        'text-align:left;backdrop-filter:blur(10px);' +
+        'margin:0 auto 20px auto;' +
+        'max-width:780px;width:100%;' +
+        'background:rgba(0,200,255,.04);' +        /* fundo azul ciano — padrão neon */
+        'border:1px solid rgba(0,200,255,.3);' +   /* borda azul ciano neon */
+        'box-shadow:0 0 12px rgba(0,200,255,.08);' + /* glow neon suave */
+        'text-align:center;' +                     /* conteúdo centralizado */
+        'backdrop-filter:blur(10px);' +
         'animation:__verdictIn .4s ease;position:relative;z-index:1;' +
         'box-sizing:border-box;' +
       '}' +
-      /* estados de análise sobrescrevem borda + fundo + glow com a cor semântica */
+      /* estados semânticos substituem apenas borda + fundo + glow */
       '.verdict-card-bad{' +
         'border-color:rgba(239,68,68,.4);' +
         'background:rgba(239,68,68,.04);' +
-        'box-shadow:0 0 20px rgba(239,68,68,.07);' +
+        'box-shadow:0 0 12px rgba(239,68,68,.08);' +
       '}' +
       '.verdict-card-warning{' +
-        'border-color:rgba(245,158,11,.4);' +
-        'background:rgba(245,158,11,.04);' +
-        'box-shadow:0 0 20px rgba(245,158,11,.07);' +
+        'border-color:rgba(0,200,255,.35);' +      /* warning também usa azul (não amarelo) */
+        'background:rgba(0,200,255,.04);' +
+        'box-shadow:0 0 12px rgba(0,200,255,.08);' +
       '}' +
       '.verdict-card-good{' +
         'border-color:rgba(34,197,94,.4);' +
         'background:rgba(34,197,94,.04);' +
-        'box-shadow:0 0 20px rgba(34,197,94,.07);' +
+        'box-shadow:0 0 12px rgba(34,197,94,.08);' +
       '}' +
-      /* elementos internos */
-      '.vc-header{margin-bottom:6px;}' +
-      '.vc-title{font-size:.95rem;font-weight:600;letter-spacing:.03em;line-height:1.3;}' +
+      /* elementos internos — todos centralizados */
+      '.vc-header{margin-bottom:6px;text-align:center;}' +
+      '.vc-title{font-size:.95rem;font-weight:600;letter-spacing:.03em;line-height:1.3;text-align:center;}' +
       '.verdict-card-bad .vc-title{color:#ef4444;}' +
-      '.verdict-card-warning .vc-title{color:#f59e0b;}' +
+      '.verdict-card-warning .vc-title{color:rgba(0,200,255,.95);}' + /* azul no warning */
       '.verdict-card-good .vc-title{color:#22c55e;}' +
-      '.vc-subtitle{font-size:.82rem;color:rgba(200,210,240,.65);margin-bottom:14px;line-height:1.55;}' +
-      '.vc-issues{list-style:none;padding:10px 0 0 0;margin:0 0 4px 0;border-top:1px solid rgba(255,255,255,.06);}' +
-      '.vc-issues li{font-size:.82rem;color:rgba(200,210,240,.85);padding:5px 0;line-height:1.5;border-bottom:1px solid rgba(255,255,255,.04);}' +
+      '.vc-subtitle{font-size:.82rem;color:rgba(200,210,240,.65);margin-bottom:14px;line-height:1.55;text-align:center;}' +
+      '.vc-issues{list-style:none;padding:10px 0 0 0;margin:0 0 4px 0;border-top:1px solid rgba(0,200,255,.1);text-align:center;}' +
+      '.vc-issues li{font-size:.82rem;color:rgba(200,210,240,.85);padding:5px 0;line-height:1.5;border-bottom:1px solid rgba(255,255,255,.04);text-align:center;}' +
       '.vc-issues li:last-child{border-bottom:none;}' +
-      '.vc-mastered-warning{margin-top:12px;padding:8px 12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.22);border-radius:6px;font-size:.8rem;color:#fbbf24;line-height:1.5;}';
+      '.vc-mastered-warning{margin-top:12px;padding:8px 12px;background:rgba(0,200,255,.06);border:1px solid rgba(0,200,255,.2);border-radius:6px;font-size:.8rem;color:rgba(0,200,255,.9);line-height:1.5;text-align:center;}';
     document.head.appendChild(s);
   }
 
