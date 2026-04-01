@@ -274,18 +274,44 @@
         'background:rgba(251,191,36,.08);border-radius:5px;' +
         'border:1px solid rgba(251,191,36,.22);' +
       '}' +
-      '.verdict-card{padding:18px 24px;border-radius:12px;margin-bottom:16px;background:rgba(10,15,28,.65);border:1px solid rgba(100,120,180,.2);text-align:left;backdrop-filter:blur(10px);animation:__verdictIn .4s ease;position:relative;z-index:1;}' +
-      '.verdict-card-bad{border-color:rgba(239,68,68,.4);}' +
-      '.verdict-card-warning{border-color:rgba(245,158,11,.4);}' +
-      '.verdict-card-good{border-color:rgba(34,197,94,.4);}' +
-      '.vc-header{margin-bottom:8px;}' +
-      '.vc-title{font-size:.95rem;font-weight:600;letter-spacing:.02em;}' +
+      /* verdict-card — design integrado ao padrão azul do sistema */
+      '.verdict-card{' +
+        'padding:20px 24px;border-radius:12px;' +
+        'margin:0 auto 20px auto;' +          /* centralizado horizontalmente */
+        'max-width:780px;width:100%;' +        /* largura equilibrada, não estica */
+        'background:rgba(106,154,255,.04);' +  /* fundo azul sutil — padrão do sistema */
+        'border:1px solid rgba(106,154,255,.25);' + /* azul padrão de cards */
+        'box-shadow:0 0 20px rgba(106,154,255,.08);' + /* glow azul neon suave */
+        'text-align:left;backdrop-filter:blur(10px);' +
+        'animation:__verdictIn .4s ease;position:relative;z-index:1;' +
+        'box-sizing:border-box;' +
+      '}' +
+      /* estados de análise sobrescrevem borda + fundo + glow com a cor semântica */
+      '.verdict-card-bad{' +
+        'border-color:rgba(239,68,68,.4);' +
+        'background:rgba(239,68,68,.04);' +
+        'box-shadow:0 0 20px rgba(239,68,68,.07);' +
+      '}' +
+      '.verdict-card-warning{' +
+        'border-color:rgba(245,158,11,.4);' +
+        'background:rgba(245,158,11,.04);' +
+        'box-shadow:0 0 20px rgba(245,158,11,.07);' +
+      '}' +
+      '.verdict-card-good{' +
+        'border-color:rgba(34,197,94,.4);' +
+        'background:rgba(34,197,94,.04);' +
+        'box-shadow:0 0 20px rgba(34,197,94,.07);' +
+      '}' +
+      /* elementos internos */
+      '.vc-header{margin-bottom:6px;}' +
+      '.vc-title{font-size:.95rem;font-weight:600;letter-spacing:.03em;line-height:1.3;}' +
       '.verdict-card-bad .vc-title{color:#ef4444;}' +
       '.verdict-card-warning .vc-title{color:#f59e0b;}' +
       '.verdict-card-good .vc-title{color:#22c55e;}' +
-      '.vc-subtitle{font-size:.82rem;color:rgba(200,210,240,.7);margin-bottom:12px;line-height:1.5;}' +
-      '.vc-issues{list-style:none;padding:0;margin:0 0 4px 0;}' +
-      '.vc-issues li{font-size:.82rem;color:rgba(200,210,240,.88);padding:4px 0;line-height:1.5;}' +
+      '.vc-subtitle{font-size:.82rem;color:rgba(200,210,240,.65);margin-bottom:14px;line-height:1.55;}' +
+      '.vc-issues{list-style:none;padding:10px 0 0 0;margin:0 0 4px 0;border-top:1px solid rgba(255,255,255,.06);}' +
+      '.vc-issues li{font-size:.82rem;color:rgba(200,210,240,.85);padding:5px 0;line-height:1.5;border-bottom:1px solid rgba(255,255,255,.04);}' +
+      '.vc-issues li:last-child{border-bottom:none;}' +
       '.vc-mastered-warning{margin-top:12px;padding:8px 12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.22);border-radius:6px;font-size:.8rem;color:#fbbf24;line-height:1.5;}';
     document.head.appendChild(s);
   }
