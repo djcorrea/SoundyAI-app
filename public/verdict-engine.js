@@ -273,7 +273,20 @@
         'font-size:11px;color:#fbbf24;' +
         'background:rgba(251,191,36,.08);border-radius:5px;' +
         'border:1px solid rgba(251,191,36,.22);' +
-      '}';
+      '}' +
+      '.verdict-card{padding:18px 24px;border-radius:12px;margin-bottom:16px;background:rgba(10,15,28,.65);border:1px solid rgba(100,120,180,.2);text-align:left;backdrop-filter:blur(10px);animation:__verdictIn .4s ease;position:relative;z-index:1;}' +
+      '.verdict-card-bad{border-color:rgba(239,68,68,.4);}' +
+      '.verdict-card-warning{border-color:rgba(245,158,11,.4);}' +
+      '.verdict-card-good{border-color:rgba(34,197,94,.4);}' +
+      '.vc-header{margin-bottom:8px;}' +
+      '.vc-title{font-size:.95rem;font-weight:600;letter-spacing:.02em;}' +
+      '.verdict-card-bad .vc-title{color:#ef4444;}' +
+      '.verdict-card-warning .vc-title{color:#f59e0b;}' +
+      '.verdict-card-good .vc-title{color:#22c55e;}' +
+      '.vc-subtitle{font-size:.82rem;color:rgba(200,210,240,.7);margin-bottom:12px;line-height:1.5;}' +
+      '.vc-issues{list-style:none;padding:0;margin:0 0 4px 0;}' +
+      '.vc-issues li{font-size:.82rem;color:rgba(200,210,240,.88);padding:4px 0;line-height:1.5;}' +
+      '.vc-mastered-warning{margin-top:12px;padding:8px 12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.22);border-radius:6px;font-size:.8rem;color:#fbbf24;line-height:1.5;}';
     document.head.appendChild(s);
   }
 
@@ -305,61 +318,148 @@
   }
 
   // ─────────────────────────────────────────────────────────────
-  // RENDER: texto grande + CTA dentro de #final-score-display
+  // RENDER: card estruturado do veredito (acima do score)
   // ─────────────────────────────────────────────────────────────
 
   var COLOR_MAP = { good: '#22c55e', warning: '#f59e0b', bad: '#ef4444' };
 
+  /**
+   * Gera o innerHTML do card de veredito estruturado.
+   * Reutiliza dados calc. por generateMixVerdict — lógica intacta.
+   */
+  function _buildVerdictCardHTML(verdict) {
+    var metrics = verdict.metrics || {};
+    var fails   = verdict.fails   || {};
+
+    var title, subtitle;
+    if (verdict.status === 'bad') {
+      title    = 'Mix com problemas críticos';
+      subtitle = 'Não enviar para masterização neste estado';
+    } else if (verdict.status === 'warning') {
+      title    = 'Mix requer ajustes antes de masterizar';
+      subtitle = 'Masterizar agora pode comprometer o resultado final';
+    } else {
+      title    = '\u2714 Mix pronta para masterização';
+      subtitle = 'Os níveis estão dentro dos parâmetros ideais para processamento';
+    }
+
+    var bullets = [];
+    if (verdict.status === 'bad') {
+      if (metrics.clipping) {
+        bullets.push('Clipping detectado \u2014 distorção no sinal fonte');
+      }
+      if (metrics.tp !== null && metrics.tp !== undefined && metrics.tp > 0) {
+        bullets.push('True Peak acima de 0 dBTP (' + fmt1(metrics.tp) + ' dBTP)');
+      }
+      if (metrics.crestFactor !== null && metrics.crestFactor !== undefined && metrics.crestFactor < 8) {
+        bullets.push('Crest Factor cr\u00edtico (' + fmt1(metrics.crestFactor) + ' dB) \u2014 mix hiperlimitada');
+      }
+    } else if (verdict.status === 'warning') {
+      if (fails.tpFail && metrics.tp !== null && metrics.tp !== undefined) {
+        bullets.push('True Peak em ' + fmt1(metrics.tp) + ' dBTP (limite: \u2264 \u22121 dBTP)');
+      }
+      if (fails.lufsFail && metrics.lufs !== null && metrics.lufs !== undefined) {
+        bullets.push('Volume de entrada em ' + fmt1(metrics.lufs) + ' LUFS (janela segura: \u221226 a \u221214)');
+      }
+      if (fails.drFail && metrics.dr !== null && metrics.dr !== undefined) {
+        bullets.push('Range din\u00e2mico DR ' + fmt1(metrics.dr) + ' (m\u00ednimo recomendado: 8)');
+      }
+      if (fails.cfFail && metrics.crestFactor !== null && metrics.crestFactor !== undefined) {
+        bullets.push('Crest Factor ' + fmt1(metrics.crestFactor) + ' dB (m\u00ednimo recomendado: 8)');
+      }
+    } else {
+      if (metrics.lufs !== null && metrics.lufs !== undefined) {
+        bullets.push('Volume: ' + fmt1(metrics.lufs) + ' LUFS \u2713');
+      }
+      if (metrics.tp !== null && metrics.tp !== undefined) {
+        bullets.push('True Peak: ' + fmt1(metrics.tp) + ' dBTP \u2713');
+      }
+      if (metrics.dr !== null && metrics.dr !== undefined) {
+        bullets.push('Range din\u00e2mico: DR ' + fmt1(metrics.dr) + ' \u2713');
+      }
+    }
+
+    var bulletsHTML = '';
+    if (bullets.length > 0) {
+      bulletsHTML = '<ul class="vc-issues">' +
+        bullets.map(function (b) { return '<li>\u2022 ' + b + '</li>'; }).join('') +
+        '</ul>';
+    }
+
+    var masteredHTML = '';
+    if (verdict.possiblyMastered) {
+      masteredHTML =
+        '<div class="vc-mastered-warning">' +
+        '\u26a0\ufe0f Esta faixa pode j\u00e1 estar masterizada \u2014 masterizar novamente pode degradar a qualidade.' +
+        '</div>';
+    }
+
+    return (
+      '<div class="vc-header"><span class="vc-title">' + title + '</span></div>' +
+      '<div class="vc-subtitle">' + subtitle + '</div>' +
+      bulletsHTML +
+      masteredHTML
+    );
+  }
+
   function _renderMainTextAndCTA(verdict, techData) {
-    // PASSO 2 — Container correto: #final-score-display (topo do modal)
     var scoreContainer = document.getElementById('final-score-display');
     if (!scoreContainer) {
-      vwarn('[VERDICT] ERRO: #final-score-display não encontrado — abortando render');
+      vwarn('[VERDICT] ERRO: #final-score-display n\u00e3o encontrado \u2014 abortando render');
       return false;
     }
-    vlog('[VERDICT] container correto encontrado (#final-score-display)');
+    vlog('[VERDICT] container encontrado (#final-score-display) \u2014 renderizando verdict-card');
 
-    // PASSO 3 — Inserir texto logo após #diagnostic-container
-    var diagnostic = scoreContainer.querySelector('#diagnostic-container');
-    var anchor     = diagnostic || scoreContainer.lastElementChild;
+    // Ocultar .score-final-status e remover badge separado (migrados para o card)
+    var statusEl = scoreContainer.querySelector('.score-final-status');
+    if (statusEl) { statusEl.style.display = 'none'; }
+    var badgeEl = document.getElementById('__verdictMasteredBadge__');
+    if (badgeEl) { badgeEl.remove(); }
 
-    // Remover instância prévia para não duplicar
-    var existingBox = scoreContainer.querySelector('.verdict-main-text');
-    if (existingBox) { existingBox.remove(); }
+    // Remover inst\u00e2ncias pr\u00e9vias (idempotente)
+    var existingCard = scoreContainer.querySelector('.verdict-card');
+    if (existingCard) { existingCard.remove(); }
+    var existingText = scoreContainer.querySelector('.verdict-main-text');
+    if (existingText) { existingText.remove(); }
 
-    var verdictBox = document.createElement('div');
-    verdictBox.className = 'verdict-main-text';
-    verdictBox.style.color = COLOR_MAP[verdict.status] || '#c8d3e8';
-    verdictBox.innerHTML = generateMixVerdictMainText(verdict, techData);
+    // Construir novo card estruturado
+    var card = document.createElement('div');
+    card.className = 'verdict-card verdict-card-' + verdict.status;
+    card.innerHTML = _buildVerdictCardHTML(verdict);
 
-    if (anchor) {
-      anchor.insertAdjacentElement('afterend', verdictBox);
+    // Inserir ANTES de .score-final-label (card fica acima do score)
+    var labelEl = scoreContainer.querySelector('.score-final-label');
+    if (labelEl) {
+      scoreContainer.insertBefore(card, labelEl);
     } else {
-      scoreContainer.appendChild(verdictBox);
+      scoreContainer.insertBefore(card, scoreContainer.firstChild);
     }
-    vlog('[VERDICT] texto principal inserido após #diagnostic-container (status=' + verdict.status + ')');
+    vlog('[VERDICT] verdict-card inserido antes de .score-final-label (status=' + verdict.status + ')');
 
-    // PASSO 4 — Mover #btnMasterizar para dentro do scoreContainer, logo após verdictBox
+    // Mover #btnMasterizar para logo ap\u00f3s .score-final-bar-container
     var masterBtn = document.getElementById('btnMasterizar');
     if (masterBtn) {
-      // Remover de onde estiver no DOM e reposicionar dentro do bloco de score
       masterBtn.parentNode && masterBtn.parentNode.removeChild(masterBtn);
-      // Garantir clicabilidade dentro do stacking context do container (overflow:hidden + ::before z-index:0)
-      masterBtn.style.position     = 'relative';
-      masterBtn.style.zIndex       = '2';
+      masterBtn.style.position      = 'relative';
+      masterBtn.style.zIndex        = '2';
       masterBtn.style.pointerEvents = 'auto';
-      verdictBox.insertAdjacentElement('afterend', masterBtn);
-      vlog('[VERDICT] #btnMasterizar movido para dentro de #final-score-display após .verdict-main-text');
+      var barContainer = scoreContainer.querySelector('.score-final-bar-container');
+      if (barContainer) {
+        barContainer.insertAdjacentElement('afterend', masterBtn);
+      } else {
+        scoreContainer.appendChild(masterBtn);
+      }
+      vlog('[VERDICT] #btnMasterizar posicionado ap\u00f3s .score-final-bar-container');
     } else {
-      vwarn('[VERDICT] #btnMasterizar não encontrado no DOM — CTA não posicionado');
+      vwarn('[VERDICT] #btnMasterizar n\u00e3o encontrado no DOM \u2014 CTA n\u00e3o posicionado');
     }
 
-    // PASSO 5 — Limpar quaisquer duplicatas do texto de veredito
-    document.querySelectorAll('.verdict-main-text').forEach(function (el, i) {
+    // Limpar duplicatas do card
+    document.querySelectorAll('.verdict-card').forEach(function (el, i) {
       if (i > 0) { el.remove(); }
     });
 
-    vlog('[VERDICT] veredito inserido e CTA reposicionado dentro do score container');
+    vlog('[VERDICT] verdict-card renderizado e CTA reposicionado');
     return true;
   }
 
