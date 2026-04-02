@@ -9640,7 +9640,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
-                _summaryLufs = { displayValue: canRender ? lufsValue.toFixed(2) + ' LUFS' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
+                _summaryLufs = { displayValue: canRender ? lufsValue.toFixed(2) + ' LUFS' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒', action: canRender ? result.action : '' };
                 metricsCount++;
                 log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} LUFS: ${lufsValue.toFixed(2)} | Target: ${genreData.lufs_target} | ${result.severity}`);
             }
@@ -9688,7 +9688,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
-                _summaryTp = { displayValue: canRender ? tpValue.toFixed(2) + ' dBTP' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
+                _summaryTp = { displayValue: canRender ? tpValue.toFixed(2) + ' dBTP' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒', action: canRender ? result.action : '' };
                 metricsCount++;
                 log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} True Peak: ${tpValue.toFixed(2)} | Target: ${genreData.true_peak_target} | ${result.severity}`);
             }
@@ -9712,7 +9712,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
-                _summaryDr = { displayValue: canRender ? drValue.toFixed(2) + ' DR' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
+                _summaryDr = { displayValue: canRender ? drValue.toFixed(2) + ' DR' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒', action: canRender ? result.action : '' };
                 metricsCount++;
                 log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} DR: ${drValue.toFixed(2)} | Target: ${genreData.dr_target} | ${result.severity}`);
             }
@@ -9736,7 +9736,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
-                _summaryLra = { displayValue: canRender ? lraValue.toFixed(2) + ' LU' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
+                _summaryLra = { displayValue: canRender ? lraValue.toFixed(2) + ' LU' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒', action: canRender ? result.action : '' };
                 metricsCount++;
                 log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} LRA: ${lraValue.toFixed(2)} | Target: ${genreData.lra_target} | ${result.severity}`);
             }
@@ -9760,7 +9760,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
-                _summaryStereo = { displayValue: canRender ? stereoValue.toFixed(3) : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
+                _summaryStereo = { displayValue: canRender ? stereoValue.toFixed(3) : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒', action: canRender ? result.action : '' };
                 metricsCount++;
                 log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} Stereo: ${stereoValue.toFixed(3)} | Target: ${genreData.stereo_target} | ${result.severity}`);
             }
@@ -9915,8 +9915,15 @@ function renderGenreComparisonTable(options) {
     
     // 🎯 Helper para cards de resumo diagnóstico
     const _buildDscCard = (icon, label, summary) => {
-        if (!summary) return `<div class="diag-summary-card dsc-na"><span class="dsc-icon">${icon}</span><span class="dsc-label">${label}</span><span class="dsc-value">—</span><span class="dsc-badge">N/D</span></div>`;
-        return `<div class="diag-summary-card dsc-${summary.severityClass}"><span class="dsc-icon">${icon}</span><span class="dsc-label">${label}</span><span class="dsc-value">${summary.displayValue}</span><span class="dsc-badge dsc-badge-${summary.severityClass}">${summary.severity}</span></div>`;
+        if (!summary) return `<div class="diag-summary-card dsc-na"><span class="dsc-icon">${icon}</span><span class="dsc-label">${label}</span><span class="dsc-value">—</span><span class="dsc-badge">—</span></div>`;
+        // Derivar direção a partir do texto de ação (sem repetir texto de severidade)
+        const _a = summary.action || '';
+        const _dir = (_a.includes('✅') || _a.includes('Dentro'))
+            ? '✅ OK'
+            : _a.toLowerCase().includes('reduzir') ? '🔻 Reduzir'
+            : _a.toLowerCase().includes('aumentar') ? '🔺 Aumentar'
+            : _a === '🔒' ? '🔒' : '↔';
+        return `<div class="diag-summary-card dsc-${summary.severityClass}"><span class="dsc-icon">${icon}</span><span class="dsc-label">${label}</span><span class="dsc-value">${summary.displayValue}</span><span class="dsc-badge dsc-badge-${summary.severityClass}">${_dir}</span></div>`;
     };
 
     // Shell principal do Diagnóstico Técnico (cards + botão + área expandida)
@@ -9958,26 +9965,30 @@ function renderGenreComparisonTable(options) {
         return null;
     };
 
-    const metricCards = [
-        { icon: '🔊', title: 'LUFS Integrado', value: lufsIntegrated, target: genreData.lufs_target, tol: genreData.tol_lufs || 1.0, unit: ' LUFS' },
-        { icon: '🎚️', title: 'True Peak', value: truePeakDbtp, target: genreData.true_peak_target, tol: genreData.tol_true_peak || 0.5, unit: ' dBTP' },
-        { icon: '📊', title: 'Dinâmica (DR)', value: dynamicRangeValue, target: genreData.dr_target, tol: genreData.tol_dr || 1.0, unit: ' DR' },
-        { icon: '📈', title: 'LRA', value: lra, target: genreData.lra_target, tol: genreData.tol_lra || 2.0, unit: ' LU' },
-        { icon: '🎧', title: 'Imagem Estéreo', value: stereoCorrelation, target: genreData.stereo_target, tol: genreData.tol_stereo || 0.1, unit: '' }
-    ]
-        .filter((item) => Number.isFinite(item.value) && Number.isFinite(item.target))
-        .map((item) => {
-            const result = calcSeverity(item.value, item.target, item.tol);
-            return `
-                <article class="diag-expanded-card dec-${result.severityClass}">
-                    <div class="dec-head">${item.icon} ${item.title}</div>
-                    <div class="dec-value">${item.value.toFixed(2)}${item.unit}</div>
-                    <div class="dec-meta">Alvo: ${item.target.toFixed(2)}${item.unit || ''}</div>
-                    <div class="dec-sev dec-sev-${result.severityClass}">${result.severity}</div>
-                    <div class="dec-action">${sanitizeActionText(result.action)}</div>
-                </article>
-            `;
-        });
+    // 🎯 MÉTRICAS AVANÇADAS — sem duplicar as 5 do bloco principal
+    const _cfValue = analysis?.technicalData?.crestFactor ?? analysis?.dynamics?.crest ?? null;
+    const _kurtValue = analysis?.technicalData?.spectralKurtosis ?? null;
+
+    const advancedCards = [];
+    if (Number.isFinite(_cfValue)) {
+        const _cfResult = calcSeverity(_cfValue, 8.0, 2.0);
+        advancedCards.push(`
+            <article class="diag-expanded-card dec-${_cfResult.severityClass}">
+                <div class="dec-head">⚡ Crest Factor</div>
+                <div class="dec-value">${_cfValue.toFixed(2)} dB</div>
+                <div class="dec-action">${sanitizeActionText(_cfResult.action)}</div>
+            </article>
+        `);
+    }
+    if (Number.isFinite(_kurtValue)) {
+        advancedCards.push(`
+            <article class="diag-expanded-card dec-na">
+                <div class="dec-head">📈 Kurtosis Espectral</div>
+                <div class="dec-value">${_kurtValue.toFixed(3)}</div>
+                <div class="dec-action">📊 Informativo</div>
+            </article>
+        `);
+    }
 
     const bandCards = Object.keys(targetBands || {})
         .map((key) => {
@@ -10014,8 +10025,6 @@ function renderGenreComparisonTable(options) {
                 <article class="diag-expanded-card dec-${result.severityClass} dec-compact">
                     <div class="dec-head">${title}</div>
                     <div class="dec-value">${bandValue.toFixed(2)} dB</div>
-                    <div class="dec-meta">Alvo: ${targetText}</div>
-                    <div class="dec-sev dec-sev-${result.severityClass}">${result.severity}</div>
                     <div class="dec-action">${sanitizeActionText(result.action)}</div>
                 </article>
             `;
@@ -10024,9 +10033,9 @@ function renderGenreComparisonTable(options) {
 
     const tableHTML = `
         <div class="diag-expanded-grid">
-            <div class="diag-expanded-section-title">Métricas principais</div>
-            <div class="diag-expanded-cards">${metricCards.join('')}</div>
-            <div class="diag-expanded-section-title">Bandas espectrais</div>
+            <div class="diag-expanded-section-title">Métricas Avançadas</div>
+            <div class="diag-expanded-cards">${advancedCards.length ? advancedCards.join('') : '<div class="diag-empty">Crest Factor e Kurtosis não disponíveis nesta análise.</div>'}</div>
+            <div class="diag-expanded-section-title">Bandas Espectrais</div>
             <div class="diag-expanded-cards">${bandCards.length ? bandCards.join('') : '<div class="diag-empty">Sem bandas disponíveis para exibição.</div>'}</div>
         </div>
     `;
