@@ -3000,10 +3000,14 @@ function showModalLoading() {
 function resolveGenreTargetsForDiagnostic(analysis) {
     const genre = extractGenreName(analysis) || window.PROD_AI_REF_GENRE || 'default';
 
-    if (analysis?.data?.genreTargets) {
+    // Validar estrutura ANTES de usar: precisa ter lufs_target numérico (flat format)
+    // Se analysis.data.genreTargets chegou do normalizeBackendAnalysisData tem formato reduzido
+    // { lufs, true_peak, spectral_bands } sem tol_lufs → não serve para calcSeverity
+    const cached = analysis?.data?.genreTargets;
+    if (cached && typeof cached.lufs_target === 'number') {
         return {
             genre,
-            targets: analysis.data.genreTargets
+            targets: cached
         };
     }
 
