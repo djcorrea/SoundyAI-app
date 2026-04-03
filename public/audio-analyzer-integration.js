@@ -10076,10 +10076,27 @@ function renderGenreComparisonTable(options) {
         return null;
     };
 
-    // 🎯 MÉTRICAS AVANÇADAS — CF já está nos cards principais; aqui só Kurtosis
-    const _kurtValue = analysis?.technicalData?.spectralKurtosis ?? null;
+    // 🎯 MÉTRICAS AVANÇADAS — CF está nos cards principais; aqui: Estéreo + Kurtosis
+    const _kurtValue  = analysis?.technicalData?.spectralKurtosis ?? null;
+    const _stereoVal  = stereoCorrelation;
 
     const advancedCards = [];
+
+    // ── Stereo Correlation ───────────────────────────────────────────────────
+    if (Number.isFinite(_stereoVal) && genreData.stereo_target != null) {
+        const _tol_stereo = genreData.tol_stereo ?? 0.1;
+        const _stereoResult = calcSeverity(_stereoVal, genreData.stereo_target, _tol_stereo);
+        const canRenderStereo = shouldRenderRealValue('stereo', 'table', analysis);
+        advancedCards.push(`
+            <article class="diag-expanded-card dec-${_stereoResult.severityClass}">
+                <div class="dec-head">🎧 Imagem Estéreo</div>
+                <div class="dec-value">${canRenderStereo ? _stereoVal.toFixed(3) : '🔒'}</div>
+                <div class="dec-action">${canRenderStereo ? sanitizeActionText(_stereoResult.action) : '🔒'}</div>
+            </article>
+        `);
+    }
+
+    // ── Kurtosis Espectral ───────────────────────────────────────────────────
     if (Number.isFinite(_kurtValue)) {
         advancedCards.push(`
             <article class="diag-expanded-card dec-na">
