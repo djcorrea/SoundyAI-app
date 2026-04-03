@@ -461,6 +461,9 @@ class AISuggestionUIController {
         // Limpar cache de análise anterior
         this.lastAnalysisJobId = null;
         this.lastAnalysisTimestamp = null;
+
+        // Resetar lock de render para nova análise
+        window.__suggestionsRendered = false;
         
         // NÃO limpar currentSuggestions (mantém renderização visual)
         // NÃO limpar elementos DOM (preserva estrutura)
@@ -1792,7 +1795,18 @@ class AISuggestionUIController {
      */
     renderSuggestionCards(suggestions, isAIEnriched = false, genreTargets = null, renderJobId = null) {
         if (!this.elements.aiContent) return;
-        
+
+        // ── LOCK GLOBAL: impede duplo render (timer retry + MutationObserver) ──
+        if (window.__suggestionsRendered === true) {
+            console.warn('[SUGGESTIONS RENDER] 🔒 Bloqueado: já renderizado. jobId:', renderJobId, Date.now());
+            return;
+        }
+        window.__suggestionsRendered = true;
+        console.log('[SUGGESTIONS RENDER]', Date.now(), '| isAIEnriched:', isAIEnriched, '| count:', suggestions?.length);
+
+        // Limpar container antes de qualquer render para evitar HTML obsoleto
+        this.elements.aiContent.innerHTML = '';
+
         log('[AI-UI][RENDER] 📋 Renderizando', suggestions.length, 'cards');
         log('[AI-UI][RENDER] Modo:', isAIEnriched ? 'IA Enriquecida' : 'Base');
         log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
