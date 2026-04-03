@@ -2087,11 +2087,29 @@ class AISuggestionUIController {
         // ✅ VALIDAR SUGESTÕES CONTRA TARGETS REAIS
         const validatedSuggestions = this.validateAndCorrectSuggestions(filteredSuggestions, genreTargets);
 
-        // ── FILTRO PRÉ-MASTER: apenas LUFS / True Peak / DR / Crest Factor ─────────
+        // ── FILTRO PRÉ-MASTER: duplo (métrica + conteúdo textual) ─────────────────
         const PREMASTER_ALLOWED = ['lufs', 'truepeak', 'dbtp', 'dynamicrange', 'dr', 'crestfactor', 'cf', 'lra'];
+        const BLOCKED_KEYWORDS = [
+            'hz', 'khz',
+            'grave', 'sub', 'baixo',
+            'medio', 'médio',
+            'agudo', 'brilho',
+            'freq', 'frequência', 'frequencia'
+        ];
+        const normalizeMetric = rawMetric => {
+            const m = (rawMetric || '').toLowerCase().replace(/[\s_\-]/g, '');
+            if (!m) return null;
+            return PREMASTER_ALLOWED.some(a => m.includes(a)) ? m : null;
+        };
+        const isBandSuggestion = (text = '') => {
+            const t = text.toLowerCase();
+            return BLOCKED_KEYWORDS.some(k => t.includes(k));
+        };
         const isValidSuggestion = s => {
-            const m = (s.metric || s.metricKey || s.category || '').toLowerCase().replace(/[\s_\-]/g, '');
-            return m !== '' && PREMASTER_ALLOWED.some(a => m.includes(a));
+            if (!s.problema || !s.solucao) return false;
+            const metric = normalizeMetric(s.metric || s.metricKey || s.category || '');
+            const text = `${s.problema || ''} ${s.solucao || ''}`;
+            return metric !== null && !isBandSuggestion(text);
         };
         const ORDER = { 'CRÍTICA': 0, 'ALTA': 1, 'ATENÇÃO': 2 };
         const premasterSuggestions = validatedSuggestions

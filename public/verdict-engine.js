@@ -349,7 +349,7 @@
       '.vc-issues li:last-child{border-bottom:none;}' +
       '.vc-mastered-warning{margin-top:12px;padding:8px 12px;background:rgba(0,200,255,.06);border:1px solid rgba(0,200,255,.2);border-radius:6px;font-size:.8rem;color:rgba(0,200,255,.9);line-height:1.5;text-align:center;}' +
       /* Botão secundário: scroll para sugestões (warning/bad) */
-      '#btnCorrigirAntes{display:block;width:100%;margin:0 0 10px 0;padding:8px 0;' +
+      '#btnCorrigirAntes{display:inline-block;width:auto;margin-top:6px;margin-bottom:4px;padding:6px 12px;' +
         'background:transparent;border:1px solid rgba(0,200,255,.25);border-radius:8px;' +
         'color:rgba(0,200,255,.7);font-family:Rajdhani,sans-serif;font-size:12px;font-weight:500;' +
         'letter-spacing:.03em;cursor:pointer;' +
