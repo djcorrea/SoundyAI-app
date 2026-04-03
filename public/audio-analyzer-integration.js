@@ -9366,7 +9366,18 @@ function renderGenreComparisonTable(options) {
     const analysis = isDirectAnalysis ? options : options?.analysis;
     const resolved = analysis ? resolveGenreTargetsForDiagnostic(analysis) : { genre: null, targets: null };
     const genre = isDirectAnalysis ? resolved.genre : options?.genre;
-    const targets = isDirectAnalysis ? resolved.targets : options?.targets;
+    let targets = isDirectAnalysis ? resolved.targets : options?.targets;
+
+    // 🛡️ VALIDAÇÃO DE TARGETS: Se targets externos não têm lufs_target numérico (estrutura
+    // malformada de normalizeBackendAnalysisData), redirecionar para resolveGenreTargetsForDiagnostic
+    // que tem a cadeia completa: validated cache → PROD_AI_REF_DATA[genre] → __activeRefData
+    if (!targets || typeof targets.lufs_target !== 'number') {
+        const fallback = resolveGenreTargetsForDiagnostic(analysis);
+        if (fallback?.targets && typeof fallback.targets.lufs_target === 'number') {
+            targets = fallback.targets;
+            log('[GENRE-TABLE] ⚠️ Targets externos inválidos (sem lufs_target) — usando fallback de resolveGenreTargetsForDiagnostic');
+        }
+    }
 
     console.log('ANALYSIS COMPLETO:', analysis);
 
@@ -15550,11 +15561,17 @@ async function displayModalResults(analysis) {
             genreTargets = JSON.parse(JSON.stringify(window.PROD_AI_REF_DATA[genre])); // Deep copy
             log('[GENRE-FLOW] 📦 Targets BASE obtidos de PROD_AI_REF_DATA[genre]');
         }
-        
-        // 🎯 FALLBACK: analysis.data.genreTargets
-        if (!genreTargets && analysis.data?.genreTargets) {
+
+        // 🎯 FALLBACK 1: __activeRefData (tem tol_lufs correto, carregado por loadReferenceData)
+        if (!genreTargets && window.__activeRefData && typeof window.__activeRefData.lufs_target === 'number') {
+            genreTargets = JSON.parse(JSON.stringify(window.__activeRefData));
+            log('[GENRE-FLOW] 📦 Targets obtidos de __activeRefData (fallback 1)');
+        }
+
+        // 🎯 FALLBACK 2: analysis.data.genreTargets — só usar se tiver estrutura flat válida
+        if (!genreTargets && analysis.data?.genreTargets && typeof analysis.data.genreTargets.lufs_target === 'number') {
             genreTargets = JSON.parse(JSON.stringify(analysis.data.genreTargets));
-            log('[GENRE-FLOW] 📦 Targets obtidos de analysis.data.genreTargets (fallback)');
+            log('[GENRE-FLOW] 📦 Targets obtidos de analysis.data.genreTargets (fallback 2)');
         }
         
         // 📡 STREAMING MODE: Aplicar override de LUFS e TP (mantém DR, LRA, Stereo, Bandas)
