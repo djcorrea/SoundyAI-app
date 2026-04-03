@@ -347,7 +347,26 @@
       '.vc-issues{list-style:none;padding:10px 0 0 0;margin:0 0 4px 0;border-top:1px solid rgba(0,200,255,.1);text-align:center;}' +
       '.vc-issues li{font-size:.82rem;color:rgba(200,210,240,.85);padding:5px 0;line-height:1.5;border-bottom:1px solid rgba(255,255,255,.04);text-align:center;}' +
       '.vc-issues li:last-child{border-bottom:none;}' +
-      '.vc-mastered-warning{margin-top:12px;padding:8px 12px;background:rgba(0,200,255,.06);border:1px solid rgba(0,200,255,.2);border-radius:6px;font-size:.8rem;color:rgba(0,200,255,.9);line-height:1.5;text-align:center;}';
+      '.vc-mastered-warning{margin-top:12px;padding:8px 12px;background:rgba(0,200,255,.06);border:1px solid rgba(0,200,255,.2);border-radius:6px;font-size:.8rem;color:rgba(0,200,255,.9);line-height:1.5;text-align:center;}' +
+      /* Botão secundário: scroll para sugestões (warning/bad) */
+      '#btnCorrigirAntes{display:block;width:100%;margin:0 0 12px 0;padding:11px 0;' +
+        'background:transparent;border:1px solid rgba(0,200,255,.35);border-radius:10px;' +
+        'color:rgba(0,200,255,.9);font-family:Rajdhani,sans-serif;font-size:14px;font-weight:600;' +
+        'letter-spacing:.05em;text-transform:uppercase;cursor:pointer;' +
+        'transition:background .2s,border-color .2s,transform .15s;box-sizing:border-box;}' +
+      '#btnCorrigirAntes:hover{background:rgba(0,200,255,.07);border-color:rgba(0,200,255,.6);transform:translateY(-1px);}' +
+      /* Botão opcional: ver melhorias (good) */
+      '#btnVerMelhorias{display:block;width:100%;margin-top:14px;padding:10px 0;' +
+        'background:transparent;border:1px solid rgba(34,197,94,.3);border-radius:10px;' +
+        'color:rgba(34,197,94,.8);font-family:Rajdhani,sans-serif;font-size:13px;font-weight:600;' +
+        'letter-spacing:.05em;cursor:pointer;transition:background .2s,border-color .2s;box-sizing:border-box;}' +
+      '#btnVerMelhorias:hover{background:rgba(34,197,94,.06);border-color:rgba(34,197,94,.5);}' +
+      /* Highlight temporário no container de sugestões */
+      '@keyframes __suggHighlight{0%{box-shadow:0 0 0 rgba(0,200,255,0);}' +
+        '30%{box-shadow:0 0 22px rgba(0,200,255,.45);}' +
+        '100%{box-shadow:0 0 0 rgba(0,200,255,0);}}' +
+      '.verdict-suggestions-highlight{animation:__suggHighlight 2.5s ease forwards;' +
+        'border:1px solid rgba(0,200,255,.4)!important;border-radius:12px;}';
     document.head.appendChild(s);
   }
 
@@ -544,6 +563,32 @@
       vwarn('[VERDICT] #btnMasterizar n\u00e3o encontrado no DOM \u2014 CTA n\u00e3o posicionado');
     }
 
+    // ── Botão secundário: scroll para sugestões (warning / bad) ─────────────
+    var existingCorrigir = document.getElementById('btnCorrigirAntes');
+    if (existingCorrigir) { existingCorrigir.remove(); }
+    if (verdict.status === 'warning' || verdict.status === 'bad') {
+      var corrigirBtn    = document.createElement('button');
+      corrigirBtn.id     = 'btnCorrigirAntes';
+      corrigirBtn.type   = 'button';
+      corrigirBtn.textContent = '\uD83D\uDD0D Corrigir antes de masterizar';
+      corrigirBtn.addEventListener('click', function () {
+        var sugSection = document.getElementById('aiSuggestionsExpanded');
+        if (!sugSection) { return; }
+        if (sugSection.style.display === 'none') { sugSection.style.display = ''; }
+        sugSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        sugSection.classList.add('verdict-suggestions-highlight');
+        setTimeout(function () { sugSection.classList.remove('verdict-suggestions-highlight'); }, 2500);
+      });
+      var masterBtnRef = document.getElementById('btnMasterizar');
+      if (masterBtnRef) {
+        scoreContainer.insertBefore(corrigirBtn, masterBtnRef);
+      } else {
+        scoreContainer.appendChild(corrigirBtn);
+      }
+      vlog('[VERDICT] #btnCorrigirAntes inserido para status=' + verdict.status);
+    }
+    // ── Fim botão secundário ─────────────────────────────────────────────────
+
     // Limpar duplicatas do card
     document.querySelectorAll('.verdict-card').forEach(function (el, i) {
       if (i > 0) { el.remove(); }
@@ -551,6 +596,92 @@
 
     vlog('[VERDICT] verdict-card renderizado e CTA reposicionado');
     return true;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // CONTROLE DE VISIBILIDADE DAS SUGESTÕES
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * Oculta cards além do índice 4 (máx 5) e esconde o container
+   * se o número de sugestões visíveis for < 3.
+   */
+  function _validateAndCapSuggestions(sugSection) {
+    var grid = document.getElementById('aiExpandedGrid');
+    if (!grid) { return; }
+    var cards = Array.from(grid.querySelectorAll('.ai-suggestion-card'));
+    vlog('[VERDICT] _validateAndCapSuggestions: cards encontrados =', cards.length);
+
+    if (cards.length === 0) {
+      sugSection.style.display = 'none';
+      vlog('[VERDICT] sem sugestões (0 cards) — container ocultado');
+      return;
+    }
+    // Cap a 5
+    if (cards.length > 5) {
+      cards.slice(5).forEach(function (c) { c.style.display = 'none'; });
+      vlog('[VERDICT] sugestões capadas a 5 (havia ' + cards.length + ')');
+    }
+    // Contar visíveis
+    var visible = cards.filter(function (c) { return c.style.display !== 'none'; });
+    if (visible.length < 3) {
+      sugSection.style.display = 'none';
+      vlog('[VERDICT] menos de 3 sugestões visíveis (' + visible.length + ') — container ocultado');
+    }
+  }
+
+  /**
+   * Controla visibilidade de #aiSuggestionsExpanded com base no veredito:
+   *  - good    → oculta sugestões, insere botão "Ver melhorias opcionais"
+   *  - warning → garante visível; valida/capa
+   *  - bad     → garante visível + highlight; valida/capa
+   */
+  function _applySuggestionVisibility(verdict) {
+    var sugSection    = document.getElementById('aiSuggestionsExpanded');
+    var scoreContainer = document.getElementById('final-score-display');
+
+    // Remover botão opcional anterior (idempotente)
+    var existingVerMelhorias = document.getElementById('btnVerMelhorias');
+    if (existingVerMelhorias) { existingVerMelhorias.remove(); }
+
+    if (!sugSection) {
+      vwarn('[VERDICT] #aiSuggestionsExpanded não encontrado — visibilidade não controlada');
+      return;
+    }
+
+    if (verdict.status === 'good') {
+      // APTO: ocultar sugestões e oferecer botão opcional
+      sugSection.style.display = 'none';
+      if (scoreContainer) {
+        var verBtn       = document.createElement('button');
+        verBtn.id        = 'btnVerMelhorias';
+        verBtn.type      = 'button';
+        verBtn.textContent = '\uD83D\uDD0E Ver melhorias opcionais';
+        verBtn.addEventListener('click', function () {
+          sugSection.style.display = '';
+          verBtn.remove();
+          sugSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        scoreContainer.appendChild(verBtn);
+      }
+      vlog('[VERDICT] status=good — sugestões ocultas; botão opcional inserido');
+      return;
+    }
+
+    // warning / bad: garantir que a seção está visível
+    if (sugSection.style.display === 'none') {
+      sugSection.style.display = '';
+    }
+
+    // bad: highlight temporário na seção de sugestões
+    if (verdict.status === 'bad') {
+      sugSection.classList.add('verdict-suggestions-highlight');
+      setTimeout(function () { sugSection.classList.remove('verdict-suggestions-highlight'); }, 2500);
+    }
+
+    // Validar e capar sugestões renderizadas
+    _validateAndCapSuggestions(sugSection);
+    vlog('[VERDICT] status=' + verdict.status + ' — sugestões controladas');
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -669,6 +800,10 @@
       }
 
       // #verdictMasterBtn removido — CTA gerenciado por #btnMasterizar (HTML estático)
+
+      // ── 5. Controle de visibilidade das sugestões ──────────────────────────
+      _applySuggestionVisibility(verdict);
+      vlog('[VERDICT-AUDIT] _applySuggestionVisibility concluído — status=' + verdict.status);
 
       if (ok) {
         vlog('[VERDICT-AUDIT] ✅ fluxo finalizado — status=' + verdict.status);
