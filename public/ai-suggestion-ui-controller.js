@@ -462,7 +462,8 @@ class AISuggestionUIController {
         this.lastAnalysisJobId = null;
         this.lastAnalysisTimestamp = null;
 
-        // Resetar lock de render para nova análise
+        // Resetar ambos os locks para nova análise
+        window.__AI_RENDER_COMPLETED__ = false;
         window.__suggestionsRendered = false;
         
         // NÃO limpar currentSuggestions (mantém renderização visual)
@@ -1334,17 +1335,24 @@ class AISuggestionUIController {
      * @param {Object} genreTargets - Targets do gênero para validação
      */
     renderAISuggestions(suggestions, genreTargets = null, metrics = null) {
-        // � ETAPA 1 — AUDITORIA DE RENDERIZAÇÃO VISUAL
-        console.groupCollapsed('%c[AUDITORIA_RENDER] 🎨 Verificando Renderização de AI Cards', 'color:#8F5BFF;font-weight:bold;');
-        log('%c[AI-RENDER-AUDIT] Sugestões recebidas:', 'color:#FFD700;', suggestions?.length);
+        // -- LOCK SUPERIOR: impede qualquer render duplicado ----------------------
+        if (window.__AI_RENDER_COMPLETED__ === true) {
+            console.warn('[AI] Ja renderizado -- renderAISuggestions bloqueado', Date.now());
+            return;
+        }
+        window.__AI_RENDER_COMPLETED__ = true;
+        // ------------------------------------------------------------------------
+
+        // ETAPA 1 -- AUDITORIA DE RENDERIZACAO VISUAL
+        console.groupCollapsed('%c[AUDITORIA_RENDER] Verificando Renderizacao de AI Cards', 'color:#8F5BFF;font-weight:bold;');
+        log('%c[AI-RENDER-AUDIT] Sugestoes recebidas:', 'color:#FFD700;', suggestions?.length);
         log('%c[AI-RENDER-AUDIT] Modo atual:', 'color:#00C9FF;', suggestions?.[0]?.aiEnhanced ? 'IA Enriquecida' : 'Base');
         log('%c[AI-RENDER-AUDIT] Container principal:', 'color:#00FF88;', this.elements.aiContent);
         log('%c[AI-RENDER-AUDIT] HTML antes do insert:', 'color:#FFA500;', this.elements.aiContent?.innerHTML?.slice(0, 120));
         console.groupEnd();
-        
-        // �🧠 PARTE 4: Proteção extra no renderizador
+
         if (!suggestions || suggestions.length === 0) {
-            warn('%c[AI-FRONT][RENDER] ⚠️ Nenhuma sugestão recebida para renderizar', 'color:#FFA500;');
+            warn('%c[AI-FRONT][RENDER] Nenhuma sugestao recebida para renderizar', 'color:#FFA500;');
             return;
         }
 
@@ -1471,8 +1479,12 @@ class AISuggestionUIController {
         // Renderizar cards
         this.renderSuggestionCards(suggestions, isAIEnriched, genreTargets, renderJobId);
         
-        // 🧩 ETAPA 4 — FORÇAR REVALIDAÇÃO DE CLASSES NO DOM
+        // 🧩 ETAPA 4 — VERIFICAR CARDS NO DOM (sem re-render se lock ativo)
         setTimeout(() => {
+            if (window.__suggestionsRendered) {
+                log('%c[AI-RENDER-VERIFY] 🔒 Retry bloqueado: __suggestionsRendered ativo', 'color:#FF9500;');
+                return;
+            }
             const retryJobId = window.__CURRENT_JOB_ID__ || window.currentModalAnalysis?.jobId || suggestions?.[0]?.jobId || this.lastAnalysisJobId;
             if (this.lastRenderedJobId && retryJobId && retryJobId !== this.lastRenderedJobId) {
                 warn('[AI-RENDER-GUARD] 🔒 JobId mudou antes do retry, abortando re-render');
@@ -1483,13 +1495,9 @@ class AISuggestionUIController {
             if (!cards || cards.length === 0) {
                 warn('[AI-RENDER-VERIFY] ❌ Nenhum card detectado — revalidando template');
                 this.currentTemplate = 'ai';
-                this.renderSuggestionCards(suggestions, true, genreTargets, retryJobId); // força renderização IA
+                this.renderSuggestionCards(suggestions, true, genreTargets, retryJobId);
             } else {
                 log('%c[AI-RENDER-VERIFY] ✅ Cards validados com sucesso!', 'color:#00FF88;');
-                
-                // FIX: Marcar renderização como DEFINITIVAMENTE concluída após validação DOM
-                window.__AI_RENDER_COMPLETED__ = true;
-                log('%c[AI-FIX] 🔒 Renderização validada e marcada como concluída', 'color:#00FF88;font-weight:bold;');
             }
         }, 300);
         
