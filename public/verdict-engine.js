@@ -74,6 +74,9 @@
                          : tech.dr),
       crestFactor: safeNum(tech.crestFactor     !== undefined ? tech.crestFactor
                          : tech.crest_factor),
+      lra:         safeNum(tech.lra             !== undefined ? tech.lra
+                         : tech.loudnessRange   !== undefined ? tech.loudnessRange
+                         : tech.loudness_range),
       clipping: !!(
         tech.clippingDetected  ||
         tech.clipping_detected ||
@@ -88,17 +91,69 @@
   }
 
   // ─────────────────────────────────────────────────────────────
+  // RESOLUCAO DE TARGETS DE GENERO
+  // Lê da mesma cadeia usada por renderGenreComparisonTable —
+  // garante SSOT único entre cards e veredito.
+  // ─────────────────────────────────────────────────────────────
+
+  function _resolveVerdictTargets() {
+    var g = window.PROD_AI_REF_GENRE || window.__CURRENT_SELECTED_GENRE || '';
+
+    // 1. PROD_AI_REF_DATA[genre] — flat targets, mesma fonte primária dos cards
+    if (g && window.PROD_AI_REF_DATA && typeof window.PROD_AI_REF_DATA === 'object') {
+      var pd = window.PROD_AI_REF_DATA[g];
+      if (pd && typeof pd.lufs_target === 'number') {
+        return { genre: g, targets: pd };
+      }
+    }
+
+    // 2. __CURRENT_GENRE_TARGETS — pode ser flat ou nested por gênero
+    if (window.__CURRENT_GENRE_TARGETS && typeof window.__CURRENT_GENRE_TARGETS === 'object') {
+      var cgt = window.__CURRENT_GENRE_TARGETS;
+      if (typeof cgt.lufs_target === 'number') {
+        return { genre: g, targets: cgt };
+      }
+      if (g && cgt[g] && typeof cgt[g].lufs_target === 'number') {
+        return { genre: g, targets: cgt[g] };
+      }
+      var cgtKeys = Object.keys(cgt);
+      for (var i = 0; i < cgtKeys.length; i++) {
+        var sub = cgt[cgtKeys[i]];
+        if (sub && typeof sub === 'object' && typeof sub.lufs_target === 'number') {
+          return { genre: cgtKeys[i], targets: sub };
+        }
+      }
+    }
+
+    // 3. __activeRefData — flat ou com sub-chave targets
+    if (window.__activeRefData) {
+      if (typeof window.__activeRefData.lufs_target === 'number') {
+        return { genre: g, targets: window.__activeRefData };
+      }
+      if (window.__activeRefData.targets && typeof window.__activeRefData.targets.lufs_target === 'number') {
+        return { genre: g, targets: window.__activeRefData.targets };
+      }
+    }
+
+    // 4. Sem targets — veredito parcial (só TP/clipping avaliados)
+    return { genre: g, targets: null };
+  }
+
+  // ─────────────────────────────────────────────────────────────
   // LOGICA DO VEREDITO
   // ─────────────────────────────────────────────────────────────
 
   /**
-   * Retorna { verdict: { status, label, possiblyMastered } }
+   * Retorna { verdict: { status, label, possiblyMastered, targets, thresholds, fails } }
    * status: 'bad' | 'warning' | 'good'
    *
    * Ordem de importância (pré-master):
-   *   clipping → true peak → crest factor → headroom → LUFS (contexto)
+   *   clipping → true peak (headroom) → LUFS → crest factor → DR → LRA
+   *
+   * Thresholds derivados do JSON de gênero (mesma fonte que os cards).
+   * Quando genreTargets=null, avalia apenas TP/clipping (absolutos).
    */
-  function generateMixVerdict(dataOrMetrics) {
+  function generateMixVerdict(dataOrMetrics, genreTargets) {
     // Aceita tanto o objeto analysis completo quanto métricas já extraídas
     var m = (dataOrMetrics && (dataOrMetrics.lufs !== undefined || dataOrMetrics.tp !== undefined))
       ? dataOrMetrics
@@ -108,51 +163,106 @@
     var tp       = m.tp;
     var dr       = m.dr;
     var cf       = m.crestFactor;
+    var lra      = m.lra;
     var clipping = m.clipping;
+
+    // ── THRESHOLDS DERIVADOS DO JSON DE GÊNERO (SSOT) ──
+    var t = (genreTargets && typeof genreTargets === 'object') ? genreTargets : null;
+
+    // LUFS: range aceito = [lufs_target - tol_lufs, lufs_target + tol_lufs]
+    var lufsLower = (t && typeof t.lufs_target === 'number' && typeof t.tol_lufs === 'number')
+      ? t.lufs_target - t.tol_lufs : null;
+    var lufsUpper = (t && typeof t.lufs_target === 'number' && typeof t.tol_lufs === 'number')
+      ? t.lufs_target + t.tol_lufs : null;
+
+    // True Peak: headroom — limiar superior aceito derivado do gênero (ONE-SIDED: só penaliza alto)
+    // HARD CAP absoluto: tp > 0.0 = BAD sempre, independe do JSON
+    var tpWarnAbove = (t && typeof t.true_peak_target === 'number' && typeof t.tol_true_peak === 'number')
+      ? t.true_peak_target + t.tol_true_peak
+      : -1.0;  // fallback conservador quando sem targets
+    if (tpWarnAbove > 0.0) { tpWarnAbove = 0.0; }  // nunca passa do HARD CAP
+
+    // DR: ONE-SIDED — alerta quando abaixo do mínimo aceito (target - tolerância)
+    var drMin = (t && typeof t.dr_target === 'number' && typeof t.tol_dr === 'number')
+      ? t.dr_target - t.tol_dr : null;
+
+    // LRA: range aceito = [lra_target - tol_lra, lra_target + tol_lra]
+    var lraLower = (t && typeof t.lra_target === 'number' && typeof t.tol_lra === 'number')
+      ? t.lra_target - t.tol_lra : null;
+    var lraUpper = (t && typeof t.lra_target === 'number' && typeof t.tol_lra === 'number')
+      ? t.lra_target + t.tol_lra : null;
+
+    // Crest Factor: ONE-SIDED fixo (≥8.0=OK, <8.0=ATENÇÃO/CRÍTICA — alinha com os cards)
+    var CF_OK_MIN = 8.0;
+
+    var thresholds = {
+      tpWarnAbove: tpWarnAbove,
+      lufsLower:   lufsLower,
+      lufsUpper:   lufsUpper,
+      drMin:       drMin,
+      lraLower:    lraLower,
+      lraUpper:    lraUpper,
+      CF_OK_MIN:   CF_OK_MIN
+    };
 
     var possiblyMastered = (lufs !== null && lufs >= -11 && tp !== null && tp >= -1.2);
 
-    // ── REGRA FIXA DE PRONTID\u00c3O PARA MASTERIZA\u00c7\u00c3O ──
-    // PRONTO quando: TP \u2264 -1 E LUFS entre -26 e -14 E DR \u2265 8 E Crest \u2265 8
-    // Qualquer viola\u00e7\u00e3o dessas regras resulta em WARNING ou BAD.
-
-    // BAD: clipping real OU TP > 0 (sinal j\u00e1 saturado)
-    if (clipping || (tp !== null && tp > 0)) {
+    // ── ETAPA 1: BAD — clipping real OU TP > 0.0 (sinal saturado) ──
+    if (clipping || (tp !== null && tp > 0.0)) {
       return {
         verdict: {
           status:           'bad',
           label:            'Mix com clipping \u2014 n\u00e3o enviar para masteriza\u00e7\u00e3o',
           possiblyMastered: possiblyMastered,
-          metrics:          m
+          metrics:          m,
+          targets:          t,
+          thresholds:       thresholds
         }
       };
     }
 
-    // WARNING: alguma m\u00e9trica fora dos limiares de seguran\u00e7a
-    var tpFail   = (tp   !== null && tp   > -1);
-    var lufsFail = (lufs !== null && (lufs < -26 || lufs > -14));
-    var drFail   = (dr   !== null && dr   < 8);
-    var cfFail   = (cf   !== null && cf   < 8);
+    // ── ETAPA 2: WARNING — alguma métrica fora do range derivado do gênero ──
+    // TP: headroom insuficiente (ONE-SIDED)
+    var tpFail = (tp !== null && tp > tpWarnAbove);
 
-    if (tpFail || lufsFail || drFail || cfFail) {
+    // LUFS: fora do range do gênero (só avalia quando targets disponíveis)
+    var lufsFail = (lufs !== null && lufsLower !== null && lufsUpper !== null)
+      ? (lufs < lufsLower || lufs > lufsUpper) : false;
+
+    // DR: abaixo do mínimo do gênero (ONE-SIDED, só avalia quando targets disponíveis)
+    var drFail = (dr !== null && drMin !== null)
+      ? (dr < drMin) : false;
+
+    // LRA: fora do range do gênero (só avalia quando targets disponíveis)
+    var lraFail = (lra !== null && lraLower !== null && lraUpper !== null)
+      ? (lra < lraLower || lra > lraUpper) : false;
+
+    // CF: ONE-SIDED fixo — alinha com threshold dos cards (cf < CF_OK_MIN = ATENÇÃO/CRÍTICA)
+    var cfFail = (cf !== null && cf < CF_OK_MIN);
+
+    if (tpFail || lufsFail || drFail || lraFail || cfFail) {
       return {
         verdict: {
           status:           'warning',
           label:            'Mix requer ajustes para masteriza\u00e7\u00e3o',
           possiblyMastered: possiblyMastered,
           metrics:          m,
-          fails:            { tpFail: tpFail, lufsFail: lufsFail, drFail: drFail, cfFail: cfFail }
+          targets:          t,
+          thresholds:       thresholds,
+          fails:            { tpFail: tpFail, lufsFail: lufsFail, drFail: drFail, lraFail: lraFail, cfFail: cfFail }
         }
       };
     }
 
-    // GOOD: todas as m\u00e9tricas dentro dos limiares
+    // ── ETAPA 3: GOOD — todas as métricas dentro dos limites ──
     return {
       verdict: {
         status:           'good',
         label:            '\u2714 PRONTO PARA MASTERIZA\u00c7\u00c3O',
         possiblyMastered: possiblyMastered,
-        metrics:          m
+        metrics:          m,
+        targets:          t,
+        thresholds:       thresholds
       }
     };
   }
@@ -177,6 +287,9 @@
                         : metrics.dr);
     var rawCf   = safeNum(metrics.crestFactor     !== undefined ? metrics.crestFactor
                         : metrics.crest_factor);
+    var rawLra  = safeNum(metrics.lra             !== undefined ? metrics.lra
+                        : metrics.loudnessRange   !== undefined ? metrics.loudnessRange
+                        : metrics.loudness_range);
 
     var lu  = fmt1(rawLufs);
     var tp  = fmt1(rawTp);
@@ -217,12 +330,30 @@
     }
 
     if (verdict.status === 'warning') {
-      var fails  = verdict.fails || {};
-      var wIssues = [];
-      if (fails.tpFail   && rawTp   !== null) { wIssues.push('True Peak em ' + tp + ' dBTP (limite: \u2264 \u22121)'); }
-      if (fails.lufsFail && rawLufs !== null) { wIssues.push('LUFS em ' + lu + ' (janela segura: \u221226 a \u221214)'); }
-      if (fails.drFail   && rawDr   !== null) { wIssues.push('DR em ' + dr + ' (m\u00ednimo: 8)'); }
-      if (fails.cfFail   && rawCf   !== null) { wIssues.push('Crest Factor em ' + cf + ' dB (m\u00ednimo: 8)'); }
+      var fails      = verdict.fails      || {};
+      var ths        = verdict.thresholds || {};
+      var wIssues    = [];
+
+      // Textos din\u00e2micos derivados dos targets do g\u00eanero (SSOT)
+      var tpLimitVal = (ths.tpWarnAbove !== null && ths.tpWarnAbove !== undefined)
+        ? fmt1(ths.tpWarnAbove) : '-1.0';
+      var lufsWin    = (ths.lufsLower !== null && ths.lufsLower !== undefined &&
+                        ths.lufsUpper !== null && ths.lufsUpper !== undefined)
+        ? fmt1(ths.lufsLower) + ' a ' + fmt1(ths.lufsUpper) + ' LUFS'
+        : '\u221226 a \u221214 LUFS';
+      var drLimitStr = (ths.drMin !== null && ths.drMin !== undefined)
+        ? 'DR ' + fmt1(ths.drMin) : 'DR 8';
+      var lraWin     = (ths.lraLower !== null && ths.lraLower !== undefined &&
+                        ths.lraUpper !== null && ths.lraUpper !== undefined)
+        ? fmt1(ths.lraLower) + ' a ' + fmt1(ths.lraUpper) + ' LU'
+        : '6 a 14 LU';
+      var lra        = fmt1(rawLra);
+
+      if (fails.tpFail   && rawTp   !== null) { wIssues.push('True Peak em ' + tp + ' dBTP (limite: \u2264 ' + tpLimitVal + ' dBTP)'); }
+      if (fails.lufsFail && rawLufs !== null) { wIssues.push('LUFS em ' + lu + ' (janela: ' + lufsWin + ')'); }
+      if (fails.drFail   && rawDr   !== null) { wIssues.push('DR em ' + dr + ' (m\u00ednimo aceito: ' + drLimitStr + ')'); }
+      if (fails.lraFail  && rawLra  !== null) { wIssues.push('LRA em ' + lra + ' LU (faixa do g\u00eanero: ' + lraWin + ')'); }
+      if (fails.cfFail   && rawCf   !== null) { wIssues.push('Crest Factor em ' + cf + ' dB (m\u00ednimo: 8 dB)'); }
 
       var wLine = wIssues.length
         ? ' Pontos fora dos limiares: ' + wIssues.join('; ') + '.'
@@ -382,17 +513,35 @@
         bullets.push('Crest Factor cr\u00edtico (' + fmt1(metrics.crestFactor) + ' dB) \u2014 mix hiperlimitada');
       }
     } else if (verdict.status === 'warning') {
+      // ── Thresholds din\u00e2micos do JSON de g\u00eanero (SSOT) ──
+      var _ths    = verdict.thresholds || {};
+      var _tpLim  = (_ths.tpWarnAbove !== null && _ths.tpWarnAbove !== undefined)
+        ? fmt1(_ths.tpWarnAbove) : '-1.0';
+      var _lufsL  = (_ths.lufsLower !== null && _ths.lufsLower !== undefined)
+        ? fmt1(_ths.lufsLower) : '-26.0';
+      var _lufsU  = (_ths.lufsUpper !== null && _ths.lufsUpper !== undefined)
+        ? fmt1(_ths.lufsUpper) : '-14.0';
+      var _drMn   = (_ths.drMin !== null && _ths.drMin !== undefined)
+        ? fmt1(_ths.drMin) : '8.0';
+      var _lraL   = (_ths.lraLower !== null && _ths.lraLower !== undefined)
+        ? fmt1(_ths.lraLower) : '6.0';
+      var _lraU   = (_ths.lraUpper !== null && _ths.lraUpper !== undefined)
+        ? fmt1(_ths.lraUpper) : '14.0';
+
       if (fails.tpFail && metrics.tp !== null && metrics.tp !== undefined) {
-        bullets.push('True Peak em ' + fmt1(metrics.tp) + ' dBTP (limite: \u2264 \u22121 dBTP)');
+        bullets.push('True Peak em ' + fmt1(metrics.tp) + ' dBTP (limite: \u2264 ' + _tpLim + ' dBTP)');
       }
       if (fails.lufsFail && metrics.lufs !== null && metrics.lufs !== undefined) {
-        bullets.push('Volume de entrada em ' + fmt1(metrics.lufs) + ' LUFS (janela segura: \u221226 a \u221214)');
+        bullets.push('Volume de entrada em ' + fmt1(metrics.lufs) + ' LUFS (janela: ' + _lufsL + ' a ' + _lufsU + ' LUFS)');
       }
       if (fails.drFail && metrics.dr !== null && metrics.dr !== undefined) {
-        bullets.push('Range din\u00e2mico DR ' + fmt1(metrics.dr) + ' (m\u00ednimo recomendado: 8)');
+        bullets.push('Range din\u00e2mico DR ' + fmt1(metrics.dr) + ' (m\u00ednimo aceito: DR ' + _drMn + ')');
+      }
+      if (fails.lraFail && metrics.lra !== null && metrics.lra !== undefined) {
+        bullets.push('LRA em ' + fmt1(metrics.lra) + ' LU (faixa do g\u00eanero: ' + _lraL + ' a ' + _lraU + ' LU)');
       }
       if (fails.cfFail && metrics.crestFactor !== null && metrics.crestFactor !== undefined) {
-        bullets.push('Crest Factor ' + fmt1(metrics.crestFactor) + ' dB (m\u00ednimo recomendado: 8)');
+        bullets.push('Crest Factor ' + fmt1(metrics.crestFactor) + ' dB (m\u00ednimo: 8 dB)');
       }
     } else {
       if (metrics.lufs !== null && metrics.lufs !== undefined) {
@@ -518,22 +667,59 @@
         ? src.technicalData
         : (src.metrics && typeof src.metrics === 'object' ? src.metrics : src);
 
-      var vResult = generateMixVerdict(techData);
+      // ── Resolver targets do gênero (SSOT: mesma cadeia dos cards) ──
+      var _tRes            = _resolveVerdictTargets();
+      var _resolvedTargets = _tRes.targets;
+      var _resolvedGenre   = _tRes.genre;
+
+      vlog('[VERDICT-AUDIT] targets resolvidos:', {
+        genre:            _resolvedGenre,
+        hasTargets:       !!_resolvedTargets,
+        lufs_target:      _resolvedTargets ? _resolvedTargets.lufs_target      : null,
+        tol_lufs:         _resolvedTargets ? _resolvedTargets.tol_lufs         : null,
+        dr_target:        _resolvedTargets ? _resolvedTargets.dr_target        : null,
+        tol_dr:           _resolvedTargets ? _resolvedTargets.tol_dr           : null,
+        lra_target:       _resolvedTargets ? _resolvedTargets.lra_target       : null,
+        tol_lra:          _resolvedTargets ? _resolvedTargets.tol_lra          : null,
+        true_peak_target: _resolvedTargets ? _resolvedTargets.true_peak_target : null,
+        tol_true_peak:    _resolvedTargets ? _resolvedTargets.tol_true_peak    : null
+      });
+
+      var vResult = generateMixVerdict(techData, _resolvedTargets);
       if (!vResult || !vResult.verdict) {
-        vwarn('[VERDICT-AUDIT] ❌ não foi possível gerar veredito — abortando');
+        vwarn('[VERDICT-AUDIT] \u274c n\u00e3o foi poss\u00edvel gerar veredito \u2014 abortando');
         return;
       }
 
       var verdict = vResult.verdict;
       window.__LAST_MIX_VERDICT__ = verdict;
 
-      vlog('[VERDICT-AUDIT] veredito gerado:', {
-        status:           verdict.status,
-        label:            verdict.label,
-        possiblyMastered: verdict.possiblyMastered,
-        lufs:             verdict.metrics && verdict.metrics.lufs,
-        tp:               verdict.metrics && verdict.metrics.tp,
-        dr:               verdict.metrics && verdict.metrics.dr
+      // ── Log completo de auditoria (coerência veredito ↔ cards) ──
+      vlog('[VERDICT-AUDIT] \u2500\u2500\u2500\u2500\u2500\u2500\u2500 RESULTADO COMPLETO \u2500\u2500\u2500\u2500\u2500\u2500\u2500');
+      vlog('[VERDICT-AUDIT]', {
+        genre:   _resolvedGenre,
+        metrics: {
+          lufs:        verdict.metrics ? verdict.metrics.lufs        : null,
+          tp:          verdict.metrics ? verdict.metrics.tp          : null,
+          dr:          verdict.metrics ? verdict.metrics.dr          : null,
+          lra:         verdict.metrics ? verdict.metrics.lra         : null,
+          crestFactor: verdict.metrics ? verdict.metrics.crestFactor : null
+        },
+        targets: {
+          lufs_target:      _resolvedTargets ? _resolvedTargets.lufs_target      : null,
+          tol_lufs:         _resolvedTargets ? _resolvedTargets.tol_lufs         : null,
+          dr_target:        _resolvedTargets ? _resolvedTargets.dr_target        : null,
+          tol_dr:           _resolvedTargets ? _resolvedTargets.tol_dr           : null,
+          lra_target:       _resolvedTargets ? _resolvedTargets.lra_target       : null,
+          tol_lra:          _resolvedTargets ? _resolvedTargets.tol_lra          : null,
+          true_peak_target: _resolvedTargets ? _resolvedTargets.true_peak_target : null,
+          tol_true_peak:    _resolvedTargets ? _resolvedTargets.tol_true_peak    : null
+        },
+        thresholds:    verdict.thresholds,
+        fails:         verdict.fails,
+        finalVerdict:  verdict.status,
+        label:         verdict.label,
+        possiblyMastered: verdict.possiblyMastered
       });
 
       _injectStyles();
