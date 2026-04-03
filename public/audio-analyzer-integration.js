@@ -9387,7 +9387,8 @@ function renderGenreComparisonTable(options) {
 
     const lufs = analysis?.technicalData?.lufsIntegrated ?? analysis?.lufs;
     const truePeak = analysis?.technicalData?.truePeakDbtp ?? analysis?.truePeak;
-    const dynamicRange = analysis?.technicalData?.lra ?? analysis?.dynamicRange;
+    // 🔧 FIX-DR: DR usa technicalData.dynamicRange — NÃO technicalData.lra (Loudness Range)
+    const dynamicRange = analysis?.technicalData?.dynamicRange ?? analysis?.dynamicRange ?? analysis?.technicalData?.dr;
 
     if (!lufs || !dynamicRange) {
         console.warn('[GENRE-TABLE] dados incompletos — abortando render sem quebrar UI');
@@ -9461,11 +9462,32 @@ function renderGenreComparisonTable(options) {
         tol_stereo: genreData.tol_stereo,
         hasBands: !!genreData.bands
     });
-    
+
+    // 🎯 [AUDITORIA] TARGETS RESOLVIDOS — fonte de verdade final para todos os cards
+    console.log('[TARGETS-RESOLVIDOS]', {
+        genre,
+        finalTargets: {
+            lufs_target:      genreData?.lufs_target,
+            tol_lufs:         genreData?.tol_lufs,
+            lowerBoundLufs:   genreData?.lufs_target != null ? genreData.lufs_target - (genreData.tol_lufs ?? 1.0) : null,
+            upperBoundLufs:   genreData?.lufs_target != null ? genreData.lufs_target + (genreData.tol_lufs ?? 1.0) : null,
+            dr_target:        genreData?.dr_target,
+            tol_dr:           genreData?.tol_dr,
+            lra_target:       genreData?.lra_target,
+            tol_lra:          genreData?.tol_lra,
+            true_peak_target: genreData?.true_peak_target,
+            tol_true_peak:    genreData?.tol_true_peak,
+            stereo_target:    genreData?.stereo_target,
+            tol_stereo:       genreData?.tol_stereo,
+        },
+        targetsSource: (isDirectAnalysis ? 'resolveGenreTargetsForDiagnostic' : 'options.targets + validation'),
+    });
+
     // 🎯 EXTRAIR VALORES DO ANALYSIS (mesmas fontes usadas em calculateScore)
     const lufsIntegrated = analysis?.technicalData?.lufsIntegrated ?? lufs ?? analysis.loudness?.integrated ?? null;
     const truePeakDbtp = analysis?.technicalData?.truePeakDbtp ?? (typeof truePeak === 'object' ? truePeak?.maxDbtp : truePeak) ?? analysis.truePeakDbtp ?? null;
-    const dynamicRangeValue = analysis?.technicalData?.lra ?? dynamicRange ?? analysis.dynamics?.range ?? null;
+    // 🔧 FIX-DR: DR usa technicalData.dynamicRange — NÃO technicalData.lra (Loudness Range)
+    const dynamicRangeValue = analysis?.technicalData?.dynamicRange ?? dynamicRange ?? analysis?.dynamics?.dr ?? null;
     const lra = analysis.lra ?? analysis.loudness?.lra ?? analysis.technicalData?.lra ?? null;
     const stereoCorrelation = analysis.stereoCorrelation ?? analysis.stereo?.correlation ?? analysis.technicalData?.stereoCorrelation ?? null;
     
@@ -9642,7 +9664,22 @@ function renderGenreComparisonTable(options) {
     if (genreData.lufs_target !== null && genreData.lufs_target !== undefined) {
         const lufsValue = lufsIntegrated;
         if (Number.isFinite(lufsValue) && Number.isFinite(genreData.lufs_target)) {
-            const result = calcSeverity(lufsValue, genreData.lufs_target, genreData.tol_lufs || 1.0);
+            const _tol_lufs = genreData.tol_lufs ?? 1.0;
+            const result = calcSeverity(lufsValue, genreData.lufs_target, _tol_lufs);
+            console.log('[CARD-DEBUG]', {
+                metricName:    'LUFS',
+                displayedValue: lufsValue.toFixed(2) + ' LUFS',
+                rawValue:      lufsValue,
+                sourceField:   'analysis.technicalData.lufsIntegrated',
+                target:        genreData.lufs_target,
+                tolerance:     _tol_lufs,
+                lowerBound:    genreData.lufs_target - _tol_lufs,
+                upperBound:    genreData.lufs_target + _tol_lufs,
+                diff:          +(lufsValue - genreData.lufs_target).toFixed(3),
+                action:        result.action,
+                genre,
+                targets:       { lufs_target: genreData.lufs_target, tol_lufs: _tol_lufs },
+            });
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD: Verificar se deve renderizar valor real
                 const canRender = shouldRenderRealValue('lufsIntegrated', 'table', analysis);
@@ -9714,7 +9751,22 @@ function renderGenreComparisonTable(options) {
     if (genreData.dr_target !== null && genreData.dr_target !== undefined) {
         const drValue = dynamicRangeValue;
         if (Number.isFinite(drValue) && Number.isFinite(genreData.dr_target)) {
-            const result = calcSeverity(drValue, genreData.dr_target, genreData.tol_dr || 1.0);
+            const _tol_dr = genreData.tol_dr ?? 1.0;
+            const result = calcSeverity(drValue, genreData.dr_target, _tol_dr);
+            console.log('[CARD-DEBUG]', {
+                metricName:    'DR',
+                displayedValue: drValue.toFixed(2) + ' DR',
+                rawValue:      drValue,
+                sourceField:   'analysis.technicalData.dynamicRange (FIX-DR)',
+                target:        genreData.dr_target,
+                tolerance:     _tol_dr,
+                lowerBound:    genreData.dr_target - _tol_dr,
+                upperBound:    genreData.dr_target + _tol_dr,
+                diff:          +(drValue - genreData.dr_target).toFixed(3),
+                action:        result.action,
+                genre,
+                targets:       { dr_target: genreData.dr_target, tol_dr: _tol_dr },
+            });
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD (DR é LIBERADO)
                 const canRender = shouldRenderRealValue('dr', 'table', analysis);
@@ -9738,7 +9790,22 @@ function renderGenreComparisonTable(options) {
     if (genreData.lra_target !== null && genreData.lra_target !== undefined) {
         const lraValue = lra;
         if (Number.isFinite(lraValue) && Number.isFinite(genreData.lra_target)) {
-            const result = calcSeverity(lraValue, genreData.lra_target, genreData.tol_lra || 2.0);
+            const _tol_lra = genreData.tol_lra ?? 2.0;
+            const result = calcSeverity(lraValue, genreData.lra_target, _tol_lra);
+            console.log('[CARD-DEBUG]', {
+                metricName:    'LRA',
+                displayedValue: lraValue.toFixed(2) + ' LU',
+                rawValue:      lraValue,
+                sourceField:   'analysis.technicalData.lra',
+                target:        genreData.lra_target,
+                tolerance:     _tol_lra,
+                lowerBound:    genreData.lra_target - _tol_lra,
+                upperBound:    genreData.lra_target + _tol_lra,
+                diff:          +(lraValue - genreData.lra_target).toFixed(3),
+                action:        result.action,
+                genre,
+                targets:       { lra_target: genreData.lra_target, tol_lra: _tol_lra },
+            });
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD (LRA é BLOQUEADO)
                 const canRender = shouldRenderRealValue('lra', 'table', analysis);
@@ -9986,7 +10053,29 @@ function renderGenreComparisonTable(options) {
 
     const advancedCards = [];
     if (Number.isFinite(_cfValue)) {
-        const _cfResult = calcSeverity(_cfValue, 8.0, 2.0);
+        // 🔧 FIX-CF: Crest Factor para pré-master é ONE-SIDED (maior = mais dinâmica = melhor)
+        // NÃO penalizar CF alto (~12-15 dB é excelente para pré-master não masterizado)
+        // Só sinalizar quando CF estiver BAIXO demais (over-compressed)
+        const CF_OK_MIN   = 8.0;  // acima → OK (dinâmica saudável)
+        const CF_WARN_MIN = 6.0;  // entre 6-8 → atenção (levemente comprimido)
+        //                         // abaixo de 6 → crítico (over-compressed)
+        let _cfResult;
+        if (_cfValue >= CF_OK_MIN) {
+            _cfResult = { severity: 'OK', severityClass: 'ok', action: '✅ Dinâmica saudável para pré-master', diff: 0 };
+        } else if (_cfValue >= CF_WARN_MIN) {
+            _cfResult = { severity: 'ATENÇÃO', severityClass: 'caution', action: `⚠️ Levemente comprimido (${_cfValue.toFixed(1)} dB)`, diff: +(CF_OK_MIN - _cfValue).toFixed(2) };
+        } else {
+            _cfResult = { severity: 'CRÍTICA', severityClass: 'critical', action: `🔴 Over-compressed — reduzir compressão (${_cfValue.toFixed(1)} dB)`, diff: +(CF_OK_MIN - _cfValue).toFixed(2) };
+        }
+        console.log('[CARD-DEBUG]', {
+            metricName:    'CrestFactor',
+            displayedValue: _cfValue.toFixed(2) + ' dB',
+            rawValue:      _cfValue,
+            sourceField:   'analysis.technicalData.crestFactor',
+            cfOkMin:       CF_OK_MIN,
+            cfWarnMin:     CF_WARN_MIN,
+            action:        _cfResult.action,
+        });
         advancedCards.push(`
             <article class="diag-expanded-card dec-${_cfResult.severityClass}">
                 <div class="dec-head">⚡ Crest Factor</div>
