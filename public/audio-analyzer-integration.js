@@ -20558,6 +20558,29 @@ async function displayModalResults(analysis) {
             analysis.scores.verdict = analysis.scores.final >= 75 ? 'APTO PARA MASTER' : 'NAO APTO';
         }
 
+        // ── AJUSTE DE SCORE PELO VEREDITO ────────────────────────────────────────
+        function adjustScoreByVerdict(baseScore, verdict) {
+            if (!verdict || !verdict.status) return baseScore;
+            switch (verdict.status) {
+                case 'bad':     return Math.min(baseScore, 55);
+                case 'warning': return Math.max(55, Math.min(baseScore, 75));
+                case 'good':    return Math.max(baseScore, 65);
+                default:        return baseScore;
+            }
+        }
+
+        if (typeof window.generateMixVerdict === 'function') {
+            const baseScore = analysis.scores.final;
+            const verdictResult = window.generateMixVerdict(analysis.technicalData);
+            const adjustedScore = adjustScoreByVerdict(baseScore, verdictResult);
+            analysis.scores.final = adjustedScore;
+            if (window.__LAST_ANALYSIS_SCORES__) {
+                window.__LAST_ANALYSIS_SCORES__.final = adjustedScore;
+            }
+            log('[SCORE-VERDICT-ADJUST] baseScore:', baseScore, '→ adjustedScore:', adjustedScore, '| verdict:', verdictResult?.status);
+        }
+        // ── FIM AJUSTE ────────────────────────────────────────────────────────────
+
         log('[RENDER_SCORE_TOP] ✅ Chamando renderFinalScoreAtTop');
         log('[RENDER_SCORE_TOP] analysis.scores:', analysis?.scores);
         console.log("STEP 4 - antes renderFinalScoreAtTop");
