@@ -204,19 +204,24 @@ class SuggestionEngineUnified {
             }
         }
         
-        // True Peak - Modo "limite superior"
-        if (Number.isFinite(metrics.true_peak) && Number.isFinite(reference.true_peak_target)) {
-            const excess = metrics.true_peak - reference.true_peak_target;
+        // True Peak - Modo "limite superior" (ceiling fixo: -1.0 dBTP para AutoMaster V1)
+        // Fallback hardcoded pois legacy_compatibility.true_peak_target está ausente em todos os JSONs de gênero
+        const TP_CEILING = -1.0;
+        const truePeakTarget = Number.isFinite(reference.true_peak_target) ? reference.true_peak_target : TP_CEILING;
+        if (Number.isFinite(metrics.true_peak)) {
+            const excess = metrics.true_peak - truePeakTarget;
             if (excess > 0) {
+                const tpSeverity = metrics.true_peak > -0.8 ? 'CRÍTICA' : 'ALTA';
                 suggestions.push({
                     metric: 'true_peak',
                     measured: metrics.true_peak,
-                    target: reference.true_peak_target,
-                    tolerance: reference.tol_true_peak,
+                    target: truePeakTarget,
+                    tolerance: 0,
                     delta: excess,
                     direction: 'reduce',
                     unit: 'dBTP',
-                    mode: 'ceiling'
+                    mode: 'ceiling',
+                    severity: tpSeverity
                 });
             }
         }

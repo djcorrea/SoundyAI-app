@@ -296,12 +296,12 @@ class EnhancedSuggestionEngine {
                         }
                     }
                     
-                    // Análise True Peak
+                    // Análise True Peak (ceiling: -1.0 dBTP, alinhado com AutoMaster V1)
                     if (tech && Number.isFinite(tech.truePeak)) {
-                        if (tech.truePeak > -0.5) {
+                        if (tech.truePeak > -1.0) {
                             detections.push({
                                 type: 'heuristic_true_peak',
-                                intensity: Math.min(1.0, (tech.truePeak + 0.5) / 2),
+                                intensity: Math.min(1.0, (tech.truePeak + 1.0) / 1.5),
                                 confidence: 0.85,
                                 frequency: 'fullband',
                                 description: `True Peak alto (${tech.truePeak.toFixed(1)} dBTP)`,
