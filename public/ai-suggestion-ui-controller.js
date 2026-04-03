@@ -679,6 +679,22 @@ class AISuggestionUIController {
      * 🤖 FIX: Função interna que executa a verificação real
      */
     __runCheckForAISuggestions(analysis, retryCount = 0) {
+        // ── TRACE ──────────────────────────────────────────────────────────────
+        // [TRACE_RENDER_ENTER] ponto de entrada: __runCheckForAISuggestions
+        console.log('[TRACE_RENDER_ENTER] função=__runCheckForAISuggestions retryCount=' + retryCount
+            + ' count=' + (analysis?.aiSuggestions?.length ?? '?')
+            + ' t=' + Date.now());
+
+        // Detectar e desempacotar objeto wrapper {mode, user, reference}
+        // Originado de: safeRenderPartial('*.checkForAISuggestions', wrapper)
+        // Se passado como wrapper, analysis.aiSuggestions não existe mas analysis.user existe
+        if (analysis && analysis.user && !analysis.aiSuggestions && !analysis.suggestions
+                && !analysis.data && !analysis.userAnalysis && !analysis.referenceAnalysis) {
+            console.warn('[TRACE_RENDER_ENTER] Wrapper {mode,user} detectado — usando analysis.user diretamente');
+            analysis = analysis.user;
+        }
+        // ── FIM TRACE ──────────────────────────────────────────────────────────
+
         // ═══════════════════════════════════════════════════════════════════════
         // 🔐 PROTEÇÃO CRÍTICA: REFERENCE BASE - Ignorar verificação de aiSuggestions
         // ═══════════════════════════════════════════════════════════════════════
@@ -1371,6 +1387,12 @@ class AISuggestionUIController {
      * @param {Object} genreTargets - Targets do gênero para validação
      */
     renderAISuggestions(suggestions, genreTargets = null, metrics = null) {
+        // ── TRACE ──────────────────────────────────────────────────────────────
+        console.log('[TRACE_RENDER_ENTER] função=renderAISuggestions count=' + suggestions?.length
+            + ' metrics=' + JSON.stringify(suggestions?.slice(0,5)?.map(s=>s.metric||s.category))
+            + ' renderLock=' + window.__AI_RENDER_COMPLETED__
+            + ' t=' + Date.now());
+        // ── FIM TRACE ──────────────────────────────────────────────────────────────
         // -- LOCK SUPERIOR: impede qualquer render duplicado ----------------------
         if (window.__AI_RENDER_COMPLETED__ === true) {
             console.warn('[AI] Ja renderizado -- renderAISuggestions bloqueado', Date.now());
@@ -1840,6 +1862,15 @@ class AISuggestionUIController {
     renderSuggestionCards(suggestions, isAIEnriched = false, genreTargets = null, renderJobId = null) {
         if (!this.elements.aiContent) return;
 
+        // ── TRACE ──────────────────────────────────────────────────────────────
+        console.log('[TRACE_RENDER_ENTER] função=renderSuggestionCards count=' + suggestions?.length
+            + ' renderJobId=' + renderJobId
+            + ' suggestionsLock=' + window.__suggestionsRendered
+            + ' t=' + Date.now());
+        console.log('[TRACE_RENDER_METRICS] função=renderSuggestionCards metrics='
+            + JSON.stringify(suggestions?.slice(0,6)?.map(s=>s.metric||s.category||s.key)));
+        // ── FIM TRACE ──────────────────────────────────────────────────────────────
+
         // ── LOCK GLOBAL: impede duplo render (timer retry + MutationObserver) ──
         if (window.__suggestionsRendered === true) {
             console.warn('[SUGGESTIONS RENDER] 🔒 Bloqueado: já renderizado. jobId:', renderJobId, Date.now());
@@ -1894,8 +1925,16 @@ class AISuggestionUIController {
                 // ════════════════════════════════════════════════════════════════
                 // FONTE ÚNICA: aiSuggestions do backend
                 // ════════════════════════════════════════════════════════════════
-                const originalSuggestions = analysis?.aiSuggestions || analysis?.suggestions || suggestions || [];
-                log('[MODAL_VS_TABLE] 📦 Sugestões do backend:', originalSuggestions.length);
+                // ⚠️ FILTRO OBRIGATÓRIO: analysis.aiSuggestions é o array RAW (não filtrado por extractAISuggestions).
+                // O applyPremasterFilter garante que bandas não reentram aqui mesmo que MODAL_VS_TABLE
+                // substitua o parâmetro 'suggestions' (que já vinha filtrado).
+                const rawSource = analysis?.aiSuggestions || analysis?.suggestions || suggestions || [];
+                const originalSuggestions = applyPremasterFilter(rawSource);
+                console.log('[TRACE_STATE_SOURCE] função=renderSuggestionCards MODAL_VS_TABLE'
+                    + ' raw=' + rawSource.length
+                    + ' afterFilter=' + originalSuggestions.length
+                    + ' t=' + Date.now());
+                log('[MODAL_VS_TABLE] 📦 Sugestões do backend (após filtro premaster):', originalSuggestions.length);
                 
                 // ════════════════════════════════════════════════════════════════
                 // HELPER LOCAL: Verificar se métrica está OK/ideal
