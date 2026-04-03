@@ -552,7 +552,7 @@ class AISuggestionUIController {
                 problema: analysis.aiSuggestions[0]?.problema?.substring(0, 60),
                 aiEnhanced: analysis.aiSuggestions[0]?.aiEnhanced
             });
-            return applyPremasterFilter(analysis.aiSuggestions;
+            return applyPremasterFilter(analysis.aiSuggestions);
         }
 
         // 🎯 PRIORIDADE 2: userAnalysis.aiSuggestions (comparações A vs B)
@@ -563,14 +563,14 @@ class AISuggestionUIController {
                 categoria: analysis.userAnalysis.aiSuggestions[0]?.categoria,
                 problema: analysis.userAnalysis.aiSuggestions[0]?.problema?.substring(0, 60)
             });
-            return applyPremasterFilter(analysis.userAnalysis.aiSuggestions;
+            return applyPremasterFilter(analysis.userAnalysis.aiSuggestions);
         }
         
         // 🎯 PRIORIDADE 3: referenceAnalysis.aiSuggestions
         if (Array.isArray(analysis.referenceAnalysis?.aiSuggestions) && analysis.referenceAnalysis.aiSuggestions.length > 0) {
             log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: referenceAnalysis`, 'color:#00FF88;font-weight:bold;');
             log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.referenceAnalysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
-            return applyPremasterFilter(analysis.referenceAnalysis.aiSuggestions;
+            return applyPremasterFilter(analysis.referenceAnalysis.aiSuggestions);
         }
         
         // 🎯 PRIORIDADE 4: analysis.suggestions (fallback genérico)
@@ -584,7 +584,7 @@ class AISuggestionUIController {
             if (hasAIFields) {
                 log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: suggestions (fallback)`, 'color:#FFD700;font-weight:bold;');
                 log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.suggestions.length}`, 'color:#FFD700;font-weight:bold;');
-                return applyPremasterFilter(analysis.suggestions;
+                return applyPremasterFilter(analysis.suggestions);
             }
         }
 
@@ -645,7 +645,7 @@ class AISuggestionUIController {
                 aiEnhanced: result[0]?.aiEnhanced,
                 categoria: result[0]?.categoria
             });
-            return applyPremasterFilter(result;
+            return applyPremasterFilter(result);
         }
 
         log('%c[AI-EXTRACT] ❌ Nenhum aiSuggestions encontrado (nem ai_suggestions nem stringificado)', 'color:#FF5555;');
