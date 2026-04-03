@@ -2,6 +2,38 @@
 // Sistema de interface futurista para exibição de sugestões educativas
 
 /**
+ * FILTRO PRÉ-MASTER — função pura, aplicada na extração (antes de qualquer render)
+ * Métricas permitidas: LUFS / True Peak / Dynamic Range / Crest Factor / LRA
+ * Bloqueia objetos cujo campo metric apontar para banda de frequência.
+ * NÃO usa texto livre como decisão principal — usa o campo metric que é controlado.
+ */
+const PREMASTER_METRIC_ALLOWED = ['lufs', 'truepeak', 'dbtp', 'dynamicrange', 'dr', 'crestfactor', 'cf', 'lra'];
+const BAND_METRIC_PREFIXES = ['band_', 'sub', 'bass', 'lowmid', 'mid', 'highmid', 'air', 'presence'];
+
+function isPremasterMetric(rawMetric) {
+    const m = (rawMetric || '').toLowerCase().replace(/[\s_\-]/g, '');
+    if (!m || m === 'general' || m === 'geral') return false; // sem metric definido = ignorar
+    // Bloquear explicitamente métricas de banda
+    if (m.startsWith('band')) return false;
+    if (['sub','bass','lowbass','lowmid','mid','highmid','air','presence','presenca','brilho'].includes(m)) return false;
+    // Permitir apenas métricas globais conhecidas
+    return PREMASTER_METRIC_ALLOWED.some(a => m.includes(a));
+}
+
+function applyPremasterFilter(suggestions) {
+    if (!Array.isArray(suggestions)) return [];
+    const filtered = suggestions.filter(s => {
+        const m = s.metric || s.metricKey || s.category || '';
+        const ok = isPremasterMetric(m);
+        if (!ok) console.warn('[PREMASTER-FILTER] Bloqueado metric=' + m + ' categoria=' + (s.categoria || s.category || ''));
+        return ok;
+    });
+    console.log('[PREMASTER-FILTER]', filtered.length + '/' + suggestions.length, 'sugestoes passaram');
+    return filtered;
+}
+
+
+/**
  * 🔧 NORMALIZAÇÃO UNIVERSAL DE METRIC KEYS
  * Converte qualquer variante de key para formato canônico
  * Usado em: buildMetricRows, merge rows<->aiSuggestions, validateAndCorrectSuggestions
@@ -520,7 +552,7 @@ class AISuggestionUIController {
                 problema: analysis.aiSuggestions[0]?.problema?.substring(0, 60),
                 aiEnhanced: analysis.aiSuggestions[0]?.aiEnhanced
             });
-            return analysis.aiSuggestions;
+            return applyPremasterFilter(analysis.aiSuggestions;
         }
 
         // 🎯 PRIORIDADE 2: userAnalysis.aiSuggestions (comparações A vs B)
@@ -531,14 +563,14 @@ class AISuggestionUIController {
                 categoria: analysis.userAnalysis.aiSuggestions[0]?.categoria,
                 problema: analysis.userAnalysis.aiSuggestions[0]?.problema?.substring(0, 60)
             });
-            return analysis.userAnalysis.aiSuggestions;
+            return applyPremasterFilter(analysis.userAnalysis.aiSuggestions;
         }
         
         // 🎯 PRIORIDADE 3: referenceAnalysis.aiSuggestions
         if (Array.isArray(analysis.referenceAnalysis?.aiSuggestions) && analysis.referenceAnalysis.aiSuggestions.length > 0) {
             log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: referenceAnalysis`, 'color:#00FF88;font-weight:bold;');
             log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.referenceAnalysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
-            return analysis.referenceAnalysis.aiSuggestions;
+            return applyPremasterFilter(analysis.referenceAnalysis.aiSuggestions;
         }
         
         // 🎯 PRIORIDADE 4: analysis.suggestions (fallback genérico)
@@ -552,7 +584,7 @@ class AISuggestionUIController {
             if (hasAIFields) {
                 log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: suggestions (fallback)`, 'color:#FFD700;font-weight:bold;');
                 log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.suggestions.length}`, 'color:#FFD700;font-weight:bold;');
-                return analysis.suggestions;
+                return applyPremasterFilter(analysis.suggestions;
             }
         }
 
@@ -613,7 +645,7 @@ class AISuggestionUIController {
                 aiEnhanced: result[0]?.aiEnhanced,
                 categoria: result[0]?.categoria
             });
-            return result;
+            return applyPremasterFilter(result;
         }
 
         log('%c[AI-EXTRACT] ❌ Nenhum aiSuggestions encontrado (nem ai_suggestions nem stringificado)', 'color:#FF5555;');
@@ -2113,10 +2145,10 @@ class AISuggestionUIController {
         const PREMASTER_ALLOWED = ['lufs', 'truepeak', 'dbtp', 'dynamicrange', 'dr', 'crestfactor', 'cf', 'lra'];
         const BLOCKED_KEYWORDS = [
             'hz', 'khz',
-            'grave', 'sub', 'baixo',
-            'medio', 'médio',
-            'agudo', 'brilho',
-            'freq', 'frequência', 'frequencia'
+            'frequência', 'frequencia', 'freq'
+            // Removidos: 'grave', 'sub', 'baixo', 'medio', 'médio', 'agudo', 'brilho'
+            // Motivo: muito genéricos — aparecem em sugestões válidas de LUFS/DR
+            // O bloqueio principal é pelo campo metric (applyPremasterFilter na extração)
         ];
         const normalizeMetric = rawMetric => {
             const m = (rawMetric || '').toLowerCase().replace(/[\s_\-]/g, '');
@@ -2140,8 +2172,11 @@ class AISuggestionUIController {
             .slice(0, 3);
 
         if (premasterSuggestions.length === 0) {
-            log('[AI-PREMASTER-FILTER] Nenhuma sugestão pré-master válida após filtro — omitindo seção');
-            if (this.elements.aiSection) { this.elements.aiSection.style.display = 'none'; }
+            log('[AI-PREMASTER-FILTER] Nenhuma sugestão pré-master válida após filtro — exibindo empty state');
+            // Nunca esconder o contêiner (aiSection): mantém estrutura DOM intacta
+            if (this.elements.aiContent) {
+                this.elements.aiContent.innerHTML = '<div class="ai-empty-state" style="padding:24px;text-align:center;color:rgba(255,255,255,0.5);font-family:Rajdhani,sans-serif;font-size:14px;">Nenhuma sugestão disponível para esta análise.</div>';
+            }
             return;
         }
         log('[AI-PREMASTER-FILTER] Sugestões após filtro:', premasterSuggestions.length, '(de', validatedSuggestions.length, 'validadas)');
