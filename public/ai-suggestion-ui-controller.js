@@ -913,7 +913,11 @@ class AISuggestionUIController {
                 
                 // Mesclar issues do comparisonResult com aiSuggestions existentes
                 // As issues fornecem dados numéricos consistentes
-                const mergedSuggestions = this.mergeSuggestionsWithComparison(extractedAI, comparisonResult.issues);
+                const rawMerged = this.mergeSuggestionsWithComparison(extractedAI, comparisonResult.issues);
+                // ⚠️ FILTRO OBRIGATÓRIO: comparisonResult.issues pode conter band_* não filtrados por extractAISuggestions
+                // O merge re-injeta issues sem match (banda foi removida de extractedAI mas ainda existe no issueMap)
+                const mergedSuggestions = applyPremasterFilter(rawMerged);
+                log('[AI-UI][MERGE-FILTER] Após filtro premaster:', mergedSuggestions.length + '/' + rawMerged.length, 'sugestões restantes');
                 
                 // Usar issues como genreTargets para renderização
                 this.renderAISuggestions(mergedSuggestions, null, metrics);
