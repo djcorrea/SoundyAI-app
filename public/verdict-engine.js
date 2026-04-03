@@ -349,12 +349,12 @@
       '.vc-issues li:last-child{border-bottom:none;}' +
       '.vc-mastered-warning{margin-top:12px;padding:8px 12px;background:rgba(0,200,255,.06);border:1px solid rgba(0,200,255,.2);border-radius:6px;font-size:.8rem;color:rgba(0,200,255,.9);line-height:1.5;text-align:center;}' +
       /* Botão secundário: scroll para sugestões (warning/bad) */
-      '#btnCorrigirAntes{display:block;width:100%;margin:0 0 12px 0;padding:11px 0;' +
-        'background:transparent;border:1px solid rgba(0,200,255,.35);border-radius:10px;' +
-        'color:rgba(0,200,255,.9);font-family:Rajdhani,sans-serif;font-size:14px;font-weight:600;' +
-        'letter-spacing:.05em;text-transform:uppercase;cursor:pointer;' +
-        'transition:background .2s,border-color .2s,transform .15s;box-sizing:border-box;}' +
-      '#btnCorrigirAntes:hover{background:rgba(0,200,255,.07);border-color:rgba(0,200,255,.6);transform:translateY(-1px);}' +
+      '#btnCorrigirAntes{display:block;width:100%;margin:0 0 10px 0;padding:8px 0;' +
+        'background:transparent;border:1px solid rgba(0,200,255,.25);border-radius:8px;' +
+        'color:rgba(0,200,255,.7);font-family:Rajdhani,sans-serif;font-size:12px;font-weight:500;' +
+        'letter-spacing:.03em;cursor:pointer;' +
+        'transition:background .2s,border-color .2s;box-sizing:border-box;}' +
+      '#btnCorrigirAntes:hover{background:rgba(0,200,255,.05);border-color:rgba(0,200,255,.45);}' +
       /* Botão opcional: ver melhorias (good) */
       '#btnVerMelhorias{display:block;width:100%;margin-top:14px;padding:10px 0;' +
         'background:transparent;border:1px solid rgba(34,197,94,.3);border-radius:10px;' +
@@ -570,7 +570,7 @@
       var corrigirBtn    = document.createElement('button');
       corrigirBtn.id     = 'btnCorrigirAntes';
       corrigirBtn.type   = 'button';
-      corrigirBtn.textContent = '\uD83D\uDD0D Corrigir antes de masterizar';
+      corrigirBtn.textContent = 'Ver correções';
       corrigirBtn.addEventListener('click', function () {
         var sugSection = document.getElementById('aiSuggestionsExpanded');
         if (!sugSection) { return; }
@@ -617,16 +617,16 @@
       vlog('[VERDICT] sem sugestões (0 cards) — container ocultado');
       return;
     }
-    // Cap a 5
-    if (cards.length > 5) {
-      cards.slice(5).forEach(function (c) { c.style.display = 'none'; });
-      vlog('[VERDICT] sugestões capadas a 5 (havia ' + cards.length + ')');
+    // Cap a 3
+    if (cards.length > 3) {
+      cards.slice(3).forEach(function (c) { c.style.display = 'none'; });
+      vlog('[VERDICT] sugestões capadas a 3 (havia ' + cards.length + ')');
     }
-    // Contar visíveis
+    // Ocultar somente se não há cards visíveis
     var visible = cards.filter(function (c) { return c.style.display !== 'none'; });
-    if (visible.length < 3) {
+    if (visible.length === 0) {
       sugSection.style.display = 'none';
-      vlog('[VERDICT] menos de 3 sugestões visíveis (' + visible.length + ') — container ocultado');
+      vlog('[VERDICT] nenhuma sugestão visível — container ocultado');
     }
   }
 

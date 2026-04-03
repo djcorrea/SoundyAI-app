@@ -1036,54 +1036,44 @@ app.post("/api/suggestions", async (req, res) => {
         messages: [
           {
             role: 'system',
-                        content: `Você é um ENGENHEIRO DE MIXAGEM/MASTERIZAÇÃO de nível Grammy especializado em produção eletrônica.
+            content: `Você é um especialista em pré-masterização e mixagem, com foco em análise técnica objetiva.
 
-🎯 MISSÃO: Gerar sugestões ULTRA-PRÁTICAS, COERENTES e RICAS EM DETALHES.
+CONTEXTO: Você está analisando uma MIX em fase PRÉ-MASTER — NÃO o produto final masterizado.
 
-⚠️ REGRAS DE COERÊNCIA ABSOLUTA:
-1. "problema" DEVE conter: Nome EXATO da métrica/banda + valor medido + referência ideal + diferença
-2. "causa" DEVE explicar: POR QUÊ esse valor específico causa problema (técnico + musical)
-3. "solucao" DEVE conter: Passo a passo DETALHADO com valores exatos de ajuste
+REGRAS ABSOLUTAS:
+1. Gere APENAS sugestões baseadas nestas 4 métricas: LUFS, True Peak, Dynamic Range (DR), Crest Factor.
+2. PROIBIDO gerar sugestões sobre: bandas de frequência, EQ, ajustes de Hz, estéreo, imagem estéreo, loudness para streaming ou plataformas, loudness competitivo.
+3. NÃO fale como se fosse o produto final. Fale como avaliação técnica da mix antes da masterização.
+4. Linguagem: objetiva, técnica, direta. Sem exageros, sem "nível Grammy", sem "top 100".
+5. Gere no máximo 3 sugestões no array. Se houver menos problemas reais, gere menos.
+6. Cada sugestão DEVE ter o campo "metric" preenchido com exatamente um dos valores: "lufs", "truePeak", "dr" ou "crestFactor".
+7. Se não houver problemas reais nessas 4 métricas, retorne um array vazio: []
 
-⚠️ FORMATO JSON:
-- Responda EXCLUSIVAMENTE com JSON VÁLIDO (sem markdown, sem texto extra)
-- ARRAY com exatamente N itens (N = número de sugestões recebidas)
-- Estrutura obrigatória:
-{
-  "problema": "[Nome Exato da Métrica] está em [Valor Medido] quando deveria estar em [Valor Ideal], diferença de [Delta] (ex: 'Bass (60-150Hz) está em -31.8 dB quando deveria estar entre -31 e -25 dB, ou seja, 0.8 dB abaixo do mínimo')",
-  "causa": "Explicação DIRETA de por que esse valor ESPECÍFICO causa problema (ex: 'Bass -31.8 dB está abafado demais, fazendo o kick perder punch e energia. Isso reduz impacto em sistemas de som e deixa a faixa sem peso nos graves')",
-  "solucao": "Instruções RICAS E DETALHADAS: '1. Abrir [Plugin Específico] no canal [X]. 2. Selecionar banda [Y]. 3. Configurar Freq: [valor]Hz, Gain: +[valor]dB, Q: [valor]. 4. Ajustar até [resultado esperado]. 5. A/B test com referência.' SEMPRE indique valores EXATOS de corte/boost em dB",
-  "dica_extra": "Truque profissional adicional com contexto do gênero musical",
-  "plugin": "Nome comercial real (ex: FabFilter Pro-Q3 $179) + alternativa grátis (ex: TDR Nova GE grátis)",
-  "resultado": "Benefício MENSURÁVEL e AUDÍVEL (ex: 'Kick +35% mais presente, bass com peso adequado, mix equilibrado com referências do gênero')"
-}
+FORMATO JSON OBRIGATÓRIO (ARRAY de no máximo 3 itens, ou vazio):
+[
+  {
+    "metric": "lufs|truePeak|dr|crestFactor",
+    "problema": "Descrição objetiva: [Métrica] está em [valor medido], valor esperado é [alvo]. Ex: 'LUFS está em -8 dBFS, o que é alto para uma mix em fase pré-master.'",
+    "causa": "Impacto técnico direto na etapa de masterização. Ex: 'Um LUFS alto nesta etapa reduz o headroom disponível para o processamento de master.'",
+    "solucao": "Ação prática e direta sobre a mix. Ex: 'Reduza o ganho geral da mix para aproximar o LUFS de -18 a -14 dBFS antes da masterização.'",
+    "dica_extra": "Contexto técnico adicional relevante para esta etapa de pré-master.",
+    "plugin": "Ferramenta de medição ou ajuste específica para esta métrica."
+  }
+]
 
-📊 EXEMPLOS DE COERÊNCIA:
+EXEMPLO CORRETO:
+[
+  {
+    "metric": "lufs",
+    "problema": "LUFS Integrado está em -8 dBFS. Para uma mix em fase pré-master, o valor está muito alto.",
+    "causa": "Sua mix está com LUFS muito alto para essa etapa, o que pode comprometer a masterização. O headroom necessário para compressão e limitação está reduzido.",
+    "solucao": "Reduza o nível geral da mix. O ideal para uma mix pré-master é entre -18 e -14 LUFS. Verifique se há camadas com ganho excessivo acumulado.",
+    "dica_extra": "Evite usar um limiter para compensar o LUFS agora. Deixe esse ajuste para a etapa de master.",
+    "plugin": "Youlean Loudness Meter (grátis) ou iZotope Insight para monitoramento."
+  }
+]
 
-❌ ERRADO (genérico):
-{
-  "problema": "LUFS fora do ideal",
-  "causa": "Pode resultar em mix com baixa presença",
-  "solucao": "Considere aumentar entre 4.0 a 5.0 LUFS"
-}
-
-✅ CORRETO (específico e coerente):
-{
-  "problema": "LUFS Integrado está em -16.5 dB quando deveria estar em -10.5 dB para Tech House, diferença de -6.0 dB (muito baixo)",
-  "causa": "LUFS -16.5 dB faz a faixa soar 40% mais fraca que competidores em playlists. O limitador está ajustado muito conservador, deixando +6 dB de headroom não utilizado. Isso reduz impacto, energia e competitividade em sistemas de som",
-  "solucao": "1. Abrir Limiter no último slot do Master (FabFilter Pro-L2 ou TDR Limiter 6 GE). 2. Configurar True Peak Ceiling: -1.0 dBTP. 3. Ativar Lookahead: 4ms e Oversampling: 4x. 4. Aumentar Output Gain gradualmente em +6.0 dB. 5. Monitorar LUFS Meter até atingir -10.5 LUFS. 6. Se houver pumping, reduzir Attack para 1ms. 7. A/B test com 3 referências comerciais",
-  "plugin": "FabFilter Pro-L2 ($199) ou TDR Limiter 6 GE (grátis)",
-  "resultado": "Loudness competitivo de -10.5 LUFS, +40% de impacto percebido, mix com energia igual a faixas top 100"
-}
-
-🎯 DIRETRIZES FINAIS:
-- Use SEMPRE valores EXATOS dos dados fornecidos
-- "problema" = métrica + valor atual + valor ideal + diferença matemática
-- "causa" = impacto técnico + impacto musical desse valor ESPECÍFICO
-- "solucao" = passo a passo RICO com valores precisos de ajuste
-- Mencione o gênero musical quando relevante
-- Indique EXATAMENTE quanto cortar/boostar (ex: "reduzir -2.5 dB em 150Hz com Q=2.0")
-- Plugins: sempre nome comercial + preço + alternativa grátis
+RESPONDA EXCLUSIVAMENTE COM JSON VÁLIDO (ARRAY), sem markdown, sem texto extra.
 `
           },
           {
@@ -1281,100 +1271,35 @@ function preprocessSuggestions(suggestions) {
 
 // Função para construir o prompt da IA
 function buildSuggestionPrompt(suggestions, metrics, genre) {
-  // Preprocessar sugestões para incluir dados de ajuste proporcional
   const preprocessedSuggestions = preprocessSuggestions(suggestions);
-  
+
   const suggestionsList = preprocessedSuggestions.map((s, i) => {
-    let baseSuggestion = `${i + 1}. ${s.message || s.title || 'Sugestão'} - ${s.action || s.description || 'Sem ação definida'}`;
-    
-    // Adicionar informações de ajuste se disponível
-    if (s.adjustmentGuide) {
-      baseSuggestion += ` [AJUSTE CALCULADO: ${s.adjustmentGuide.direction} ${s.adjustmentGuide.suggestedRange} na banda ${s.adjustmentGuide.band}]`;
+    let entry = `${i + 1}. MÉTRICA: ${s.metric || s.key || 'N/A'} — ${s.message || s.title || 'Sugestão'}`;
+    if (s.currentValue !== undefined && s.targetValue !== undefined) {
+      entry += ` (valor atual: ${s.currentValue}${s.unit || ''}, alvo: ${s.targetValue}${s.unit || ''})`;
     }
-    
-    baseSuggestion += ` (Prioridade: ${s.priority || 5}, Confiança: ${s.confidence || 0.5})`;
-    return baseSuggestion;
+    return entry;
   }).join('\n');
 
-  const metricsInfo = metrics ? `
-🔊 ANÁLISE ESPECTRAL DETALHADA:
+  const metricsInfo = metrics ? `MÉTRICAS DA MIX (pré-master):
 - LUFS Integrado: ${metrics.lufsIntegrated || 'N/A'} dB
 - True Peak: ${metrics.truePeakDbtp || 'N/A'} dBTP
 - Dynamic Range: ${metrics.dynamicRange || 'N/A'} LU
-- Correlação Estéreo: ${metrics.stereoCorrelation || 'N/A'}
 - LRA: ${metrics.lra || 'N/A'} LU
-` : '';
+- Crest Factor: ${metrics.crestFactor || 'N/A'} dB` : '';
 
-  const genreContext = getGenreContext(genre);
+  const expected = Math.min(suggestions.length, 3);
+  return `Analise as seguintes detecções de uma MIX em fase pré-master para o gênero: ${genre || 'não especificado'}.
 
-  const expected = suggestions.length;
-  return `
-🎛️ ANALISE ESTAS DETECÇÕES PARA ${(genre || 'música geral').toUpperCase()} E GERE SUGESTÕES REALISTAS E EDUCATIVAS.
-
-⚠️ REGRAS ABSOLUTAS:
-- Responda EXCLUSIVAMENTE com um JSON VÁLIDO (ARRAY com exatamente ${expected} itens).
-- Sugestões devem ser sempre EDUCATIVAS e ORIENTATIVAS, nunca imperativas.
-- Ajustes PROPORCIONAIS à diferença medida (quanto maior o delta, maior o ajuste).
-- NUNCA sugerir mais que os limites por banda:
-  • Sub/Bass (20–150Hz): máximo ±6 dB
-  • Médios (150Hz–5kHz): máximo ±5 dB  
-  • Agudos (5kHz+): máximo ±4 dB
-- Sempre incluir faixa de dB em formato "entre -X e -Y dB" ou "entre +X e +Y dB".
-- NUNCA valores fixos, sempre ranges orientativos.
-
-🎵 LINGUAGEM OBRIGATÓRIA:
-- "Experimente reduzir entre -2 a -3 dB nesta região..."
-- "Considere reforçar entre +1 a +2 dB no sub para dar mais punch..."
-- "Avalie se o sample ou instrumento já se encaixa naturalmente..."
-- "Teste um corte suave entre -1 a -2 dB..."
-
-📊 PROPORCIONALIDADE:
-- Delta pequeno (até 3 dB): sugerir correção mínima (1-2 dB)
-- Delta moderado (3-6 dB): sugerir ajuste intermediário (2-4 dB)  
-- Delta grande (6+ dB): sugerir ajuste máximo permitido pelo cap
-
-🔧 ESTRUTURA OBRIGATÓRIA:
-{
-  "problema": "descrição curta com valor medido vs referência (ex: 'Sub +4.2 dB acima do ideal')",
-  "causa": "impacto auditivo claro (ex: 'Máscara o kick e tira o punch')",
-  "solucao": "instrução orientativa com range proporcional (ex: 'Experimente reduzir entre -2 a -3 dB em 40-80Hz')",
-  "dica_extra": "dica contextual musical (ex: 'Cuidado para não tirar o groove do kick')",
-  "plugin": "ferramenta específica por banda (FabFilter Pro-Q3 para médios, Waves C6 para graves, De-Esser para sibilância)",
-  "resultado": "melhoria auditiva realista (ex: 'Kick mais presente, grove definido, mix limpo')"
-}
-
-🎯 SUGESTÕES ORIGINAIS DETECTADAS:
+DETECÇÕES:
 ${suggestionsList}
 
-🔊 CONTEXTO TÉCNICO DETALHADO:
 ${metricsInfo}
 
-🎵 DIRETRIZES ESPECÍFICAS DO GÊNERO:
-${genreContext}
-
-� EXEMPLOS DE SUGESTÕES IDEAIS:
-
-EXEMPLO DELTA PEQUENO (-2.5 dB no sub):
-{
-  "problema": "Sub bass +2.5 dB acima do ideal",
-  "causa": "Pode mascarar levemente o kick e comprometer o punch",
-  "solucao": "Experimente reduzir entre -1 a -2 dB na região de 40-80Hz",
-  "dica_extra": "Monitore o groove do kick para não tirar a pegada",
-  "plugin": "FabFilter Pro-Q3 ou EQ nativo com filtro bell suave",
-  "resultado": "Kick mais presente, sub controlado, groove definido"
-}
-
-EXEMPLO DELTA GRANDE (-8 dB nos médios):
-{
-  "problema": "Médios +8 dB muito acima da referência",
-  "causa": "Máscara vocal e outros elementos, som 'boxeado'",
-  "solucao": "Experimente reduzir entre -4 a -5 dB em 800Hz-2kHz",
-  "dica_extra": "Use EQ dinâmico para preservar transientes importantes",
-  "plugin": "Waves C6 ou FabFilter Pro-MB para controle dinâmico",
-  "resultado": "Vocal destacado, instrumentos com espaço, mix aberto"
-}
-
-�🚀 LEMBRE-SE: Seja educativo, realista e musical. O usuário deve aprender e se sentir confiante aplicando suas sugestões!
+Gere exatamente ${expected} sugestão(ões) em formato JSON (ARRAY).
+Cada item DEVE ter o campo "metric" preenchido com: "lufs", "truePeak", "dr" ou "crestFactor".
+NÃO gere sugestões de EQ, bandas de frequência, estéreo ou loudness para distribuição.
+Se não houver problemas reais nessas métricas, retorne um array vazio: []
 `;
 }
 

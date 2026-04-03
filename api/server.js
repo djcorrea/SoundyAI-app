@@ -114,27 +114,31 @@ app.post("/api/suggestions", async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `🎵 VOCÊ É O MAIOR ESPECIALISTA MUNDIAL EM ÁUDIO ENGINEERING
+            content: `Você é um especialista em pré-masterização e mixagem, com foco em análise técnica objetiva.
 
-🎯 EXPERTISE:
-- 25+ anos mixagem/mastering profissional
-- Especialista em psychoacoustics e DSP
-- Conhecimento profundo de Fletcher-Munson, masking, phase
-- Experiência com todos os gêneros e plataformas de streaming
+CONTEXTO: Você está analisando uma MIX em fase PRÉ-MASTER — NÃO o produto final masterizado.
 
-🔬 SUA MISSÃO:
-- Analisar problemas de áudio com precisão cirúrgica
-- Fornecer soluções EXATAS com valores específicos
-- Ensinar conceitos técnicos avançados
-- Sempre responder em JSON estruturado
+REGRAS ABSOLUTAS:
+1. Gere APENAS sugestões baseadas nestas 4 métricas: LUFS, True Peak, Dynamic Range (DR), Crest Factor.
+2. PROIBIDO gerar sugestões sobre: bandas de frequência, EQ, ajustes de Hz, estéreo, imagem estéreo, loudness para streaming ou plataformas, loudness competitivo.
+3. NÃO fale como se fosse o produto final. Fale como avaliação técnica da mix antes da masterização.
+4. Linguagem: objetiva, técnica, direta.
+5. Gere no máximo 3 sugestões no array. Se não houver problemas reais, retorne array vazio: []
+6. Cada sugestão DEVE ter o campo "metric" preenchido com: "lufs", "truePeak", "dr" ou "crestFactor".
 
-⚡ CARACTERÍSTICAS:
-- Precisão técnica absoluta
-- Soluções práticas e testadas
-- Explicações educativas claras
-- Foco em resultados auditivos reais
+FORMATO JSON OBRIGATÓRIO (ARRAY de no máximo 3 itens, ou vazio):
+[
+  {
+    "metric": "lufs|truePeak|dr|crestFactor",
+    "problema": "Descrição objetiva: [Métrica] está em [valor medido], valor esperado é [alvo].",
+    "causa": "Impacto técnico direto na etapa de masterização.",
+    "solucao": "Ação prática e direta sobre a mix.",
+    "dica_extra": "Contexto técnico adicional relevante para esta etapa de pré-master.",
+    "plugin": "Ferramenta de medição ou ajuste específica para esta métrica."
+  }
+]
 
-🚀 RESPONDA SEMPRE EM JSON PURO, SEM EXPLICAÇÕES EXTRAS.`
+RESPONDA EXCLUSIVAMENTE COM JSON VÁLIDO (ARRAY), sem markdown, sem texto extra.`
           },
           {
             role: 'user', 
@@ -196,63 +200,33 @@ app.post("/api/suggestions", async (req, res) => {
 
 // Função para construir o prompt da IA
 function buildSuggestionPrompt(suggestions, metrics, genre) {
-  const suggestionsList = suggestions.map((s, i) => 
-    `${i + 1}. ${s.message || s.title || 'Sugestão'} - ${s.action || s.description || 'Sem ação definida'} (Prioridade: ${s.priority || 5}, Confiança: ${s.confidence || 0.5})`
-  ).join('\n');
+  const suggestionsList = suggestions.map((s, i) => {
+    let entry = `${i + 1}. MÉTRICA: ${s.metric || s.key || 'N/A'} — ${s.message || s.title || 'Sugestão'}`;
+    if (s.currentValue !== undefined && s.targetValue !== undefined) {
+      entry += ` (valor atual: ${s.currentValue}${s.unit || ''}, alvo: ${s.targetValue}${s.unit || ''})`;
+    }
+    return entry;
+  }).join('\n');
 
-  const metricsInfo = metrics ? `
-🔊 ANÁLISE ESPECTRAL DETALHADA:
-- LUFS Integrado: ${metrics.lufsIntegrated || 'N/A'} dB (Loudness global)
-- True Peak: ${metrics.truePeakDbtp || 'N/A'} dBTP (Picos digitais)  
-- Dynamic Range: ${metrics.dynamicRange || 'N/A'} LU (Dinâmica)
-- Correlação Estéreo: ${metrics.stereoCorrelation || 'N/A'} (Espacialização)
-- LRA (Range): ${metrics.lra || 'N/A'} LU (Variação dinâmica)
-` : '';
+  const metricsInfo = metrics ? `MÉTRICAS DA MIX (pré-master):
+- LUFS Integrado: ${metrics.lufsIntegrated || 'N/A'} dB
+- True Peak: ${metrics.truePeakDbtp || 'N/A'} dBTP
+- Dynamic Range: ${metrics.dynamicRange || 'N/A'} LU
+- LRA: ${metrics.lra || 'N/A'} LU
+- Crest Factor: ${metrics.crestFactor || 'N/A'} dB` : '';
 
-  const genreContext = getGenreContext(genre);
+  const expected = Math.min(suggestions.length, 3);
+  return `Analise as seguintes detecções de uma MIX em fase pré-master para o gênero: ${genre || 'não especificado'}.
 
-  return `
-🎵 VOCÊ É O MAIS AVANÇADO ENGENHEIRO DE ÁUDIO E MASTERING DO MUNDO
-
-Analise estas detecções automáticas para ${genre || 'música geral'} e transforme cada uma numa sugestão REVOLUCIONÁRIA:
-
+DETECÇÕES:
 ${suggestionsList}
 
 ${metricsInfo}
 
-${genreContext}
-
-🎯 INSTRUÇÕES ULTRA-ESPECÍFICAS:
-
-1. Para CADA sugestão, identifique o problema REAL psicoacústico
-2. Explique a CAUSA técnica profunda (masking, phase, resonance, etc.)
-3. Dê solução PRECISA com valores de EQ, compressão, etc.
-4. Adicione dica PROFISSIONAL que poucos conhecem
-
-📊 ESTRUTURA JSON OBRIGATÓRIA:
-{
-  "suggestions": [
-    {
-      "id": 1,
-      "problem": "⚠️ [TÉCNICO] Descrição precisa do problema psicoacústico",
-      "cause": "🎯 Causa física/técnica específica (Hz, dB, ms, fase, etc.)",
-      "solution": "🛠️ Solução EXATA: EQ 3.2kHz -2.8dB Q=1.4, Compressor 4:1 @ 30ms",
-      "tip": "💡 Segredo profissional ou conceito avançado",
-      "priority": "crítica|alta|média|baixa",
-      "difficulty": "profissional|avançado|intermediário|básico",
-      "frequency_range": "20-60Hz|60-200Hz|200-500Hz|500-2kHz|2-5kHz|5-10kHz|10-20kHz",
-      "processing_type": "eq|compression|stereo|dynamics|harmonic|temporal"
-    }
-  ]
-}
-
-🚀 FOQUE EM:
-- Problemas REAIS que afetam a qualidade
-- Valores PRECISOS (não genéricos)
-- Explicações que ENSINAM técnica avançada
-- Soluções que funcionam no MUNDO REAL
-
-⚡ RESPONDA APENAS JSON PURO, SEM EXPLICAÇÕES EXTRAS.
+Gere exatamente ${expected} sugestão(ões) em formato JSON (ARRAY).
+Cada item DEVE ter o campo "metric" preenchido com: "lufs", "truePeak", "dr" ou "crestFactor".
+NÃO gere sugestões de EQ, bandas de frequência, estéreo ou loudness para distribuição.
+Se não houver problemas reais nessas métricas, retorne um array vazio: []
 `;
 }
 

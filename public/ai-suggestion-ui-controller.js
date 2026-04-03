@@ -2086,8 +2086,28 @@ class AISuggestionUIController {
         
         // ✅ VALIDAR SUGESTÕES CONTRA TARGETS REAIS
         const validatedSuggestions = this.validateAndCorrectSuggestions(filteredSuggestions, genreTargets);
-        
-        const cardsHtml = validatedSuggestions.map((suggestion, index) => {
+
+        // ── FILTRO PRÉ-MASTER: apenas LUFS / True Peak / DR / Crest Factor ─────────
+        const PREMASTER_ALLOWED = ['lufs', 'truepeak', 'dbtp', 'dynamicrange', 'dr', 'crestfactor', 'cf', 'lra'];
+        const isValidSuggestion = s => {
+            const m = (s.metric || s.metricKey || s.category || '').toLowerCase().replace(/[\s_\-]/g, '');
+            return m !== '' && PREMASTER_ALLOWED.some(a => m.includes(a));
+        };
+        const ORDER = { 'CRÍTICA': 0, 'ALTA': 1, 'ATENÇÃO': 2 };
+        const premasterSuggestions = validatedSuggestions
+            .filter(isValidSuggestion)
+            .sort((a, b) => (ORDER[a.severity] ?? 2) - (ORDER[b.severity] ?? 2))
+            .slice(0, 3);
+
+        if (premasterSuggestions.length === 0) {
+            log('[AI-PREMASTER-FILTER] Nenhuma sugestão pré-master válida após filtro — omitindo seção');
+            if (this.elements.aiSection) { this.elements.aiSection.style.display = 'none'; }
+            return;
+        }
+        log('[AI-PREMASTER-FILTER] Sugestões após filtro:', premasterSuggestions.length, '(de', validatedSuggestions.length, 'validadas)');
+        // ── Fim filtro pré-master ──────────────────────────────────────────────
+
+        const cardsHtml = premasterSuggestions.map((suggestion, index) => {
             if (isAIEnriched) {
                 return this.renderAIEnrichedCard(suggestion, index, genreTargets);
             } else {
