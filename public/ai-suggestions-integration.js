@@ -1043,7 +1043,36 @@ class AISuggestionsIntegration {
      * Exibir sugestões no grid
      */
     displaySuggestions(suggestions, source = 'ai') {
-        // � CORREÇÃO: Garantir que title seja igual a message se não existir
+        // ── GUARD: Não sobrescrever renderização já concluída pelo aiUIController ──────
+        // ai-suggestion-ui-controller.js e ai-suggestions-integration.js escrevem
+        // no MESMO elemento (#aiExpandedGrid). Se o controller já renderizou (flag=true),
+        // esta função NÃO deve sobrescrever — seria reintroduzir sugestões sem filtro.
+        const alreadyRendered = window.__AI_RENDER_COMPLETED__ === true;
+        console.log('[TRACE_INTEGRATION_ENTER] função=displaySuggestions count=' + (suggestions?.length ?? 0)
+            + ' source=' + source
+            + ' __AI_RENDER_COMPLETED__=' + alreadyRendered
+            + ' t=' + Date.now());
+        console.log('[TRACE_INTEGRATION_METRICS] função=displaySuggestions metrics='
+            + JSON.stringify(suggestions?.slice(0, 6)?.map(s => s.metric || s.category || s.type || s.key)));
+
+        if (alreadyRendered) {
+            console.warn('[TRACE_OVERWRITE] ⛔ displaySuggestions BLOQUEADO:'
+                + ' __AI_RENDER_COMPLETED__=true — aiUIController já renderizou #aiExpandedGrid.'
+                + ' Ignorando sobrescrita de ' + (suggestions?.length ?? 0) + ' sugestões.');
+            return;
+        }
+
+        // ── FILTRO DEFENSIVO: mesmo se chegar aqui, nunca exibir bandas espectrais ──
+        // applyPremasterFilter é global (definida em ai-suggestion-ui-controller.js)
+        if (typeof applyPremasterFilter === 'function') {
+            const before = suggestions?.length ?? 0;
+            suggestions = applyPremasterFilter(suggestions || []);
+            console.log('[TRACE_INTEGRATION_SOURCE] função=displaySuggestions filtro premaster='
+                + before + '→' + suggestions.length);
+        }
+        // ── FIM GUARD ────────────────────────────────────────────────────────────────
+
+        // CORREÇÃO: Garantir que title seja igual a message se não existir
         if (suggestions && Array.isArray(suggestions)) {
             suggestions.forEach((s) => {
                 if (!s.title && s.message) {
@@ -1052,7 +1081,7 @@ class AISuggestionsIntegration {
             });
         }
         
-        // �🔍 AUDITORIA PASSO 6: RENDERIZAÇÃO FINAL
+        // 🔍 AUDITORIA PASSO 6: RENDERIZAÇÃO FINAL
         console.group('🔍 [AUDITORIA] RENDERIZAÇÃO FINAL');
         log('[AI-UI] Renderizando sugestões enriquecidas:', suggestions?.length || 0);
         log('🖥️ displaySuggestions chamado com:', {
