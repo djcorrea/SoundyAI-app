@@ -144,14 +144,16 @@
   // ─────────────────────────────────────────────────────────────
 
   /**
-   * Retorna { verdict: { status, label, possiblyMastered, targets, thresholds, fails } }
+   * Retorna { verdict: { status, label, possiblyMastered, metrics, thresholds, fails } }
    * status: 'bad' | 'warning' | 'good'
    *
-   * Ordem de importância (pré-master):
-   *   clipping → true peak (headroom) → LUFS → crest factor → DR → LRA
+   * Lógica de produto:
+   *   BAD     — clipping OR tp >= -1.0
+   *   WARNING — lufs > -14 OR crestFactor < 6
+   *   GOOD    — demais casos
    *
-   * Thresholds derivados do JSON de gênero (mesma fonte que os cards).
-   * Quando genreTargets=null, avalia apenas TP/clipping (absolutos).
+   * DR e LRA NÃO afetam o status do veredito.
+   * genreTargets aceito mas ignorado na decisão (mantido por retrocompat).
    */
   function generateMixVerdict(dataOrMetrics, genreTargets) {
     // Aceita tanto o objeto analysis completo quanto métricas já extraídas
@@ -161,107 +163,59 @@
 
     var lufs     = m.lufs;
     var tp       = m.tp;
-    var dr       = m.dr;
     var cf       = m.crestFactor;
-    var lra      = m.lra;
     var clipping = m.clipping;
 
-    // ── THRESHOLDS DERIVADOS DO JSON DE GÊNERO (SSOT) ──
-    var t = (genreTargets && typeof genreTargets === 'object') ? genreTargets : null;
-
-    // LUFS: range aceito = [lufs_target - tol_lufs, lufs_target + tol_lufs]
-    var lufsLower = (t && typeof t.lufs_target === 'number' && typeof t.tol_lufs === 'number')
-      ? t.lufs_target - t.tol_lufs : null;
-    var lufsUpper = (t && typeof t.lufs_target === 'number' && typeof t.tol_lufs === 'number')
-      ? t.lufs_target + t.tol_lufs : null;
-
-    // True Peak: headroom — limiar superior aceito derivado do gênero (ONE-SIDED: só penaliza alto)
-    // HARD CAP absoluto: tp > 0.0 = BAD sempre, independe do JSON
-    var tpWarnAbove = (t && typeof t.true_peak_target === 'number' && typeof t.tol_true_peak === 'number')
-      ? t.true_peak_target + t.tol_true_peak
-      : -1.0;  // fallback conservador quando sem targets
-    if (tpWarnAbove > 0.0) { tpWarnAbove = 0.0; }  // nunca passa do HARD CAP
-
-    // DR: ONE-SIDED — alerta quando abaixo do mínimo aceito (target - tolerância)
-    var drMin = (t && typeof t.dr_target === 'number' && typeof t.tol_dr === 'number')
-      ? t.dr_target - t.tol_dr : null;
-
-    // LRA: range aceito = [lra_target - tol_lra, lra_target + tol_lra]
-    var lraLower = (t && typeof t.lra_target === 'number' && typeof t.tol_lra === 'number')
-      ? t.lra_target - t.tol_lra : null;
-    var lraUpper = (t && typeof t.lra_target === 'number' && typeof t.tol_lra === 'number')
-      ? t.lra_target + t.tol_lra : null;
-
-    // Crest Factor: ONE-SIDED fixo (≥8.0=OK, <8.0=ATENÇÃO/CRÍTICA — alinha com os cards)
-    var CF_OK_MIN = 8.0;
+    // Thresholds fixos de produto
+    var TP_BAD_ABOVE    = -1.0;  // tp >= -1.0 dBTP → BAD
+    var LUFS_WARN_ABOVE = -14.0; // lufs > -14 LUFS → WARNING
+    var CF_WARN_BELOW   =  6.0;  // cf < 6 dB → WARNING
 
     var thresholds = {
-      tpWarnAbove: tpWarnAbove,
-      lufsLower:   lufsLower,
-      lufsUpper:   lufsUpper,
-      drMin:       drMin,
-      lraLower:    lraLower,
-      lraUpper:    lraUpper,
-      CF_OK_MIN:   CF_OK_MIN
+      tpBadAbove:    TP_BAD_ABOVE,
+      lufsWarnAbove: LUFS_WARN_ABOVE,
+      cfWarnBelow:   CF_WARN_BELOW
     };
 
     var possiblyMastered = (lufs !== null && lufs >= -11 && tp !== null && tp >= -1.2);
 
-    // ── ETAPA 1: BAD — clipping real OU TP > 0.0 (sinal saturado) ──
-    if (clipping || (tp !== null && tp > 0.0)) {
+    // ── BAD: clipping real OU headroom insuficiente (tp >= -1.0 dBTP) ──
+    if (clipping || (tp !== null && tp >= TP_BAD_ABOVE)) {
       return {
         verdict: {
           status:           'bad',
-          label:            'Mix com clipping \u2014 n\u00e3o enviar para masteriza\u00e7\u00e3o',
+          label:            'Risco de distor\u00e7\u00e3o detectado',
           possiblyMastered: possiblyMastered,
           metrics:          m,
-          targets:          t,
           thresholds:       thresholds
         }
       };
     }
 
-    // ── ETAPA 2: WARNING — alguma métrica fora do range derivado do gênero ──
-    // TP: headroom insuficiente (ONE-SIDED)
-    var tpFail = (tp !== null && tp > tpWarnAbove);
+    // ── WARNING: LUFS muito alto OU Crest Factor muito baixo ──
+    var lufsFail = (lufs !== null && lufs > LUFS_WARN_ABOVE);
+    var cfFail   = (cf   !== null && cf   < CF_WARN_BELOW);
 
-    // LUFS: fora do range do gênero (só avalia quando targets disponíveis)
-    var lufsFail = (lufs !== null && lufsLower !== null && lufsUpper !== null)
-      ? (lufs < lufsLower || lufs > lufsUpper) : false;
-
-    // DR: abaixo do mínimo do gênero (ONE-SIDED, só avalia quando targets disponíveis)
-    var drFail = (dr !== null && drMin !== null)
-      ? (dr < drMin) : false;
-
-    // LRA: fora do range do gênero (só avalia quando targets disponíveis)
-    var lraFail = (lra !== null && lraLower !== null && lraUpper !== null)
-      ? (lra < lraLower || lra > lraUpper) : false;
-
-    // CF: ONE-SIDED fixo — alinha com threshold dos cards (cf < CF_OK_MIN = ATENÇÃO/CRÍTICA)
-    var cfFail = (cf !== null && cf < CF_OK_MIN);
-
-    if (tpFail || lufsFail || drFail || lraFail || cfFail) {
+    if (lufsFail || cfFail) {
       return {
         verdict: {
           status:           'warning',
-          label:            'Mix requer ajustes para masteriza\u00e7\u00e3o',
+          label:            'Masteriza\u00e7\u00e3o poss\u00edvel com ressalvas',
           possiblyMastered: possiblyMastered,
           metrics:          m,
-          targets:          t,
           thresholds:       thresholds,
-          fails:            { tpFail: tpFail, lufsFail: lufsFail, drFail: drFail, lraFail: lraFail, cfFail: cfFail }
+          fails:            { lufsFail: lufsFail, cfFail: cfFail, tpFail: false, drFail: false, lraFail: false }
         }
       };
     }
 
-    // ── ETAPA 3: GOOD — todas as métricas dentro dos limites ──
+    // ── GOOD ──
     return {
       verdict: {
         status:           'good',
-        label:            '\u2714 PRONTO PARA MASTERIZA\u00c7\u00c3O',
+        label:            'Mix pronta para masteriza\u00e7\u00e3o',
         possiblyMastered: possiblyMastered,
         metrics:          m,
-        targets:          t,
         thresholds:       thresholds
       }
     };
@@ -275,100 +229,49 @@
   function generateMixVerdictMainText(verdict, metrics) {
     metrics = metrics || {};
 
-    // Extrair métricas diretamente do technicalData com nomes corretos
-    var rawLufs = safeNum(metrics.lufsIntegrated  !== undefined ? metrics.lufsIntegrated
-                        : metrics.lufs_integrated !== undefined ? metrics.lufs_integrated
-                        : metrics.lufs);
     var rawTp   = safeNum(metrics.truePeakDbtp    !== undefined ? metrics.truePeakDbtp
                         : metrics.true_peak_dbtp  !== undefined ? metrics.true_peak_dbtp
                         : metrics.truePeak);
-    var rawDr   = safeNum(metrics.dynamicRange    !== undefined ? metrics.dynamicRange
-                        : metrics.dynamic_range   !== undefined ? metrics.dynamic_range
-                        : metrics.dr);
+    var rawLufs = safeNum(metrics.lufsIntegrated  !== undefined ? metrics.lufsIntegrated
+                        : metrics.lufs_integrated !== undefined ? metrics.lufs_integrated
+                        : metrics.lufs);
     var rawCf   = safeNum(metrics.crestFactor     !== undefined ? metrics.crestFactor
                         : metrics.crest_factor);
-    var rawLra  = safeNum(metrics.lra             !== undefined ? metrics.lra
-                        : metrics.loudnessRange   !== undefined ? metrics.loudnessRange
-                        : metrics.loudness_range);
 
-    var lu  = fmt1(rawLufs);
     var tp  = fmt1(rawTp);
-    var dr  = fmt1(rawDr);
+    var lu  = fmt1(rawLufs);
     var cf  = fmt1(rawCf);
-
-    var luStr = lu  !== null ? lu  + ' LUFS'  : null;
-    var tpStr = tp  !== null ? tp  + ' dBTP'  : null;
-    var drStr = dr  !== null ? 'DR ' + dr     : null;
-    var cfStr = cf  !== null ? 'Crest ' + cf  : null;
-
-    var metricsInline = [luStr, tpStr, drStr, cfStr].filter(Boolean).join(', ');
-    var metricsSuffix = metricsInline ? ' (' + metricsInline + ')' : '';
 
     var possiblyMasteredNote = verdict.possiblyMastered
       ? ' Esta faixa pode j\u00e1 estar masterizada \u2014 masterizar novamente pode degradar a qualidade.'
       : '';
 
     if (verdict.status === 'bad') {
-      var problems = [];
-      if (verdict.metrics && verdict.metrics.clipping) {
-        problems.push('clipping real detectado');
-      }
-      if (rawTp !== null && rawTp >= -0.5) {
-        problems.push('True Peak cr\u00edtico (' + (tp || rawTp) + ' dBTP)');
-      }
-      if (rawCf !== null && rawCf <= 8) {
-        problems.push('Crest Factor muito baixo (' + (cf || rawCf) + ' dB) \u2014 mix hiperlimitada');
-      }
-      var pStr = problems.length
-        ? ' Os n\u00edveis atuais indicam ' + problems.join(', ') + '.'
-        : ' Os n\u00edveis atuais indicam risco de distor\u00e7\u00e3o, perda de defini\u00e7\u00e3o e pouco espa\u00e7o para processamento final.';
-
-      return 'Sua mix n\u00e3o est\u00e1 pronta para masteriza\u00e7\u00e3o.' + pStr +
-             ' Se masterizada agora, a faixa tende a ficar mais agressiva, comprimida ou artificial.' +
-             ' O ideal \u00e9 corrigir headroom, pico real e equil\u00edbrio antes de seguir' +
-             metricsSuffix + '.' + possiblyMasteredNote;
+      var clipStr = (verdict.metrics && verdict.metrics.clipping)
+        ? ' Clipping detectado no sinal.' : '';
+      var tpStr = rawTp !== null
+        ? ' True Peak atual: ' + tp + ' dBTP (limite: < -1.0 dBTP).'
+        : '';
+      return 'Risco de distor\u00e7\u00e3o detectado \u2014 ajuste o n\u00edvel de pico antes de masterizar.' +
+             clipStr + tpStr + possiblyMasteredNote;
     }
 
     if (verdict.status === 'warning') {
-      var fails      = verdict.fails      || {};
-      var ths        = verdict.thresholds || {};
-      var wIssues    = [];
-
-      // Textos din\u00e2micos derivados dos targets do g\u00eanero (SSOT)
-      var tpLimitVal = (ths.tpWarnAbove !== null && ths.tpWarnAbove !== undefined)
-        ? fmt1(ths.tpWarnAbove) : '-1.0';
-      var lufsWin    = (ths.lufsLower !== null && ths.lufsLower !== undefined &&
-                        ths.lufsUpper !== null && ths.lufsUpper !== undefined)
-        ? fmt1(ths.lufsLower) + ' a ' + fmt1(ths.lufsUpper) + ' LUFS'
-        : '\u221226 a \u221214 LUFS';
-      var drLimitStr = (ths.drMin !== null && ths.drMin !== undefined)
-        ? 'DR ' + fmt1(ths.drMin) : 'DR 8';
-      var lraWin     = (ths.lraLower !== null && ths.lraLower !== undefined &&
-                        ths.lraUpper !== null && ths.lraUpper !== undefined)
-        ? fmt1(ths.lraLower) + ' a ' + fmt1(ths.lraUpper) + ' LU'
-        : '6 a 14 LU';
-      var lra        = fmt1(rawLra);
-
-      if (fails.tpFail   && rawTp   !== null) { wIssues.push('True Peak em ' + tp + ' dBTP (limite: \u2264 ' + tpLimitVal + ' dBTP)'); }
-      if (fails.lufsFail && rawLufs !== null) { wIssues.push('LUFS em ' + lu + ' (janela: ' + lufsWin + ')'); }
-      if (fails.drFail   && rawDr   !== null) { wIssues.push('DR em ' + dr + ' (m\u00ednimo aceito: ' + drLimitStr + ')'); }
-      if (fails.lraFail  && rawLra  !== null) { wIssues.push('LRA em ' + lra + ' LU (faixa do g\u00eanero: ' + lraWin + ')'); }
-      if (fails.cfFail   && rawCf   !== null) { wIssues.push('Crest Factor em ' + cf + ' dB (m\u00ednimo: 8 dB)'); }
-
-      var wLine = wIssues.length
-        ? ' Pontos fora dos limiares: ' + wIssues.join('; ') + '.'
-        : '';
-
-      return 'Sua mix ainda n\u00e3o atinge todos os crit\u00e9rios de seguran\u00e7a para masteriza\u00e7\u00e3o.' +
-             wLine +
-             ' Corrija os itens indicados antes de enviar para masteria\u00e7\u00e3o' +
-             metricsSuffix + '.' + possiblyMasteredNote;
+      var fails   = verdict.fails || {};
+      var wIssues = [];
+      if (fails.lufsFail && rawLufs !== null) {
+        wIssues.push('Volume de entrada em ' + lu + ' LUFS (limite: \u2264 -14 LUFS)');
+      }
+      if (fails.cfFail && rawCf !== null) {
+        wIssues.push('Crest Factor em ' + cf + ' dB (m\u00ednimo: 6 dB)');
+      }
+      var wLine = wIssues.length ? ' Pontos a corrigir: ' + wIssues.join('; ') + '.' : '';
+      return 'A masteriza\u00e7\u00e3o \u00e9 poss\u00edvel, mas alguns fatores podem limitar o resultado final.' +
+             wLine + possiblyMasteredNote;
     }
 
     // good
-    return 'Sua mix apresenta headroom e din\u00e2mica adequados para processamento. Pequenos ajustes s\u00e3o opcionais.' +
-           (metricsInline ? ' (' + metricsInline + ')' : '') +
-           possiblyMasteredNote;
+    return 'Mix pronta para masteriza\u00e7\u00e3o.' + possiblyMasteredNote;
   }
 
   // ─────────────────────────────────────────────────────────────
