@@ -20292,27 +20292,12 @@ async function displayModalResults(analysis) {
             const scoreTooltipTitle = scoreTooltipData?.title || 'Score Final';
             const scoreTooltipBody = scoreTooltipData?.body || 'Média ponderada de todos os subscores. Reflete a qualidade técnica geral do áudio.';
             
-            // Renderizar HTML do score final - UI LIMPA (SEM TOOLTIP)
-            // .score-final-status é o 1º filho → fica acima do score após verdict-engine injetar frases
-            // #diagnostic-container é o último filho → verdict-engine insere .verdict-main-text após ele
-            container.innerHTML = `
-                <div class="score-final-status ${statusClass}">${statusMessage}</div>
-                <div class="score-final-label">🏆 SCORE FINAL</div>
-                <div class="score-final-value">0</div>
-                <div class="score-final-bar-container">
-                    <div class="score-final-bar">
-                        <div class="score-final-bar-fill" style="width: 0%"></div>
-                    </div>
-                </div>
-                <div id="diagnostic-container" class="diagnostic-container"></div>
-            `;
-            
-            // Animar contagem do score (impacto visual) - inicia após pequeno delay
-            setTimeout(() => {
-                animateFinalScore(finalScore);
-            }, 100);
-            
-            log('[RENDER_FINAL_SCORE] ✅ Finalizada');
+            // [UX-REFACTOR] Score visual removido — veredito é o elemento principal.
+            // #diagnostic-container mantido como âncora para verdict-engine.js.
+            // Cálculo interno (finalScore, gates, subscores) preservado intacto.
+            container.innerHTML = `<div id="diagnostic-container" class="diagnostic-container"></div>`;
+
+            log('[RENDER_FINAL_SCORE] ✅ Finalizada (modo veredito — score numérico oculto)');
         }
         
         /**

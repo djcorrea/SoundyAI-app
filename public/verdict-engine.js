@@ -395,13 +395,13 @@
     var title, subtitle;
     if (verdict.status === 'bad') {
       title    = 'Mix com problemas críticos';
-      subtitle = 'Não enviar para masterização neste estado';
+      subtitle = 'Não recomendado masterizar neste estado. Ajustes são necessários.';
     } else if (verdict.status === 'warning') {
-      title    = 'Mix requer ajustes antes de masterizar';
-      subtitle = 'Masterizar agora pode comprometer o resultado final';
+      title    = 'Masterização possível com limitações';
+      subtitle = 'Alguns fatores podem limitar o resultado final da masterização.';
     } else {
-      title    = '\u2714 Mix pronta para masterização';
-      subtitle = 'Os níveis estão dentro dos parâmetros ideais para processamento';
+      title    = 'Mix pronta para masterização';
+      subtitle = 'Os níveis estão dentro dos parâmetros ideais para processamento.';
     }
 
     var bullets = [];
@@ -515,20 +515,31 @@
     }
     vlog('[VERDICT] verdict-card inserido antes de .score-final-label (status=' + verdict.status + ')');
 
-    // Mover #btnMasterizar para logo ap\u00f3s .score-final-bar-container
+    // Atualizar CTA: texto + estilo baseado no veredito
     var masterBtn = document.getElementById('btnMasterizar');
     if (masterBtn) {
-      masterBtn.parentNode && masterBtn.parentNode.removeChild(masterBtn);
-      masterBtn.style.position      = 'relative';
-      masterBtn.style.zIndex        = '2';
+      // Limpar estados anteriores
+      masterBtn.classList.remove('action-btn--warning', 'action-btn--disabled');
       masterBtn.style.pointerEvents = 'auto';
-      var barContainer = scoreContainer.querySelector('.score-final-bar-container');
-      if (barContainer) {
-        barContainer.insertAdjacentElement('afterend', masterBtn);
+      masterBtn.removeAttribute('aria-disabled');
+
+      if (verdict.status === 'bad') {
+        masterBtn.textContent = '\u274c Corrigir antes de masterizar';
+        masterBtn.classList.add('action-btn--disabled');
+        masterBtn.style.pointerEvents = 'none';
+        masterBtn.setAttribute('aria-disabled', 'true');
+      } else if (verdict.status === 'warning') {
+        masterBtn.textContent = '\u26a0\ufe0f Masterizar mesmo assim';
+        masterBtn.classList.add('action-btn--warning');
       } else {
-        scoreContainer.appendChild(masterBtn);
+        masterBtn.textContent = '\uD83D\uDD25 Masterizar agora';
       }
-      vlog('[VERDICT] #btnMasterizar posicionado ap\u00f3s .score-final-bar-container');
+
+      masterBtn.parentNode && masterBtn.parentNode.removeChild(masterBtn);
+      masterBtn.style.position = 'relative';
+      masterBtn.style.zIndex   = '2';
+      scoreContainer.appendChild(masterBtn);
+      vlog('[VERDICT] #btnMasterizar atualizado e posicionado (status=' + verdict.status + ')');
     } else {
       vwarn('[VERDICT] #btnMasterizar n\u00e3o encontrado no DOM \u2014 CTA n\u00e3o posicionado');
     }
