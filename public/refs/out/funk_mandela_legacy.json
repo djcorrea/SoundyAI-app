@@ -1,3 +1,9 @@
 {
-  "removed": "Perfil legacy fundido em funk_mandela em 2025-08-13"
+  "removed": "Perfil legacy fundido em funk_mandela em 2025-08-13",
+  "lufs_target": -20,
+  "tol_lufs": 6,
+  "dr_target": 15,
+  "tol_dr": 5,
+  "lra_target": 10,
+  "tol_lra": 4
 }

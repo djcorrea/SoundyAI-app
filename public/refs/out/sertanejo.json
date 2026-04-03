@@ -98,15 +98,15 @@
       "note": "Targets manuais de pré-master — sem análise de faixas reais"
     },
     "legacy_compatibility": {
-      "lufs_target": -19.5,
+      "lufs_target": -20,
       "true_peak_target": -4.5,
-      "dr_target": 10,
+      "dr_target": 15,
       "stereo_target": 0.85,
-      "tol_lufs": 2,
+      "tol_lufs": 6,
       "tol_true_peak": 1.5,
-      "tol_dr": 1.75,
-      "lra_target": 7.25,
-      "tol_lra": 1.75,
+      "tol_dr": 5,
+      "lra_target": 10,
+      "tol_lra": 4,
       "tol_stereo": 0.085,
       "bands": {
         "sub": {
@@ -199,7 +199,7 @@
       "true_peak_warn_from": -3
     },
     "last_updated": "2026-03-12T00:00:00.000Z",
-    "cache_bust": 1773362573223,
+    "cache_bust": 1773362573221,
     "processing_info": {
       "hybrid_mode": true,
       "safe_mode": true,
@@ -207,7 +207,7 @@
       "fallback_enabled": true
     },
     "correction_info": {
-      "correction_date": "2026-03-13T00:42:53.223Z",
+      "correction_date": "2026-03-13T00:42:53.221Z",
       "correction_type": "mix_targets_v1",
       "source": "manual_definition",
       "note": "Targets ajustados para mix (pré-master): LUFS mais abertos, DR otimizado para mix, bandas abertas +2/+3 dB"
@@ -219,11 +219,13 @@
     "true_peak_min": -12,
     "true_peak_max": -3,
     "true_peak_warn_from": -3,
-    "lufs_target": -19.5,
+    "lufs_target": -20,
     "true_peak_target": -4.5,
-    "dr_target": 10,
-    "tol_lufs": 2,
-    "tol_dr": 1.75,
-    "tol_true_peak": 1.5
+    "dr_target": 15,
+    "tol_lufs": 6,
+    "tol_dr": 5,
+    "tol_true_peak": 1.5,
+    "lra_target": 10,
+    "tol_lra": 4
   }
 }

@@ -98,15 +98,15 @@
       "note": "Métricas originais + bandas normalizadas para comparação justa"
     },
     "legacy_compatibility": {
-      "lufs_target": -9,
+      "lufs_target": -20,
       "true_peak_target": -0.25,
-      "dr_target": 7,
+      "dr_target": 15,
       "stereo_target": 0.915,
-      "tol_lufs": 1,
+      "tol_lufs": 6,
       "tol_true_peak": 0.25,
-      "tol_dr": 1,
-      "lra_target": 6.5,
-      "tol_lra": 2.5,
+      "tol_dr": 5,
+      "lra_target": 10,
+      "tol_lra": 4,
       "tol_stereo": 0.065,
       "bands": {
         "sub": {
@@ -210,6 +210,12 @@
       "correction_type": "new_genre_creation",
       "source": "system_update",
       "note": "Novo gênero Phonk criado com padrão v2_hybrid_safe"
-    }
+    },
+    "lufs_target": -20,
+    "tol_lufs": 6,
+    "dr_target": 15,
+    "tol_dr": 5,
+    "lra_target": 10,
+    "tol_lra": 4
   }
 }

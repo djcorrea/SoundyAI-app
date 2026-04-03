@@ -5,15 +5,15 @@
     "num_tracks": 9,
     "processing_mode": "fallback_safe",
     "legacy_id": "funk_automotivo",
-    "lufs_target": -18,
+    "lufs_target": -20,
     "true_peak_target": -4.5,
-    "dr_target": 9,
-    "lra_target": 5.5,
+    "dr_target": 15,
+    "lra_target": 10,
     "stereo_target": 0.915,
-    "tol_lufs": 3.25,
+    "tol_lufs": 6,
     "tol_true_peak": 2.5,
-    "tol_dr": 1.5,
-    "tol_lra": 1.5,
+    "tol_dr": 5,
+    "tol_lra": 4,
     "tol_stereo": 0.065,
     "bands": {
       "sub": {
@@ -191,15 +191,15 @@
       "note": "Métricas originais + bandas normalizadas para comparação justa"
     },
     "legacy_compatibility": {
-      "lufs_target": -18,
+      "lufs_target": -20,
       "true_peak_target": -4.5,
-      "dr_target": 9,
+      "dr_target": 15,
       "stereo_target": 0.915,
-      "tol_lufs": 3.25,
+      "tol_lufs": 6,
       "tol_true_peak": 2.5,
-      "tol_dr": 1.5,
-      "lra_target": 5.5,
-      "tol_lra": 1.5,
+      "tol_dr": 5,
+      "lra_target": 10,
+      "tol_lra": 4,
       "tol_stereo": 0.065,
       "bands": {
         "sub": {

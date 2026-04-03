@@ -99,15 +99,15 @@
       "note": "Métricas originais + bandas normalizadas para comparação justa"
     },
     "legacy_compatibility": {
-      "lufs_target": -7.5,
+      "lufs_target": -20,
       "true_peak_target": -1,
-      "dr_target": 7,
+      "dr_target": 15,
       "stereo_target": 0.915,
-      "tol_lufs": 1.3,
+      "tol_lufs": 6,
       "tol_true_peak": 1.5,
-      "tol_dr": 2.3,
-      "lra_target": 5,
-      "tol_lra": 2.5,
+      "tol_dr": 5,
+      "lra_target": 10,
+      "tol_lra": 4,
       "tol_stereo": 0.065,
       "bands": {
         "sub": {
@@ -220,11 +220,13 @@
     "true_peak_min": -3,
     "true_peak_max": 0,
     "true_peak_warn_from": -0.5,
-    "lufs_target": -7.5,
+    "lufs_target": -20,
     "true_peak_target": -1,
-    "dr_target": 7,
-    "tol_lufs": 1.3,
-    "tol_dr": 2.3,
-    "tol_true_peak": 1.5
+    "dr_target": 15,
+    "tol_lufs": 6,
+    "tol_dr": 5,
+    "tol_true_peak": 1.5,
+    "lra_target": 10,
+    "tol_lra": 4
   }
 }

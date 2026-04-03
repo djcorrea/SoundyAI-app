@@ -97,13 +97,13 @@
       "note": "Métricas originais + bandas normalizadas para comparação justa"
     },
     "legacy_compatibility": {
-      "lufs_target": -10.5,
+      "lufs_target": -20,
       "true_peak_target": -0.65,
-      "dr_target": 10.5,
+      "dr_target": 15,
       "stereo_target": 0.915,
-      "tol_lufs": 1.5,
+      "tol_lufs": 6,
       "tol_true_peak": 0.35,
-      "tol_dr": 1.5,
+      "tol_dr": 5,
       "tol_stereo": 0.065,
       "bands": {
         "sub": {
@@ -201,6 +201,12 @@
       "safe_mode": true,
       "ios_compatible": true,
       "fallback_enabled": true
-    }
+    },
+    "lufs_target": -20,
+    "tol_lufs": 6,
+    "dr_target": 15,
+    "tol_dr": 5,
+    "lra_target": 10,
+    "tol_lra": 4
   }
 }

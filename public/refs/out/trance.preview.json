@@ -5,18 +5,18 @@
     "num_tracks": 5,
     "aggregation_method": "arithmetic_mean_corrected",
     "legacy_compatibility": {
-      "lufs_target": -18,
-      "tol_lufs": 1.7,
+      "lufs_target": -20,
+      "tol_lufs": 6,
       "tol_lufs_min": 1.7,
       "tol_lufs_max": 1.7,
       "true_peak_target": -11.6,
       "tol_true_peak": 1,
-      "dr_target": 16.8,
-      "tol_dr": 2.2,
+      "dr_target": 15,
+      "tol_dr": 5,
       "dr_stat_target": 8.8,
       "tol_dr_stat": 2.2,
-      "lra_target": 10.1,
-      "tol_lra": 1.5,
+      "lra_target": 10,
+      "tol_lra": 4,
       "lra_min": 5.7,
       "lra_max": 8.7,
       "stereo_target": 0.89,
@@ -92,6 +92,12 @@
       "processing_date": "2025-08-30T21:45:35.646Z",
       "run_id": "lufs_norm_1756588588279_78cfade0"
     },
-    "last_updated": "2025-08-30T21:45:35.646Z"
+    "last_updated": "2025-08-30T21:45:35.646Z",
+    "lufs_target": -20,
+    "tol_lufs": 6,
+    "dr_target": 15,
+    "tol_dr": 5,
+    "lra_target": 10,
+    "tol_lra": 4
   }
 }

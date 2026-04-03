@@ -8430,14 +8430,14 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
             const min = targetRange.min ?? targetRange.min_db;
             const max = targetRange.max ?? targetRange.max_db;
             if (typeof min === 'number' && typeof max === 'number') {
-                targetSpec = { min, max, tol: tolerance || 2.0 };
+                targetSpec = { min, max, tol: tolerance ?? 2.0 };
             }
         }
         
         // Se não tem range, usar target ± tol
         if (!targetSpec.min && !targetSpec.max) {
             if (target !== null && target !== undefined) {
-                targetSpec = { target, tol: tolerance || 1.0 };
+                targetSpec = { target, tol: tolerance ?? 1.0 };
             } else {
                 return { severity: 'N/A', severityClass: 'na', action: 'Sem dados', diff: 0 };
             }
@@ -8480,8 +8480,8 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
                 log(`[BUILD_ROWS] ⚠️ LUFS: usando min/max local [${min.toFixed(1)}, ${max.toFixed(1)}]`);
             } else {
                 // Fallback para target ± tol
-                min = genreData.lufs_target - (genreData.tol_lufs || 1.0);
-                max = genreData.lufs_target + (genreData.tol_lufs || 1.0);
+                min = genreData.lufs_target - (genreData.tol_lufs ?? 1.0);
+                max = genreData.lufs_target + (genreData.tol_lufs ?? 1.0);
                 targetText = `${genreData.lufs_target.toFixed(1)} LUFS`;
             }
         }
@@ -8502,7 +8502,7 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
             log(`[BUILD_ROWS] ✅ LUFS: severidade do backend = ${result.severity}`);
         } else {
             // 🔄 FALLBACK: calcular localmente
-            result = calcSeverity(technicalData.lufsIntegrated, genreData.lufs_target, genreData.tol_lufs || 1.0, 
+            result = calcSeverity(technicalData.lufsIntegrated, genreData.lufs_target, genreData.tol_lufs ?? 1.0, 
                 { targetRange: { min, max } });
         }
         
@@ -8619,8 +8619,8 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
                 log(`[BUILD_ROWS] ⚠️ DR: usando min/max local [${min.toFixed(1)}, ${max.toFixed(1)}]`);
             } else {
                 // Fallback para target ± tol
-                min = genreData.dr_target - (genreData.tol_dr || 1.0);
-                max = genreData.dr_target + (genreData.tol_dr || 1.0);
+                min = genreData.dr_target - (genreData.tol_dr ?? 1.0);
+                max = genreData.dr_target + (genreData.tol_dr ?? 1.0);
                 targetText = `${genreData.dr_target.toFixed(1)} DR`;
             }
         }
@@ -8641,7 +8641,7 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
             log(`[BUILD_ROWS] ✅ DR: severidade do backend = ${result.severity}`);
         } else {
             // 🔄 FALLBACK: calcular localmente
-            result = calcSeverity(technicalData.dynamicRange, genreData.dr_target, genreData.tol_dr || 1.0,
+            result = calcSeverity(technicalData.dynamicRange, genreData.dr_target, genreData.tol_dr ?? 1.0,
                 { targetRange: { min, max } });
         }
         
@@ -9482,6 +9482,15 @@ function renderGenreComparisonTable(options) {
         },
         targetsSource: (isDirectAnalysis ? 'resolveGenreTargetsForDiagnostic' : 'options.targets + validation'),
     });
+    console.log('[TARGET-AUDIT]', {
+        genre,
+        lufs_target: genreData?.lufs_target,
+        tol_lufs:    genreData?.tol_lufs,
+        dr_target:   genreData?.dr_target,
+        tol_dr:      genreData?.tol_dr,
+        lra_target:  genreData?.lra_target,
+        tol_lra:     genreData?.tol_lra,
+    });
 
     // 🎯 EXTRAIR VALORES DO ANALYSIS (mesmas fontes usadas em calculateScore)
     const lufsIntegrated = analysis?.technicalData?.lufsIntegrated ?? lufs ?? analysis.loudness?.integrated ?? null;
@@ -9654,7 +9663,7 @@ function renderGenreComparisonTable(options) {
     let metricsCount = 0;
     let bandsCount = 0;
     // 🎯 SUMMARY CARDS: capturar resultados das 5 métricas para os cards visuais de resumo
-    let _summaryLufs = null, _summaryTp = null, _summaryDr = null, _summaryLra = null, _summaryStereo = null;
+    let _summaryLufs = null, _summaryTp = null, _summaryDr = null, _summaryLra = null, _summaryStereo = null, _summaryCf = null;
 
     // ════════════════════════════════════════════════════════════════════
     // 1️⃣ MÉTRICAS PRINCIPAIS (LUFS, TRUE PEAK, DR, LRA, STEREO)
@@ -9848,7 +9857,27 @@ function renderGenreComparisonTable(options) {
             }
         }
     }
-    
+
+    // ⚡ Crest Factor — card principal (lógica ONE-SIDED: penalizar só quando baixo)
+    {
+        const _cfVal = analysis?.technicalData?.crestFactor ?? analysis?.dynamics?.crest ?? null;
+        if (Number.isFinite(_cfVal)) {
+            const CF_OK_MIN   = 8.0;  // acima → OK
+            const CF_WARN_MIN = 6.0;  // entre 6-8 → ATENÇÃO
+            let _cfSev;
+            if (_cfVal >= CF_OK_MIN) {
+                _cfSev = { severityClass: 'ok',       severity: 'OK',      action: '✅ Dinâmica saudável' };
+            } else if (_cfVal >= CF_WARN_MIN) {
+                _cfSev = { severityClass: 'caution',  severity: 'ATENÇÃO', action: `⚠️ Levemente comprimido (${_cfVal.toFixed(1)} dB)` };
+            } else {
+                _cfSev = { severityClass: 'critical', severity: 'CRÍTICA', action: `🔴 Over-compressed (${_cfVal.toFixed(1)} dB)` };
+            }
+            const canRenderCf = shouldRenderRealValue('crestFactor', 'table', analysis);
+            _summaryCf = { displayValue: canRenderCf ? _cfVal.toFixed(2) + ' dB' : '🔒', severityClass: _cfSev.severityClass, severity: canRenderCf ? _cfSev.severity : '🔒', action: canRenderCf ? _cfSev.action : '' };
+            console.log('[TARGET-AUDIT] CF', { value: _cfVal, CF_OK_MIN, CF_WARN_MIN, severity: _cfSev.severity });
+        }
+    }
+
     // ════════════════════════════════════════════════════════════════════
     // 2️⃣ BANDAS ESPECTRAIS
     // ════════════════════════════════════════════════════════════════════
@@ -10017,7 +10046,7 @@ function renderGenreComparisonTable(options) {
                 ${_buildDscCard('🎚️', 'True Peak', _summaryTp)}
                 ${_buildDscCard('📊', 'Dinâmica', _summaryDr)}
                 ${_buildDscCard('📈', 'LRA', _summaryLra)}
-                ${_buildDscCard('🎧', 'Estéreo', _summaryStereo)}
+                ${_buildDscCard('⚡', 'Crest Factor', _summaryCf)}
             </div>
             <button
                 type="button"
@@ -10047,43 +10076,10 @@ function renderGenreComparisonTable(options) {
         return null;
     };
 
-    // 🎯 MÉTRICAS AVANÇADAS — sem duplicar as 5 do bloco principal
-    const _cfValue = analysis?.technicalData?.crestFactor ?? analysis?.dynamics?.crest ?? null;
+    // 🎯 MÉTRICAS AVANÇADAS — CF já está nos cards principais; aqui só Kurtosis
     const _kurtValue = analysis?.technicalData?.spectralKurtosis ?? null;
 
     const advancedCards = [];
-    if (Number.isFinite(_cfValue)) {
-        // 🔧 FIX-CF: Crest Factor para pré-master é ONE-SIDED (maior = mais dinâmica = melhor)
-        // NÃO penalizar CF alto (~12-15 dB é excelente para pré-master não masterizado)
-        // Só sinalizar quando CF estiver BAIXO demais (over-compressed)
-        const CF_OK_MIN   = 8.0;  // acima → OK (dinâmica saudável)
-        const CF_WARN_MIN = 6.0;  // entre 6-8 → atenção (levemente comprimido)
-        //                         // abaixo de 6 → crítico (over-compressed)
-        let _cfResult;
-        if (_cfValue >= CF_OK_MIN) {
-            _cfResult = { severity: 'OK', severityClass: 'ok', action: '✅ Dinâmica saudável para pré-master', diff: 0 };
-        } else if (_cfValue >= CF_WARN_MIN) {
-            _cfResult = { severity: 'ATENÇÃO', severityClass: 'caution', action: `⚠️ Levemente comprimido (${_cfValue.toFixed(1)} dB)`, diff: +(CF_OK_MIN - _cfValue).toFixed(2) };
-        } else {
-            _cfResult = { severity: 'CRÍTICA', severityClass: 'critical', action: `🔴 Over-compressed — reduzir compressão (${_cfValue.toFixed(1)} dB)`, diff: +(CF_OK_MIN - _cfValue).toFixed(2) };
-        }
-        console.log('[CARD-DEBUG]', {
-            metricName:    'CrestFactor',
-            displayedValue: _cfValue.toFixed(2) + ' dB',
-            rawValue:      _cfValue,
-            sourceField:   'analysis.technicalData.crestFactor',
-            cfOkMin:       CF_OK_MIN,
-            cfWarnMin:     CF_WARN_MIN,
-            action:        _cfResult.action,
-        });
-        advancedCards.push(`
-            <article class="diag-expanded-card dec-${_cfResult.severityClass}">
-                <div class="dec-head">⚡ Crest Factor</div>
-                <div class="dec-value">${_cfValue.toFixed(2)} dB</div>
-                <div class="dec-action">${sanitizeActionText(_cfResult.action)}</div>
-            </article>
-        `);
-    }
     if (Number.isFinite(_kurtValue)) {
         advancedCards.push(`
             <article class="diag-expanded-card dec-na">
@@ -10138,7 +10134,7 @@ function renderGenreComparisonTable(options) {
     const tableHTML = `
         <div class="diag-expanded-grid">
             <div class="diag-expanded-section-title">Métricas Avançadas</div>
-            <div class="diag-expanded-cards">${advancedCards.length ? advancedCards.join('') : '<div class="diag-empty">Crest Factor e Kurtosis não disponíveis nesta análise.</div>'}</div>
+            <div class="diag-expanded-cards">${advancedCards.length ? advancedCards.join('') : '<div class="diag-empty">Kurtosis não disponível nesta análise.</div>'}</div>
             <div class="diag-expanded-section-title">Bandas Espectrais</div>
             <div class="diag-expanded-cards">${bandCards.length ? bandCards.join('') : '<div class="diag-empty">Sem bandas disponíveis para exibição.</div>'}</div>
         </div>
@@ -26461,9 +26457,9 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         if (targets.lufs_target !== undefined) {
             finalTargets.lufs = {
                 target: targets.lufs_target,
-                min: targets.lufs_min ?? (targets.lufs_target - (targets.tol_lufs || 1.0)),
-                max: targets.lufs_max ?? (targets.lufs_target + (targets.tol_lufs || 1.0)),
-                tol: targets.tol_lufs || 1.0
+                min: targets.lufs_min ?? (targets.lufs_target - (targets.tol_lufs ?? 1.0)),
+                max: targets.lufs_max ?? (targets.lufs_target + (targets.tol_lufs ?? 1.0)),
+                tol: targets.tol_lufs ?? 1.0
             };
         }
         
@@ -26482,9 +26478,9 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         if (targets.dr_target !== undefined) {
             finalTargets.dr = {
                 target: targets.dr_target,
-                min: targets.dr_min ?? (targets.dr_target - (targets.tol_dr || 1.5)),
-                max: targets.dr_max ?? (targets.dr_target + (targets.tol_dr || 1.5)),
-                tol: targets.tol_dr || 1.5
+                min: targets.dr_min ?? (targets.dr_target - (targets.tol_dr ?? 1.5)),
+                max: targets.dr_max ?? (targets.dr_target + (targets.tol_dr ?? 1.5)),
+                tol: targets.tol_dr ?? 1.5
             };
         }
         
@@ -26492,9 +26488,9 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         if (targets.lra_target !== undefined) {
             finalTargets.lra = {
                 target: targets.lra_target,
-                min: targets.lra_min ?? (targets.lra_target - (targets.tol_lra || 2.0)),
-                max: targets.lra_max ?? (targets.lra_target + (targets.tol_lra || 2.0)),
-                tol: targets.tol_lra || 2.0
+                min: targets.lra_min ?? (targets.lra_target - (targets.tol_lra ?? 2.0)),
+                max: targets.lra_max ?? (targets.lra_target + (targets.tol_lra ?? 2.0)),
+                tol: targets.tol_lra ?? 2.0
             };
         }
         
@@ -28872,11 +28868,11 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
                 dr_target: genreData.dr_target,
                 lra_target: genreData.lra_target,
                 stereo_target: genreData.stereo_target,
-                tol_lufs: genreData.tol_lufs || 1.0,
-                tol_true_peak: genreData.tol_true_peak || 0.25,
-                tol_dr: genreData.tol_dr || 1.25,
-                tol_lra: genreData.tol_lra || 2.5,
-                tol_stereo: genreData.tol_stereo || 0.065
+                tol_lufs: genreData.tol_lufs ?? 1.0,
+                tol_true_peak: genreData.tol_true_peak ?? 0.25,
+                tol_dr: genreData.tol_dr ?? 1.25,
+                tol_lra: genreData.tol_lra ?? 2.5,
+                tol_stereo: genreData.tol_stereo ?? 0.065
             };
             log('✅ [GENRE-TARGETS] Métricas extraídas do ROOT (correto):', {
                 lufs: genreTargetMetrics.lufs_target,
@@ -28893,11 +28889,11 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
                 dr_target: lc.dr_target,
                 lra_target: lc.lra_target,
                 stereo_target: lc.stereo_target,
-                tol_lufs: lc.tol_lufs || 1.0,
-                tol_true_peak: lc.tol_true_peak || 0.25,
-                tol_dr: lc.tol_dr || 1.25,
-                tol_lra: lc.tol_lra || 2.5,
-                tol_stereo: lc.tol_stereo || 0.065
+                tol_lufs: lc.tol_lufs ?? 1.0,
+                tol_true_peak: lc.tol_true_peak ?? 0.25,
+                tol_dr: lc.tol_dr ?? 1.25,
+                tol_lra: lc.tol_lra ?? 2.5,
+                tol_stereo: lc.tol_stereo ?? 0.065
             };
             log('⚠️ [GENRE-TARGETS] Métricas extraídas de legacy_compatibility (fallback)');
         } else if (genreData?.hybrid_processing?.original_metrics) {
@@ -29570,7 +29566,7 @@ function calculateFallbackScores(technicalData, referenceData) {
         // Score LUFS
         if (Number.isFinite(technicalData.lufsIntegrated) && Number.isFinite(referenceData.lufs_target)) {
             const delta = Math.abs(technicalData.lufsIntegrated - referenceData.lufs_target);
-            const tolerance = referenceData.tol_lufs || 2.0;
+            const tolerance = referenceData.tol_lufs ?? 2.0;
             scores.lufs = Math.max(0, Math.min(10, 10 - (delta / tolerance) * 2));
         }
         
@@ -29588,7 +29584,7 @@ function calculateFallbackScores(technicalData, referenceData) {
         // Score DR
         if (Number.isFinite(technicalData.dynamicRange) && Number.isFinite(referenceData.dr_target)) {
             const delta = Math.abs(technicalData.dynamicRange - referenceData.dr_target);
-            const tolerance = referenceData.tol_dr || 2.0;
+            const tolerance = referenceData.tol_dr ?? 2.0;
             scores.dr = Math.max(0, Math.min(10, 10 - (delta / tolerance) * 2));
         }
         

@@ -1,7 +1,7 @@
 {
   "brazilian_phonk": {
     "version": "v2_hybrid_safe",
-    "generated_at": "2025-12-27T14:56:55.821Z",
+    "generated_at": "2025-12-27T14:56:55.818Z",
     "num_tracks": 10,
     "processing_mode": "fallback_safe",
     "hybrid_processing": {
@@ -98,15 +98,15 @@
       "note": "Métricas originais + bandas normalizadas para comparação justa"
     },
     "legacy_compatibility": {
-      "lufs_target": -6.5,
+      "lufs_target": -20,
       "true_peak_target": -0.2,
-      "dr_target": 4.5,
+      "dr_target": 15,
       "stereo_target": 0.915,
-      "tol_lufs": 1.8,
+      "tol_lufs": 6,
       "tol_true_peak": 1,
-      "tol_dr": 2,
-      "lra_target": 7,
-      "tol_lra": 2.5,
+      "tol_dr": 5,
+      "lra_target": 10,
+      "tol_lra": 4,
       "tol_stereo": 0.065,
       "bands": {
         "sub": {
@@ -198,8 +198,8 @@
       "true_peak_max": 0,
       "true_peak_warn_from": -0.05
     },
-    "last_updated": "2025-12-27T14:56:55.821Z",
-    "cache_bust": 1766847415821,
+    "last_updated": "2025-12-27T14:56:55.818Z",
+    "cache_bust": 1766847415818,
     "processing_info": {
       "hybrid_mode": true,
       "safe_mode": true,
@@ -219,11 +219,13 @@
     "true_peak_min": -2,
     "true_peak_max": 0,
     "true_peak_warn_from": -0.05,
-    "lufs_target": -6.5,
+    "lufs_target": -20,
     "true_peak_target": -0.2,
-    "dr_target": 4.5,
-    "tol_lufs": 1.8,
-    "tol_dr": 2,
-    "tol_true_peak": 1
+    "dr_target": 15,
+    "tol_lufs": 6,
+    "tol_dr": 5,
+    "tol_true_peak": 1,
+    "lra_target": 10,
+    "tol_lra": 4
   }
 }
