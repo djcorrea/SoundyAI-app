@@ -190,6 +190,46 @@ log('🚀 Carregando auth.js...');
       log('✅ [SCROLL] Scroll forçado para desbloqueado');
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // 🔄 RESTAURAR ESTADO PENDENTE DO AUTOMASTER
+    // Verifica se o usuário estava no meio de uma masterização antes de fazer login.
+    // Se existir um pendingMaster válido (não expirado), redireciona de volta.
+    // Retorna true se redirecionou, false caso contrário.
+    // ═══════════════════════════════════════════════════════════════════
+    function checkAndRedirectPendingMaster() {
+      try {
+        const raw = localStorage.getItem('pendingMaster');
+        if (!raw) return false;
+
+        const pending = JSON.parse(raw);
+        localStorage.removeItem('pendingMaster'); // limpar independente do resultado
+
+        if (!pending || !pending.fileKey || typeof pending.timestamp !== 'number') return false;
+        if (Date.now() > pending.timestamp) {
+          log('⏰ [PENDING-MASTER] Estado expirado — ignorado');
+          return false;
+        }
+
+        // Validar fileKey (mesmo regex do backend)
+        const SAFE_RE = /^[a-zA-Z0-9/_\-.]+$/;
+        if (!SAFE_RE.test(pending.fileKey)) {
+          log('⚠️ [PENDING-MASTER] fileKey inválido — ignorado');
+          return false;
+        }
+
+        const url = 'master.html'
+          + '?fileKey='  + encodeURIComponent(pending.fileKey)
+          + '&fileName=' + encodeURIComponent(pending.fileName || 'audio');
+
+        log('✅ [PENDING-MASTER] Restaurando sessão AutoMaster:', url);
+        window.location.href = url;
+        return true;
+      } catch (_) {
+        localStorage.removeItem('pendingMaster');
+        return false;
+      }
+    }
+
     // Função de login
     async function login() {
       const email = document.getElementById("email")?.value?.trim();
@@ -251,6 +291,8 @@ log('🚀 Carregando auth.js...');
           if (userData.entrevistaConcluida === false && isPaidPlan) {
             log(`✅ [AUTH] Plano ${userPlan} - verificando entrevista`);
             window.location.href = "entrevista.html";
+          } else if (checkAndRedirectPendingMaster()) {
+            log(`✅ [AUTH] pendingMaster encontrado — redirecionando para AutoMaster`);
           } else {
             log(`✅ [AUTH] Plano ${userPlan} - redirecionando para index.html`);
             window.location.href = "index.html";
@@ -393,9 +435,13 @@ log('🚀 Carregando auth.js...');
               window.location.href = "entrevista.html";
             }, 1500);
           } else {
-            log(`🎯 [GOOGLE-AUTH] Plano ${userPlan} - redirecionando para index`);
             setTimeout(() => {
-              window.location.href = "index.html";
+              if (!checkAndRedirectPendingMaster()) {
+                log(`🎯 [GOOGLE-AUTH] Plano ${userPlan} - redirecionando para index`);
+                window.location.href = "index.html";
+              } else {
+                log(`✅ [GOOGLE-AUTH] pendingMaster encontrado — redirecionando para AutoMaster`);
+              }
             }, 1500);
           }
           

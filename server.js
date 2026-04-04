@@ -242,6 +242,11 @@ import stripeCheckoutRouter from "./work/api/stripe/create-checkout-session.js";
 import stripeCancelRouter from "./work/api/stripe/cancel-subscription.js";
 import stripeWebhookRouter from "./work/api/webhook/stripe.js";
 
+// 🔐 AUTH MIDDLEWARE + CRÉDITOS: AutoMaster
+import { verifyFirebaseToken } from './work/lib/auth/verify-token-middleware.js';
+import { checkAndConsumeCredit } from './work/lib/automaster/credits.js';
+import { getFirestore } from './firebase/admin.js';
+
 // 🎓 HOTMART: Webhook para combo Curso + PLUS 1 mês
 import hotmartWebhookRouter from "./api/webhook/hotmart.js";
 
@@ -437,7 +442,7 @@ app.use('/masters', express.static(path.join(process.cwd(), 'uploads')));
 console.log('🎚️ [AUTOMASTER] Pasta /masters configurada para servir arquivos');
 
 // 📊 PRÉ-ANÁLISE: Valida se mix está apta para masterização
-app.post('/api/analyze-for-master', automasterUpload.single('file'), async (req, res) => {
+app.post('/api/analyze-for-master', verifyFirebaseToken, automasterUpload.single('file'), async (req, res) => {
   console.log('📊 [AUTOMASTER] PRÉ-ANÁLISE iniciada');
 
   // Validação de fileKey para evitar path traversal
@@ -510,7 +515,7 @@ app.post('/api/analyze-for-master', automasterUpload.single('file'), async (req,
 });
 
 // 🎚️ PROCESSAMENTO ASSÍNCRONO: Enfileira masterização automática
-app.post('/api/automaster', automasterUpload.single('file'), async (req, res) => {
+app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file'), async (req, res) => {
   console.log('🎚️ [AUTOMASTER] INÍCIO - Enfileirando job');
 
   // Validação de fileKey para evitar path traversal
@@ -563,6 +568,30 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
       });
     }
 
+    // ─── VERIFICAÇÃO DE CRÉDITOS (ANTES DO DSP) ───────────────────────────────
+    // Bloqueia o processamento se o usuário não tiver crédito/trial disponível.
+    // A transaction Firestore garante atomicidade e evita race conditions.
+    let creditResult;
+    try {
+      creditResult = await checkAndConsumeCredit(req.user.uid);
+    } catch (creditErr) {
+      console.error('❌ [AUTOMASTER] Erro ao verificar créditos:', creditErr.message);
+      const status = creditErr.code === 'USER_NOT_FOUND' ? 404 : 500;
+      return res.status(status).json({ error: creditErr.code || 'CREDIT_CHECK_ERROR', message: creditErr.message });
+    }
+
+    if (!creditResult.allowed) {
+      console.log(`🚫 [AUTOMASTER] Sem créditos: uid=${req.user.uid}`);
+      return res.status(402).json({
+        error: 'NO_CREDITS',
+        message: 'Você não possui créditos AutoMaster disponíveis. Adquira um pacote para continuar.',
+        code: 'NO_CREDITS'
+      });
+    }
+
+    console.log(`✅ [AUTOMASTER] Crédito autorizado: type=${creditResult.type} restante=${creditResult.creditsAfter}`);
+    // ─────────────────────────────────────────────────────────────────────────
+
     console.log('✅ [AUTOMASTER] Arquivo resolvido:', fileLabel);
     console.log('⚙️ [AUTOMASTER] Modo (resolvido):', resolvedMode);
 
@@ -571,7 +600,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
       mode: resolvedMode,
       fileLabel,
       fileSize: fileBuffer.length,
-      userId: req.user?.id || 'anonymous',
+      userId: req.user?.uid || 'anonymous',
       nodeEnv: process.env.NODE_ENV,
       hasRedisUrl: !!process.env.REDIS_URL || !!process.env.REDIS_PRIVATE_URL,
       hasDatabaseUrl: !!process.env.DATABASE_URL
@@ -615,7 +644,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     await jobStore.createJob(jobId, {
       inputKey: inputKey,
       mode: resolvedMode,
-      userId: req.user?.id || 'anonymous'
+      userId: req.user?.uid || 'anonymous'
     });
 
     // 6. Adicionar job à fila BullMQ
@@ -623,13 +652,13 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
       jobId,
       inputKey,
       mode: resolvedMode,
-      userId: req.user?.id || 'anonymous'
+      userId: req.user?.uid || 'anonymous'
     });
     await automasterQueue.add('process', {
       jobId,
       inputKey,
       mode: resolvedMode,
-      userId: req.user?.id || 'anonymous'
+      userId: req.user?.uid || 'anonymous'
     }, {
       jobId, // ID explícito para idempotência
       priority: req.user?.isPremium ? 1 : 5 // Priorização por tier
@@ -935,27 +964,28 @@ app.post('/api/automaster-legacy-sync', automasterUpload.single('file'), async (
   });
 });
 
-// 💳 CONSUMIR CRÉDITO: Registra consumo de crédito no download
-app.post('/api/automaster/consume-credit', async (req, res) => {
-  console.log('💳 [AUTOMASTER] Consumo de crédito iniciado');
-  
-  try {
-    const { masterUrl, genre, mode, fileName } = req.body;
-    
-    console.log('📥 [AUTOMASTER] masterUrl:', masterUrl);
-    console.log('🎵 [AUTOMASTER] genre:', genre);
-    console.log('⚙️ [AUTOMASTER] mode:', mode);
-    console.log('📁 [AUTOMASTER] fileName:', fileName);
+// 💳 CONFIRMAR DOWNLOAD: Registra download após masterização
+// O crédito já foi consumido atomicamente em /api/automaster ANTES do DSP.
+// Este endpoint apenas valida auth, registra o evento e retorna saldo atual.
+app.post('/api/automaster/consume-credit', verifyFirebaseToken, async (req, res) => {
+  console.log('💳 [AUTOMASTER] Registro de download iniciado — uid:', req.user.uid);
 
-    // TODO: Integrar com sistema real de créditos do usuário
-    // Por enquanto, retorna sucesso
-    
-    console.log('✅ [AUTOMASTER] Crédito consumido (placeholder)');
-    return res.json({ success: true, message: 'Crédito consumido com sucesso' });
+  try {
+    const { mode, fileName } = req.body;
+    console.log('⚙️ [AUTOMASTER] Modo no download:', mode);
+    console.log('📁 [AUTOMASTER] Arquivo no download:', fileName);
+
+    // Buscar saldo atual para retornar ao front
+    const db   = getFirestore();
+    const snap = await db.collection('usuarios').doc(req.user.uid).get();
+    const credits = snap.exists ? (snap.data().automasterCredits ?? 0) : 0;
+
+    console.log('✅ [AUTOMASTER] Download registrado — saldo atual:', credits);
+    return res.json({ success: true, message: 'Download registrado', creditsRemaining: credits });
 
   } catch (err) {
-    console.error('❌ [AUTOMASTER] Erro ao consumir crédito:', err);
-    return res.status(500).json({ error: 'Erro ao consumir crédito', details: err.message });
+    console.error('❌ [AUTOMASTER] Erro ao registrar download:', err);
+    return res.status(500).json({ error: 'Erro ao registrar download', details: err.message });
   }
 });
 

@@ -1060,6 +1060,29 @@ function getAuthToken() {
   return t;
 }
 
+// ================================================================
+// PERSISTÊNCIA DE ESTADO (pendingMaster)
+// ================================================================
+const PENDING_MASTER_KEY  = 'pendingMaster';
+const PENDING_MASTER_TTL  = 30 * 60 * 1000; // 30 minutos
+
+function savePendingMaster() {
+  try {
+    const data = {
+      fileKey:   automasterState.fileKey   || null,
+      fileName:  automasterState.fileName  || null,
+      timestamp: Date.now() + PENDING_MASTER_TTL,
+    };
+    if (!data.fileKey) return; // nada a salvar sem fileKey
+    localStorage.setItem(PENDING_MASTER_KEY, JSON.stringify(data));
+    console.log('[AUTOMASTER] Estado pendente salvo para restauração pós-login');
+  } catch (_) {}
+}
+
+function clearPendingMaster() {
+  try { localStorage.removeItem(PENDING_MASTER_KEY); } catch (_) {}
+}
+
 async function apiRequest(endpoint, options = {}, timeoutMs = 120000) {
   const token = getAuthToken();
   if (!token) throw new Error('Você precisa estar logado para usar o AutoMaster.');
@@ -1366,6 +1389,14 @@ async function startProcessing() {
       return;
     }
     document.getElementById('processingLoading').style.display = 'none';
+
+    // Sem créditos — exibir mensagem específica
+    if (err.message && err.message.includes('NO_CREDITS')) {
+      document.getElementById('processingErrorMsg').textContent = 'Você não possui créditos AutoMaster disponíveis. Adquira um pacote para continuar.';
+      document.getElementById('processingError').style.display  = 'block';
+      return;
+    }
+
     document.getElementById('processingErrorMsg').textContent  = err.message || 'Erro desconhecido.';
     document.getElementById('processingError').style.display   = 'block';
   }
@@ -1799,8 +1830,21 @@ function resetFlow() {
 // ================================================================
 document.addEventListener('DOMContentLoaded', () => {
   console.log('🎚️ [AUTOMASTER] AutoMaster V1 — Produção');
+
+  // ── AUTH GUARD ────────────────────────────────────────────
+  // Verificar token antes de exibir qualquer funcionalidade.
+  // Se ausente: salvar estado (fileKey) e redirecionar para login.
   const token = getAuthToken();
-  if (!token) console.warn('⚠️ [AUTOMASTER] Usuário não logado'); else console.log('✅ [AUTOMASTER] Usuário autenticado');
+  if (!token) {
+    if (automasterState.fromHomeFlow && automasterState.fileKey) {
+      savePendingMaster(); // preserva fileKey para restauração pós-login
+    }
+    console.warn('⚠️ [AUTOMASTER] Usuário não autenticado — redirecionando para login');
+    window.location.href = 'auth.html?returnTo=master';
+    return; // interrompe init
+  }
+  console.log('✅ [AUTOMASTER] Usuário autenticado');
+  clearPendingMaster(); // limpar qualquer pendência antiga ao entrar autenticado
 
   // Fluxo contínuo: adaptar UI
   if (automasterState.fromHomeFlow && automasterState.fileKey) {

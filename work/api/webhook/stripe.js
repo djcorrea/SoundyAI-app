@@ -6,6 +6,7 @@ import express from 'express';
 import stripe, { STRIPE_PRICE_IDS, getPlanFromPriceId } from '../../lib/stripe/config.js';
 import { applySubscription, cancelSubscription, downgradeToFree } from '../../lib/user/userPlans.js';
 import { isEventProcessed, markEventAsProcessed } from '../../lib/stripe/idempotency.js';
+import { addAutomasterCredits, AUTOMASTER_CREDITS_PER_PLAN } from '../../lib/automaster/credits.js';
 
 const router = express.Router();
 
@@ -246,6 +247,18 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
     });
 
     console.log(`✅ [STRIPE CHECKOUT] Assinatura ativada: ${uid} → ${plan.toUpperCase()}`);
+
+    // Adicionar créditos AutoMaster do plano ativado
+    const planCredits = AUTOMASTER_CREDITS_PER_PLAN[plan] ?? 0;
+    if (planCredits > 0) {
+      try {
+        await addAutomasterCredits(uid, planCredits);
+        console.log(`💳 [STRIPE CHECKOUT] Créditos AutoMaster adicionados: ${uid} → +${planCredits}`);
+      } catch (creditErr) {
+        // Não bloquear a ativação do plano por erro de créditos
+        console.error(`⚠️ [STRIPE CHECKOUT] Erro ao adicionar créditos AutoMaster (não fatal): ${creditErr.message}`);
+      }
+    }
   } catch (error) {
     console.error(`❌ [STRIPE CHECKOUT] Erro ao ativar assinatura: ${error.message}`);
     await markEventAsProcessed(eventId, {
@@ -661,6 +674,18 @@ async function handleInvoicePaymentSucceeded(event, eventId, timestamp) {
     });
 
     console.log(`✅ [STRIPE INVOICE SUCCESS] Assinatura renovada: ${uid} → ${plan}`);
+
+    // Adicionar créditos AutoMaster da renovação mensal
+    const planCredits = AUTOMASTER_CREDITS_PER_PLAN[plan] ?? 0;
+    if (planCredits > 0) {
+      try {
+        await addAutomasterCredits(uid, planCredits);
+        console.log(`💳 [STRIPE INVOICE SUCCESS] Créditos AutoMaster renovados: ${uid} → +${planCredits}`);
+      } catch (creditErr) {
+        // Não bloquear a renovação por erro de créditos
+        console.error(`⚠️ [STRIPE INVOICE SUCCESS] Erro ao renovar créditos AutoMaster (não fatal): ${creditErr.message}`);
+      }
+    }
   } catch (error) {
     console.error(`❌ [STRIPE INVOICE SUCCESS] Erro ao renovar: ${error.message}`);
     await markEventAsProcessed(eventId, {
