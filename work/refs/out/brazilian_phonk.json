@@ -190,13 +190,15 @@
           "severity": "soft"
         }
       },
-      "lufs_min": -8,
-      "lufs_max": -4.5,
-      "dr_min": 3,
-      "dr_max": 7,
-      "true_peak_min": -2,
-      "true_peak_max": 0,
-      "true_peak_warn_from": -0.05
+      "lufs_min": -26,
+      "lufs_max": -13,
+      "dr_min": 7,
+      "dr_max": 12,
+      "true_peak_min": -12,
+      "true_peak_max": -1,
+      "true_peak_warn_from": -0.05,
+      "lra_min": 4,
+      "lra_max": 12
     },
     "last_updated": "2025-12-27T14:56:55.818Z",
     "cache_bust": 1766847415818,
@@ -212,12 +214,12 @@
       "source": "system_update",
       "note": "Novo gênero Brazilian Phonk criado com padrão v2_hybrid_safe"
     },
-    "lufs_min": -8,
-    "lufs_max": -4.5,
-    "dr_min": 3,
-    "dr_max": 7,
-    "true_peak_min": -2,
-    "true_peak_max": 0,
+    "lufs_min": -26,
+    "lufs_max": -13,
+    "dr_min": 7,
+    "dr_max": 12,
+    "true_peak_min": -12,
+    "true_peak_max": -1,
     "true_peak_warn_from": -0.05,
     "lufs_target": -20,
     "true_peak_target": -0.2,
@@ -226,6 +228,8 @@
     "tol_dr": 5,
     "tol_true_peak": 1,
     "lra_target": 10,
-    "tol_lra": 4
+    "tol_lra": 4,
+    "lra_min": 4,
+    "lra_max": 12
   }
 }

@@ -190,13 +190,15 @@
           "severity": "soft"
         }
       },
-      "lufs_min": -11.5,
-      "lufs_max": -7.5,
-      "dr_min": 4.5,
-      "dr_max": 9.5,
-      "true_peak_min": -3,
-      "true_peak_max": 0,
-      "true_peak_warn_from": -0.15
+      "lufs_min": -26,
+      "lufs_max": -13,
+      "dr_min": 7,
+      "dr_max": 12,
+      "true_peak_min": -12,
+      "true_peak_max": -1,
+      "true_peak_warn_from": -0.15,
+      "lra_min": 4,
+      "lra_max": 12
     },
     "last_updated": "2025-12-27T14:56:55.788Z",
     "cache_bust": 1766847415788,
@@ -212,12 +214,12 @@
       "source": "system_update",
       "note": "Atualizado para v2_hybrid_safe com tolerâncias padronizadas e valores corrigidos"
     },
-    "lufs_min": -10.5,
-    "lufs_max": -6.5,
-    "dr_min": 4.5,
-    "dr_max": 9.5,
-    "true_peak_min": -3,
-    "true_peak_max": 0,
+    "lufs_min": -26,
+    "lufs_max": -13,
+    "dr_min": 7,
+    "dr_max": 12,
+    "true_peak_min": -12,
+    "true_peak_max": -1,
     "true_peak_warn_from": -0.15,
     "lufs_target": -20,
     "true_peak_target": -1,
@@ -226,6 +228,8 @@
     "tol_dr": 5,
     "tol_true_peak": 3,
     "lra_target": 10,
-    "tol_lra": 4
+    "tol_lra": 4,
+    "lra_min": 4,
+    "lra_max": 12
   }
 }

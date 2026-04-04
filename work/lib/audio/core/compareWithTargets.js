@@ -135,6 +135,13 @@ export function compareWithTargets(metrics, targets) {
   
   // === DR ===
   if (normalizedMetrics.dr !== null && targets.dr) {
+    // 🔍 LOG DIAGNÓSTICO — confirmar que min/max vêm do JSON (esperado: min:7, max:12 para pop)
+    console.log('FINAL DR RANGE:', {
+      min: targets.dr.min,
+      max: targets.dr.max,
+      target: targets.dr.target,
+      source: 'compareWithTargets'
+    });
     const result = evaluateRangeMetric(
       normalizedMetrics.dr,
       targets.dr,

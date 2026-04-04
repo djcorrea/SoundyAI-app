@@ -191,13 +191,15 @@
           "severity": "soft"
         }
       },
-      "lufs_min": -25,
-      "lufs_max": -14,
-      "dr_min": 8,
-      "dr_max": 15,
+      "lufs_min": -26,
+      "lufs_max": -13,
+      "dr_min": 7,
+      "dr_max": 12,
       "true_peak_min": -12,
-      "true_peak_max": -2,
-      "true_peak_warn_from": -2
+      "true_peak_max": -1,
+      "true_peak_warn_from": -2,
+      "lra_min": 4,
+      "lra_max": 12
     },
     "last_updated": "2026-03-12T00:00:00.000Z",
     "cache_bust": 1773362573208,
@@ -213,12 +215,12 @@
       "new_id": "rap_drill",
       "note": "Renomeado de 'phonk' para 'rap_drill' - ID oficial"
     },
-    "lufs_min": -25,
-    "lufs_max": -14,
-    "dr_min": 8,
-    "dr_max": 15,
+    "lufs_min": -26,
+    "lufs_max": -13,
+    "dr_min": 7,
+    "dr_max": 12,
     "true_peak_min": -12,
-    "true_peak_max": -2,
+    "true_peak_max": -1,
     "true_peak_warn_from": -2,
     "lufs_target": -20,
     "true_peak_target": -4.5,
@@ -232,6 +234,8 @@
       "note": "Targets ajustados para mix (pré-master): LUFS mais abertos, DR otimizado para mix, bandas abertas +2/+3 dB"
     },
     "lra_target": 10,
-    "tol_lra": 4
+    "tol_lra": 4,
+    "lra_min": 4,
+    "lra_max": 12
   }
 }

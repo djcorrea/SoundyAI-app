@@ -190,12 +190,14 @@
           "severity": "soft"
         }
       },
-      "lufs_min": -11.5,
-      "lufs_max": -9.5,
+      "lufs_min": -26,
+      "lufs_max": -13,
       "dr_min": 7,
-      "dr_max": 10,
-      "true_peak_min": -3,
-      "true_peak_max": 0
+      "dr_max": 12,
+      "true_peak_min": -12,
+      "true_peak_max": -1,
+      "lra_min": 4,
+      "lra_max": 12
     },
     "last_updated": "2025-10-14T00:00:00.000Z",
     "cache_bust": 1728864000001,
@@ -216,6 +218,14 @@
     "dr_target": 15,
     "tol_dr": 5,
     "lra_target": 10,
-    "tol_lra": 4
+    "tol_lra": 4,
+    "lufs_min": -26,
+    "lufs_max": -13,
+    "dr_min": 7,
+    "dr_max": 12,
+    "true_peak_min": -12,
+    "true_peak_max": -1,
+    "lra_min": 4,
+    "lra_max": 12
   }
 }

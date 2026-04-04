@@ -191,12 +191,14 @@
         }
       },
       "lufs_min": -26,
-      "lufs_max": -16,
-      "dr_min": 9,
-      "dr_max": 16,
+      "lufs_max": -13,
+      "dr_min": 7,
+      "dr_max": 12,
       "true_peak_min": -12,
-      "true_peak_max": -3,
-      "true_peak_warn_from": -3
+      "true_peak_max": -1,
+      "true_peak_warn_from": -3,
+      "lra_min": 4,
+      "lra_max": 12
     },
     "last_updated": "2026-03-12T00:00:00.000Z",
     "cache_bust": 1773362573216,
@@ -213,11 +215,11 @@
       "note": "Targets ajustados para mix (pré-master): LUFS mais abertos, DR otimizado para mix, bandas abertas +2/+3 dB"
     },
     "lufs_min": -26,
-    "lufs_max": -16,
-    "dr_min": 9,
-    "dr_max": 16,
+    "lufs_max": -13,
+    "dr_min": 7,
+    "dr_max": 12,
     "true_peak_min": -12,
-    "true_peak_max": -3,
+    "true_peak_max": -1,
     "true_peak_warn_from": -3,
     "lufs_target": -20,
     "true_peak_target": -4.5,
@@ -226,6 +228,8 @@
     "tol_dr": 5,
     "tol_true_peak": 1.5,
     "lra_target": 10,
-    "tol_lra": 4
+    "tol_lra": 4,
+    "lra_min": 4,
+    "lra_max": 12
   }
 }
