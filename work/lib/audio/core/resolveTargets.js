@@ -35,7 +35,7 @@ export const TRUE_PEAK_HARD_CAP = 0.0;
 // 🎯 DEFAULTS DE SEGURANÇA - Usados APENAS se não há target definido
 // NÃO são fallbacks silenciosos - geram warning em log
 const SAFE_DEFAULTS = {
-  truePeak: { target: -1.0, min: -3.0, max: 0.0, warnFrom: -0.5, hardCap: TRUE_PEAK_HARD_CAP },
+  truePeak: { target: -1.0, min: -3.0, max: 0.0, warnFrom: -1.0, hardCap: TRUE_PEAK_HARD_CAP },
   lufs: { target: -14.0, min: -15.0, max: -13.0 },
   dr: { target: 8.0, min: 6.0, max: 12.0 },
   lra: { target: 7.0, min: 5.0, max: 10.0 },

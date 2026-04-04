@@ -1387,6 +1387,10 @@ class AISuggestionUIController {
      * @param {Object} genreTargets - Targets do gênero para validação
      */
     renderAISuggestions(suggestions, genreTargets = null, metrics = null) {
+        // ── TRACE AI SOURCE ────────────────────────────────────────────────────
+        console.log('[TRACE_AI_SOURCE]', Array.isArray(suggestions)
+            ? suggestions.map(s => s.metric || s.metricKey || s.type || s.category)
+            : 'não é array');
         // ── TRACE ──────────────────────────────────────────────────────────────
         console.log('[TRACE_RENDER_ENTER] função=renderAISuggestions count=' + suggestions?.length
             + ' metrics=' + JSON.stringify(suggestions?.slice(0,5)?.map(s=>s.metric||s.category))

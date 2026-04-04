@@ -233,7 +233,7 @@ const DEFAULT_TARGETS = {
   lufsIntegrated: { target: -14, tol: 3.0 },      // ↑ Era 1.5 - MUITO mais tolerante
   lra: { target: 7, tol: 5 },                     // ↑ Era 4.0 - Mais flexível
   dr: { target: 10, tol: 5 },                     // ↑ Era 4.0 - Mais flexível
-  truePeakDbtp: { target: -1, tol: 2.5, invert: true }  // ↑ Era 1.5 - Mais tolerante
+  truePeakDbtp: { target: -1, tol: 0.1, invert: true }   // AutoMaster V1: ceiling de -1.0 dBTP, qualquer valor > -0.9 gera penalty
 };
 
 // Mantido para compatibilidade (não mais usado na fórmula final principal, mas
