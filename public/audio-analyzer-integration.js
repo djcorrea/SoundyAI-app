@@ -9667,7 +9667,11 @@ function renderGenreComparisonTable(options) {
         const lufsValue = lufsIntegrated;
         if (Number.isFinite(lufsValue) && Number.isFinite(genreData.lufs_target)) {
             const _tol_lufs = genreData.tol_lufs ?? 1.0;
-            const result = calcSeverity(lufsValue, genreData.lufs_target, _tol_lufs);
+            const _lufsMin = genreData.lufs_min ?? (genreData.lufs_target - _tol_lufs);
+            const _lufsMax = genreData.lufs_max ?? (genreData.lufs_target + _tol_lufs);
+            const result = calcSeverity(lufsValue, genreData.lufs_target, _tol_lufs, {
+                targetRange: { min: _lufsMin, max: _lufsMax }
+            });
             console.log('[CARD-DEBUG]', {
                 metricName:    'LUFS',
                 displayedValue: lufsValue.toFixed(2) + ' LUFS',
@@ -9675,12 +9679,12 @@ function renderGenreComparisonTable(options) {
                 sourceField:   'analysis.technicalData.lufsIntegrated',
                 target:        genreData.lufs_target,
                 tolerance:     _tol_lufs,
-                lowerBound:    genreData.lufs_target - _tol_lufs,
-                upperBound:    genreData.lufs_target + _tol_lufs,
+                lowerBound:    _lufsMin,
+                upperBound:    _lufsMax,
                 diff:          +(lufsValue - genreData.lufs_target).toFixed(3),
                 action:        result.action,
                 genre,
-                targets:       { lufs_target: genreData.lufs_target, tol_lufs: _tol_lufs },
+                targets:       { lufs_target: genreData.lufs_target, lufs_min: _lufsMin, lufs_max: _lufsMax },
             });
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD: Verificar se deve renderizar valor real
@@ -9727,7 +9731,12 @@ function renderGenreComparisonTable(options) {
                 log('[GENRE-TABLE] 🚨 TRUE PEAK CRÍTICO: TP > 0.0 dBTP detectado:', tpValue, '| deltaToTarget:', deltaToTarget);
             } else {
                 // Lógica normal para TP <= 0.0
-                result = calcSeverity(tpValue, genreData.true_peak_target, genreData.tol_true_peak || 0.5);
+                const _tpTol = genreData.tol_true_peak || 0.5;
+                const _tpMin = genreData.true_peak_min ?? (genreData.true_peak_target - _tpTol);
+                const _tpMax = genreData.true_peak_max ?? (genreData.true_peak_target + _tpTol);
+                result = calcSeverity(tpValue, genreData.true_peak_target, _tpTol, {
+                    targetRange: { min: _tpMin, max: _tpMax }
+                });
             }
             
             if (result && Number.isFinite(result.diff)) {
@@ -9754,7 +9763,11 @@ function renderGenreComparisonTable(options) {
         const drValue = dynamicRangeValue;
         if (Number.isFinite(drValue) && Number.isFinite(genreData.dr_target)) {
             const _tol_dr = genreData.tol_dr ?? 1.0;
-            const result = calcSeverity(drValue, genreData.dr_target, _tol_dr);
+            const _drMin = genreData.dr_min ?? (genreData.dr_target - _tol_dr);
+            const _drMax = genreData.dr_max ?? (genreData.dr_target + _tol_dr);
+            const result = calcSeverity(drValue, genreData.dr_target, _tol_dr, {
+                targetRange: { min: _drMin, max: _drMax }
+            });
             console.log('[CARD-DEBUG]', {
                 metricName:    'DR',
                 displayedValue: drValue.toFixed(2) + ' DR',
@@ -9762,12 +9775,12 @@ function renderGenreComparisonTable(options) {
                 sourceField:   'analysis.technicalData.dynamicRange (FIX-DR)',
                 target:        genreData.dr_target,
                 tolerance:     _tol_dr,
-                lowerBound:    genreData.dr_target - _tol_dr,
-                upperBound:    genreData.dr_target + _tol_dr,
+                lowerBound:    _drMin,
+                upperBound:    _drMax,
                 diff:          +(drValue - genreData.dr_target).toFixed(3),
                 action:        result.action,
                 genre,
-                targets:       { dr_target: genreData.dr_target, tol_dr: _tol_dr },
+                targets:       { dr_target: genreData.dr_target, dr_min: _drMin, dr_max: _drMax },
             });
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD (DR é LIBERADO)
@@ -9793,7 +9806,11 @@ function renderGenreComparisonTable(options) {
         const lraValue = lra;
         if (Number.isFinite(lraValue) && Number.isFinite(genreData.lra_target)) {
             const _tol_lra = genreData.tol_lra ?? 2.0;
-            const result = calcSeverity(lraValue, genreData.lra_target, _tol_lra);
+            const _lraMin = genreData.lra_min ?? (genreData.lra_target - _tol_lra);
+            const _lraMax = genreData.lra_max ?? (genreData.lra_target + _tol_lra);
+            const result = calcSeverity(lraValue, genreData.lra_target, _tol_lra, {
+                targetRange: { min: _lraMin, max: _lraMax }
+            });
             console.log('[CARD-DEBUG]', {
                 metricName:    'LRA',
                 displayedValue: lraValue.toFixed(2) + ' LU',
@@ -9801,12 +9818,12 @@ function renderGenreComparisonTable(options) {
                 sourceField:   'analysis.technicalData.lra',
                 target:        genreData.lra_target,
                 tolerance:     _tol_lra,
-                lowerBound:    genreData.lra_target - _tol_lra,
-                upperBound:    genreData.lra_target + _tol_lra,
+                lowerBound:    _lraMin,
+                upperBound:    _lraMax,
                 diff:          +(lraValue - genreData.lra_target).toFixed(3),
                 action:        result.action,
                 genre,
-                targets:       { lra_target: genreData.lra_target, tol_lra: _tol_lra },
+                targets:       { lra_target: genreData.lra_target, lra_min: _lraMin, lra_max: _lraMax },
             });
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD (LRA é BLOQUEADO)
@@ -28821,8 +28838,14 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
             // ROOT tem targets válidos (estrutura correta V2)
             genreTargetMetrics = {
                 lufs_target: genreData.lufs_target,
+                lufs_min: genreData.lufs_min,
+                lufs_max: genreData.lufs_max,
                 true_peak_target: genreData.true_peak_target,
+                true_peak_min: genreData.true_peak_min,
+                true_peak_max: genreData.true_peak_max,
                 dr_target: genreData.dr_target,
+                dr_min: genreData.dr_min,
+                dr_max: genreData.dr_max,
                 lra_target: genreData.lra_target,
                 stereo_target: genreData.stereo_target,
                 tol_lufs: genreData.tol_lufs ?? 1.0,
@@ -28842,8 +28865,14 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
             const lc = genreData.legacy_compatibility;
             genreTargetMetrics = {
                 lufs_target: lc.lufs_target,
+                lufs_min: lc.lufs_min,
+                lufs_max: lc.lufs_max,
                 true_peak_target: lc.true_peak_target,
+                true_peak_min: lc.true_peak_min,
+                true_peak_max: lc.true_peak_max,
                 dr_target: lc.dr_target,
+                dr_min: lc.dr_min,
+                dr_max: lc.dr_max,
                 lra_target: lc.lra_target,
                 stereo_target: lc.stereo_target,
                 tol_lufs: lc.tol_lufs ?? 1.0,
