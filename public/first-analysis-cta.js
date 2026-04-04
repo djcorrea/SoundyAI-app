@@ -350,12 +350,8 @@
         
         log('🔒 Interceptando botões premium...');
         
-        // Botões a interceptar
-        const buttonSelectors = [
-            '#btnGenerateCorrectionPlan',  // Plano de correção
-            '#btnAskAI',                   // Pedir ajuda IA
-            'button[onclick*="downloadModalAnalysis"]'  // PDF
-        ];
+        // Botões a interceptar (esvaziado: botões removidos do modal)
+        const buttonSelectors = [];
         
         buttonSelectors.forEach(selector => {
             const button = document.querySelector(selector);

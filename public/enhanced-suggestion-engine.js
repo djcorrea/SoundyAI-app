@@ -1553,30 +1553,45 @@ class EnhancedSuggestionEngine {
                 
                 // Se não tem target/tolerance válidos, ou DR com target negativo, usar fallback
                 if (!hasValidData) {
-                    shouldCreateSuggestion = true;
                     usedTarget = this.getDefaultTarget(metric.key);
                     usedTolerance = this.getDefaultTolerance(metric.key);
                     
-                    if (metric.key === 'dr' && Number.isFinite(target) && target < 0) {
-                        suggestionMessage = `⚠️ ${metric.label} com target inválido (${target}${metric.unit}) - usando fallback`;
-                        this.logAudit('INVALID_DR_TARGET', `DR com target negativo detectado: ${target}`, {
-                            originalTarget: target,
-                            originalTolerance: tolerance,
-                            fallbackTarget: usedTarget,
-                            fallbackTolerance: usedTolerance
-                        });
-                    } else {
-                        suggestionMessage = `⚠️ ${metric.label} requer verificação - tolerância não encontrada`;
-                    }
-                    suggestionAction = this.getGenericAction(metric.key, value);
+                    // 🔒 REGRA DE OURO: Não gerar sugestão se valor está dentro do range de fallback
+                    const fallbackMin = usedTarget - usedTolerance;
+                    const fallbackMax = usedTarget + usedTolerance;
+                    const withinFallbackRange = (value >= fallbackMin && value <= fallbackMax);
                     
-                    this.logAudit('CRITICAL_METRIC_FALLBACK', `Métrica crítica ${metric.key} com dados faltando/inválidos - criando sugestão genérica`, {
+                    if (withinFallbackRange) {
+                        this.logAudit('METRIC_OK_FALLBACK', `${metric.key} dentro do range fallback — sem sugestão`, {
+                            value, fallbackMin, fallbackMax, usedTarget, usedTolerance
+                        });
+                        // shouldCreateSuggestion permanece false — não sugerir quando OK
+                    } else {
+                        shouldCreateSuggestion = true;
+                        const fallbackRangeText = `Faixa ideal para este estilo: ${fallbackMin.toFixed(1)} a ${fallbackMax.toFixed(1)}${metric.unit}`;
+                        
+                        if (metric.key === 'dr' && Number.isFinite(target) && target < 0) {
+                            suggestionMessage = `⚠️ ${metric.label} com target inválido (${target}${metric.unit}) - usando fallback`;
+                            this.logAudit('INVALID_DR_TARGET', `DR com target negativo detectado: ${target}`, {
+                                originalTarget: target,
+                                originalTolerance: tolerance,
+                                fallbackTarget: usedTarget,
+                                fallbackTolerance: usedTolerance
+                            });
+                        } else {
+                            suggestionMessage = `${metric.label} fora do ideal`;
+                        }
+                        suggestionAction = fallbackRangeText;
+                    }
+                    
+                    this.logAudit('CRITICAL_METRIC_FALLBACK', `Métrica crítica ${metric.key} com dados faltando/inválidos`, {
                         metric: metric.key,
                         hasTarget: Number.isFinite(target),
                         hasTolerance: Number.isFinite(tolerance),
                         isValidDRTarget: isValidDRTarget,
                         fallbackTarget: usedTarget,
-                        fallbackTolerance: usedTolerance
+                        fallbackTolerance: usedTolerance,
+                        withinFallbackRange: (value >= (usedTarget - usedTolerance) && value <= (usedTarget + usedTolerance))
                     });
                 } else {
                     // 🎯 CORREÇÃO CRÍTICA: Lógica de tolerância baseada em range (min/max)
@@ -1592,10 +1607,9 @@ class EnhancedSuggestionEngine {
                         const delta = Math.abs(value - target);
                         const distanceFromRange = value < minRange ? (minRange - value) : (value - maxRange);
                         
-                        // 🎯 MENSAGENS COMPLETAS ORIGINAIS
-                        const direction = value < target ? "Aumentar" : "Reduzir";
+                        // 🔒 REGRA DE OURO: Texto do range sempre vem de target ± tolerance — nunca hardcoded ou IA
                         suggestionMessage = `${metric.label} fora do ideal`;
-                        suggestionAction = `${direction} entre ${Math.abs(distanceFromRange).toFixed(1)} e ${(Math.abs(distanceFromRange) + 1).toFixed(1)}${metric.unit}`;
+                        suggestionAction = `Faixa ideal para este estilo: ${minRange.toFixed(1)} a ${maxRange.toFixed(1)}${metric.unit}`;
                         
                         this.logAudit('METRIC_OUT_OF_RANGE', `${metric.key} fora do range aceitável`, {
                             value: value,
@@ -1636,6 +1650,8 @@ class EnhancedSuggestionEngine {
                         icon: this.getMetricIcon(metric.metricType),
                         targetValue: usedTarget,
                         currentValue: value,
+                        // 🔒 REGRA DE OURO: targetRange SEMPRE calculado de target±tolerance — nunca hardcoded
+                        targetRange: `${(usedTarget - usedTolerance).toFixed(1)} a ${(usedTarget + usedTolerance).toFixed(1)}${metric.unit}`,
                         message: suggestionMessage || `Ajustar ${metric.label} para alinhamento com referência`,
                         action: suggestionAction || `Ajustar ${metric.label}`,
                         why: `${metric.label} é uma métrica crítica para qualidade de áudio`,

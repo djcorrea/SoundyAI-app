@@ -5418,13 +5418,6 @@ function displayReferenceComparison(data) {
     const content = modal.querySelector('.modal-content');
     content.appendChild(resultsSection);
     
-    // 🚫 OCULTAR BOTÃO "PLANO DE CORREÇÃO" NO MODO REFERÊNCIA
-    const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
-    if (btnCorrectionPlan) {
-        btnCorrectionPlan.style.display = 'none';
-        log('[REFERENCE-UI] 🔒 Botão "Plano de Correção" ocultado no modo referência');
-    }
-    
     // Scroll para resultados
     resultsSection.scrollIntoView({ behavior: 'smooth' });
 }
@@ -11013,13 +11006,6 @@ function resetModalState() {
         warn("[SAFE-RESET] Falha ao restaurar gênero:", e);
     }
     
-    // 🔓 RESTAURAR BOTÃO "PLANO DE CORREÇÃO" (visível em outros modos)
-    const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
-    if (btnCorrectionPlan && currentMode !== 'reference') {
-        btnCorrectionPlan.style.display = '';
-        log('[RESET-UI] ✅ Botão "Plano de Correção" restaurado');
-    }
-    
     __dbg('✅ Estado do modal resetado completamente');
 }
 
@@ -16587,53 +16573,6 @@ async function displayModalResults(analysis) {
         }
     } catch (error) {
         console.error('[MUSIC-ID] ❌ Erro ao renderizar bloco de identificação:', error);
-    }
-    
-    // 📋 PLANO DE CORREÇÃO: Registrar event listener APÓS modal ser renderizado
-    (function registerCorrectionPlanListener() {
-        const planBtn = document.getElementById('btnGenerateCorrectionPlan');
-        log('[CORRECTION-PLAN] 🔍 Buscando botão #btnGenerateCorrectionPlan:', planBtn);
-        
-        if (planBtn) {
-            // Remover listener anterior se existir (evita duplicatas)
-            planBtn.removeEventListener('click', window.handleGenerateCorrectionPlan);
-            
-            // Registrar novo listener
-            planBtn.addEventListener('click', function(e) {
-                log('[CORRECTION-PLAN] 🖱️ CLICK DETECTADO!');
-                e.preventDefault();
-                if (typeof window.handleGenerateCorrectionPlan === 'function') {
-                    window.handleGenerateCorrectionPlan();
-                } else {
-                    console.error('[CORRECTION-PLAN] ❌ handleGenerateCorrectionPlan não está definida!');
-                    alert('Erro: função não encontrada. Recarregue a página.');
-                }
-            });
-            
-            planBtn.dataset.listenerAttached = 'true';
-            log('[CORRECTION-PLAN] ✅ Event listener registrado com sucesso!');
-        } else {
-            warn('[CORRECTION-PLAN] ⚠️ Botão não encontrado no DOM');
-        }
-    })();
-    
-    // 🎯 FIX: Ocultar botão "Pedir ajuda à IA" e texto de ajuda NO MODO REFERÊNCIA
-    const currentModeForUI = analysis?.mode || window.currentAnalysisMode || 'genre';
-    const btnAskAI = document.getElementById('btnAskAI');
-    const aiHelperText = document.getElementById('aiHelperText');
-    const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
-    
-    if (currentModeForUI === 'reference') {
-        log('[REFERENCE-UI] 🔒 Modo referência - ocultando botão "Pedir ajuda à IA", "Plano de Correção" e texto de ajuda');
-        if (btnAskAI) btnAskAI.style.display = 'none';
-        if (aiHelperText) aiHelperText.style.display = 'none';
-        if (btnCorrectionPlan) btnCorrectionPlan.style.display = 'none';
-    } else {
-        // 🎯 Garantir visibilidade nos outros modos
-        log('[GENRE-UI] ✅ Modo gênero - exibindo botão "Pedir ajuda à IA", "Plano de Correção" e texto de ajuda');
-        if (btnAskAI) btnAskAI.style.display = '';
-        if (aiHelperText) aiHelperText.style.display = '';
-        if (btnCorrectionPlan) btnCorrectionPlan.style.display = '';
     }
     
     // 🎯 HOOK: Aplicar máscaras de Modo Reduzido se necessário
@@ -24823,13 +24762,6 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
     // ✅ Libera lock após renderização
     window.comparisonLock = false;
     log("[LOCK] comparisonLock liberado");
-    
-    // 🚫 OCULTAR BOTÃO "PLANO DE CORREÇÃO" NO MODO REFERÊNCIA
-    const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
-    if (btnCorrectionPlan) {
-        btnCorrectionPlan.style.display = 'none';
-        log('[REFERENCE-UI] 🔒 Botão "Plano de Correção" ocultado no modo referência');
-    }
     
     console.groupEnd();
 }
@@ -34881,41 +34813,5 @@ window.handleGenerateCorrectionPlan = handleGenerateCorrectionPlan;
 window.getUserDAWForPlan = getUserDAWForPlan;
 window.getUserLevelForPlan = getUserLevelForPlan;
 window.showCorrectionPlanError = showCorrectionPlanError;
-
-// 📋 AUTO-REGISTRO: Observer para registrar event listener quando modal fica visível
-(function setupCorrectionPlanAutoAttach() {
-    const btn = document.getElementById('btnGenerateCorrectionPlan');
-    
-    // Se o botão existir, registrar listener imediatamente
-    if (btn && btn.dataset.listenerAttached !== 'true') {
-        btn.addEventListener('click', handleGenerateCorrectionPlan);
-        btn.dataset.listenerAttached = 'true';
-        log('[CORRECTION-PLAN] ✅ Event listener registrado na inicialização');
-    }
-    
-    // Observer para detectar quando o modal de resultados fica visível
-    const audioResults = document.getElementById('audioAnalysisResults');
-    if (audioResults) {
-        const observer = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                    const isVisible = audioResults.style.display !== 'none';
-                    if (isVisible) {
-                        // Modal ficou visível - registrar listener se necessário
-                        const planBtn = document.getElementById('btnGenerateCorrectionPlan');
-                        if (planBtn && planBtn.dataset.listenerAttached !== 'true') {
-                            planBtn.addEventListener('click', handleGenerateCorrectionPlan);
-                            planBtn.dataset.listenerAttached = 'true';
-                            log('[CORRECTION-PLAN] ✅ Event listener registrado via MutationObserver');
-                        }
-                    }
-                }
-            }
-        });
-        
-        observer.observe(audioResults, { attributes: true, attributeFilter: ['style'] });
-        log('[CORRECTION-PLAN] 👀 MutationObserver ativo em #audioAnalysisResults');
-    }
-})();
 
 log('🚀 [CORRECTION-PLAN] Sistema de Plano de Correção Completo carregado');

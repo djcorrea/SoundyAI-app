@@ -991,7 +991,9 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
       problema: baseSug.message,  // ✅ SEMPRE do base - contém os números corretos
       problemaSemNumeros: aiEnrichment.problema || null,  // Texto IA sem números (opcional)
       causaProvavel: aiEnrichment.causaProvavel || 'Análise detalhada não fornecida',
-      solucao: aiEnrichment.solucao || baseSug.action,
+      // 🔒 REGRA DE OURO: action do engine usa target±tolerance — NÃO depender de IA para range
+      // baseSug.action = "Faixa ideal para este estilo: X a Y dB" (calculado, nunca hardcoded)
+      solucao: baseSug.action || aiEnrichment.solucao,
       pluginRecomendado: aiEnrichment.pluginRecomendado || 'Plugin não especificado',
       dicaExtra: aiEnrichment.dicaExtra || null,
       parametros: aiEnrichment.parametros || null,

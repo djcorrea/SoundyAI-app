@@ -315,34 +315,8 @@
             }
         }
         
-        /* 🚫 Ocultar botão no modo referência */
-        body[data-analysis-mode="reference"] #btnGenerateCorrectionPlan,
-        .reference-mode-active #btnGenerateCorrectionPlan {
-            display: none !important;
-            visibility: hidden !important;
-            pointer-events: none !important;
-        }
     </style>
     
-    <!-- 📋 Handler Global para Plano de Correção -->
-    <script>
-        function handleCorrectionPlanClick() {
-            log('[CORRECTION-PLAN] 🖱️ handleCorrectionPlanClick() chamada via onclick');
-            
-            // Tentar chamar a função do audio-analyzer-integration.js
-            if (typeof window.handleGenerateCorrectionPlan === 'function') {
-                log('[CORRECTION-PLAN] ✅ Delegando para window.handleGenerateCorrectionPlan');
-                window.handleGenerateCorrectionPlan();
-            } else {
-                error('[CORRECTION-PLAN] ❌ window.handleGenerateCorrectionPlan não encontrada!');
-                alert('Erro: Sistema de Plano de Correção ainda não carregou. Aguarde alguns segundos e tente novamente.');
-            }
-        }
-        
-        // Expor globalmente
-        window.handleCorrectionPlanClick = handleCorrectionPlanClick;
-        log('[CORRECTION-PLAN] 🌐 handleCorrectionPlanClick exposta no window');
-    </script>
 </head>
 <body class="page-index">
     <!-- Menu Hambúrguer - Canto Superior Esquerdo -->
@@ -861,22 +835,6 @@
                     </div>
                 </div>
 
-                <div class="analysis-helper-text" id="aiHelperText">
-                    💡 Se precisar de ajuda para aplicar as melhorias, clique em <strong>"Pedir ajuda à IA"</strong> e seja redirecionado para um Chat Bot especialista em áudio.
-                </div>
-
-                <div class="analysis-actions">
-                    <button class="action-btn primary" id="btnAskAI" onclick="sendModalAnalysisToChat()">
-                        🤖 Pedir Ajuda à IA
-                    </button>
-                    <button class="action-btn secondary" onclick="downloadModalAnalysis()">
-                        📄 Baixar Relatório
-                    </button>
-                    <button class="action-btn correction-plan-btn" id="btnGenerateCorrectionPlan" onclick="handleCorrectionPlanClick()">
-                        📋 Gerar Plano de Correção
-                    </button>
-                </div>
-                
             </div>
         </div>
     </div>
@@ -1803,26 +1761,6 @@
                 });
             });
             
-            // Rastrear clique em "Pedir ajuda à IA"
-            const btnAskAI = document.getElementById('btnAskAI');
-            if (btnAskAI) {
-                btnAskAI.addEventListener('click', () => {
-                    sendGA4Event('ask_ai_click', {
-                        page_path: window.location.pathname
-                    });
-                });
-            }
-            
-            // Rastrear clique em "Plano de Correção"
-            const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
-            if (btnCorrectionPlan) {
-                btnCorrectionPlan.addEventListener('click', () => {
-                    sendGA4Event('correction_plan_click', {
-                        page_path: window.location.pathname
-                    });
-                });
-            }
-            
             // Rastrear seleção de modo de análise
             const genreModeBtn = document.getElementById('genreModeBtn');
             const referenceModeBtn = document.getElementById('referenceModeBtn');
@@ -1860,64 +1798,6 @@
     <!-- Scoring Debug Visual (apenas em dev/debug) -->
     <script src="js/scoring-debug-visual.js" defer></script>
     
-    <!-- 🚫 Script para ocultar botão "Plano de Correção" no modo referência -->
-    <script>
-        (function() {
-            // Função para controlar visibilidade do botão baseado no modo
-            function updateCorrectionPlanButtonVisibility() {
-                const currentMode = window.currentAnalysisMode || 
-                                  window.__soundyState?.currentAnalysisMode || 
-                                  (window.AnalysisStateMachine?.getMode && window.AnalysisStateMachine.getMode()) || 
-                                  'genre';
-                
-                const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
-                const body = document.body;
-                
-                // Definir atributo data no body para CSS
-                if (body) {
-                    body.setAttribute('data-analysis-mode', currentMode);
-                }
-                
-                if (btnCorrectionPlan) {
-                    if (currentMode === 'reference') {
-                        btnCorrectionPlan.style.display = 'none';
-                        btnCorrectionPlan.style.visibility = 'hidden';
-                        btnCorrectionPlan.style.pointerEvents = 'none';
-                        log('[BUTTON-CONTROL] 🔒 Botão "Plano de Correção" ocultado (modo referência)');
-                    } else {
-                        btnCorrectionPlan.style.display = '';
-                        btnCorrectionPlan.style.visibility = '';
-                        btnCorrectionPlan.style.pointerEvents = '';
-                        log('[BUTTON-CONTROL] ✅ Botão "Plano de Correção" visível (modo:', currentMode, ')');
-                    }
-                }
-            }
-            
-            // Executar imediatamente
-            updateCorrectionPlanButtonVisibility();
-            
-            // Executar quando DOM estiver pronto
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', updateCorrectionPlanButtonVisibility);
-            }
-            
-            // Monitorar mudanças no modo
-            setInterval(updateCorrectionPlanButtonVisibility, 500);
-            
-            // Observar mudanças no currentAnalysisMode
-            let lastMode = null;
-            setInterval(() => {
-                const currentMode = window.currentAnalysisMode;
-                if (currentMode !== lastMode) {
-                    lastMode = currentMode;
-                    updateCorrectionPlanButtonVisibility();
-                }
-            }, 100);
-            
-            log('[BUTTON-CONTROL] ✅ Sistema de controle do botão inicializado');
-        })();
-    </script>
-
     <!-- 🎯 DETECÇÃO DE PARÂMETROS DE URL DO HUB -->
     <script>
         (function checkHubRedirect() {
