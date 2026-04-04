@@ -244,7 +244,8 @@ import stripeWebhookRouter from "./work/api/webhook/stripe.js";
 
 // 🔐 AUTH MIDDLEWARE + CRÉDITOS: AutoMaster
 import { verifyFirebaseToken } from './work/lib/auth/verify-token-middleware.js';
-import { checkAndConsumeCredit } from './work/lib/automaster/credits.js';
+import { checkAndConsumeCredit } from './work/lib/automaster/credits.js'; // legado — mantido p/ compat
+import { createJobWithTransaction, consumeJobCredit, releaseUserLock } from './work/lib/automaster/jobs.js';
 import { getFirestore } from './firebase/admin.js';
 
 // 🎓 HOTMART: Webhook para combo Curso + PLUS 1 mês
@@ -568,28 +569,48 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
       });
     }
 
-    // ─── VERIFICAÇÃO DE CRÉDITOS (ANTES DO DSP) ───────────────────────────────
-    // Bloqueia o processamento se o usuário não tiver crédito/trial disponível.
-    // A transaction Firestore garante atomicidade e evita race conditions.
-    let creditResult;
-    try {
-      creditResult = await checkAndConsumeCredit(req.user.uid);
-    } catch (creditErr) {
-      console.error('❌ [AUTOMASTER] Erro ao verificar créditos:', creditErr.message);
-      const status = creditErr.code === 'USER_NOT_FOUND' ? 404 : 500;
-      return res.status(status).json({ error: creditErr.code || 'CREDIT_CHECK_ERROR', message: creditErr.message });
-    }
+    // Dependências carregadas via import estático no topo do arquivo
+    const automasterQueue = automasterQueueModule;
+    const storageService = storageServiceModule;
+    const jobStore = jobStoreModule;
 
-    if (!creditResult.allowed) {
-      console.log(`🚫 [AUTOMASTER] Sem créditos: uid=${req.user.uid}`);
-      return res.status(402).json({
-        error: 'NO_CREDITS',
-        message: 'Você não possui créditos AutoMaster disponíveis. Adquira um pacote para continuar.',
-        code: 'NO_CREDITS'
+    // Validar que a fila BullMQ está operacional antes de qualquer Firestore
+    if (!automasterQueue || typeof automasterQueue.add !== 'function') {
+      console.error('[AUTOMASTER] Redis não conectado ou automasterQueue inválida:', {
+        queueType: typeof automasterQueue,
+        addType: typeof automasterQueue?.add
+      });
+      return res.status(503).json({
+        error: 'QUEUE_UNAVAILABLE',
+        message: 'Fila de processamento indisponível (Redis não conectado)'
       });
     }
 
-    console.log(`✅ [AUTOMASTER] Crédito autorizado: type=${creditResult.type} restante=${creditResult.creditsAfter}`);
+    // ─── GERAR JOB ID ────────────────────────────────────────────────────────
+    const jobId = uuidv4();
+    console.log('🆔 [AUTOMASTER] Job ID:', jobId);
+
+    // ─── CHECK + LOCK + CRIAR JOB (FIRESTORE TRANSACTION) ───────────────────
+    // Verifica em uma única transaction atômica:
+    //   1. User lock (sem job ativo simultâneo)
+    //   2. Elegibilidade de crédito (plano/trial/saldo)
+    // NÃO consome crédito aqui — consumo acontece APÓS sucesso do DSP.
+    let firestoreJobCreated = false;
+    try {
+      await createJobWithTransaction(req.user.uid, jobId, {
+        fileKey:  req.body.fileKey || null,
+        mode:     resolvedMode,
+      });
+      firestoreJobCreated = true;
+    } catch (jobErr) {
+      console.error('❌ [AUTOMASTER] Erro ao criar job Firestore:', jobErr.message);
+      const code   = jobErr.code || 'JOB_CREATE_ERROR';
+      const status = code === 'NO_CREDITS' ? 402
+                   : code === 'PROCESS_ALREADY_RUNNING' ? 409
+                   : code === 'USER_NOT_FOUND' ? 404
+                   : 500;
+      return res.status(status).json({ error: code, message: jobErr.message, code });
+    }
     // ─────────────────────────────────────────────────────────────────────────
 
     console.log('✅ [AUTOMASTER] Arquivo resolvido:', fileLabel);
@@ -605,29 +626,6 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
       hasRedisUrl: !!process.env.REDIS_URL || !!process.env.REDIS_PRIVATE_URL,
       hasDatabaseUrl: !!process.env.DATABASE_URL
     });
-
-    // Dependências carregadas via import estático no topo do arquivo
-    const automasterQueue = automasterQueueModule;
-    const storageService = storageServiceModule;
-    const jobStore = jobStoreModule;
-
-    console.log('[AUTOMASTER] Dependências carregadas via ESM. automasterQueue.add:', typeof automasterQueue?.add);
-
-    // Validar que a fila BullMQ está operacional
-    if (!automasterQueue || typeof automasterQueue.add !== 'function') {
-      console.error('[AUTOMASTER] Redis não conectado ou automasterQueue inválida:', {
-        queueType: typeof automasterQueue,
-        addType: typeof automasterQueue?.add
-      });
-      return res.status(503).json({
-        error: 'QUEUE_UNAVAILABLE',
-        message: 'Fila de processamento indisponível (Redis não conectado)'
-      });
-    }
-
-    // 3. Gerar jobId único
-    const jobId = uuidv4();
-    console.log('🆔 [AUTOMASTER] Job ID:', jobId);
 
     // 4. Upload para storage (input) — sempre sob input/{jobId}.wav para o worker
     console.log('☁️ [AUTOMASTER] Fazendo upload para storage...');
@@ -706,6 +704,12 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
       fs.unlink(req.file.path, () => {});
     }
 
+    // Se o job Firestore foi criado antes do erro (upload/redis falharam),
+    // liberar o lock para o usuário não ficar preso.
+    if (firestoreJobCreated && req.user?.uid && jobId) {
+      releaseUserLock(req.user.uid, jobId).catch(() => {});
+    }
+
     return res.status(500).json({
       error: 'JOB_CREATION_FAILED',
       message: error.message,
@@ -715,7 +719,7 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
 });
 
 // 🔍 STATUS: Consulta status de um job de masterização
-app.get('/api/automaster/status/:jobId', async (req, res) => {
+app.get('/api/automaster/status/:jobId', verifyFirebaseToken, async (req, res) => {
   try {
     const { jobId } = req.params;
     
@@ -792,6 +796,13 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
         response.warningMessage = job.warning_message || 'A música já está próxima do limite seguro. Aplicar esse modo poderia degradar a qualidade.';
         response.message = 'Masterização concluída com aviso de proteção sônica';
       }
+
+      // ── CONSUMIR CRÉDITO APÓS SUCESSO (idempotente) ──────────────────────────
+      // Apenas aqui, após o DSP ter concluído com sucesso, o crédito é debitado.
+      // A função é idempotente: se já consumido (poll anterior), silencia e continua.
+      consumeJobCredit(req.user.uid, jobId).catch(err =>
+        console.error('⚠️ [AUTOMASTER-STATUS] consumeJobCredit error (não fatal):', err.message)
+      );
     } else if (job.status === 'needs_confirmation') {
       // Problemas técnicos detectados — aguardando confirmação do usuário para masterização segura
       response.status = 'needs_confirmation';
@@ -808,6 +819,11 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
       response.measured = (() => { try { return JSON.parse(job.not_apt_measured || '{}'); } catch { return {}; } })();
       response.recommendedActions = job.recommended_mode ? [job.recommended_mode] : ['MEDIUM'];
       response.message = 'Música não recomendada para o modo selecionado';
+
+      // ── LIBERAR LOCK SEM COBRANÇA (modo incompatível — não é erro do usuário) ─
+      releaseUserLock(req.user.uid, jobId).catch(err =>
+        console.error('⚠️ [AUTOMASTER-STATUS] releaseUserLock (not_apt) error:', err.message)
+      );
     } else if (job.status === 'needs_mode_change') {
       // Proteção sônica: modo incompatível com o material — não é falha técnica
       response.type = 'MODE_INCOMPATIBLE';
@@ -816,6 +832,11 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
       response.reason = job.error_message;
       response.abortReason = job.abort_reason;
       response.message = 'Modo selecionado incompatível com o material de entrada';
+
+      // ── LIBERAR LOCK SEM COBRANÇA ─────────────────────────────────────────────
+      releaseUserLock(req.user.uid, jobId).catch(err =>
+        console.error('⚠️ [AUTOMASTER-STATUS] releaseUserLock (needs_mode_change) error:', err.message)
+      );
     } else if (job.status === 'failed') {
       response.error = job.error;
       response.errorCode = job.error_code;
@@ -832,6 +853,11 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
         response.abortReason = job.abort_reason;
         response.message = 'Modo selecionado incompatível com o material de entrada';
       }
+
+      // ── LIBERAR LOCK SEM COBRANÇA (DSP falhou) ───────────────────────────────
+      releaseUserLock(req.user.uid, jobId).catch(err =>
+        console.error('⚠️ [AUTOMASTER-STATUS] releaseUserLock (failed) error:', err.message)
+      );
     } else if (job.status === 'queued') {
       response.message = 'Aguardando na fila...';
     }

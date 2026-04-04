@@ -1397,6 +1397,20 @@ async function startProcessing() {
       return;
     }
 
+    // Já existe um job em andamento para este usuário
+    if (err.message && (err.message.includes('PROCESS_ALREADY_RUNNING') || err.message.includes('masterização em andamento'))) {
+      document.getElementById('processingErrorMsg').textContent = 'Já existe uma masterização em andamento. Aguarde a conclusão antes de iniciar outra.';
+      document.getElementById('processingError').style.display  = 'block';
+      return;
+    }
+
+    // Token expirado ou sessão inválida — redirecionar para login preservando o upload
+    if (err.message && (err.message.toLowerCase().includes('unauthorized') || err.message.includes('Token inválido') || err.message.includes('expirado'))) {
+      savePendingMaster();
+      window.location.href = 'auth.html?returnTo=master';
+      return;
+    }
+
     document.getElementById('processingErrorMsg').textContent  = err.message || 'Erro desconhecido.';
     document.getElementById('processingError').style.display   = 'block';
   }
