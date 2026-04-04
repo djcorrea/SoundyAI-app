@@ -510,17 +510,13 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
       // 🔴 LEGACY REMOVIDO: Não enviar range calculado para IA
     }
     
-    // TRUE PEAK
+    // TRUE PEAK — semântica de teto (ceiling), não range
     if (targets.truePeak) {
-      if (typeof targets.truePeak.min === 'number' && typeof targets.truePeak.max === 'number') {
-        prompt += `- **True Peak**: Range oficial ${targets.truePeak.min.toFixed(1)} a ${targets.truePeak.max.toFixed(1)} dBTP`;
-        if (targets.truePeak.target !== undefined) {
-          prompt += ` (ideal: ${targets.truePeak.target.toFixed(1)} dBTP)\n`;
-        } else {
-          prompt += `\n`;
-        }
+      const tpCeiling = typeof targets.truePeak.max === 'number' ? targets.truePeak.max : -1.0;
+      prompt += `- **True Peak**: Teto obrigatório ≤ ${tpCeiling.toFixed(1)} dBTP (qualquer valor acima é inaceitável para masterização)\n`;
+      if (targets.truePeak.target !== undefined) {
+        prompt += `  → Valor médio do gênero: ${targets.truePeak.target.toFixed(1)} dBTP\n`;
       }
-      // 🔴 LEGACY REMOVIDO: Não enviar range calculado para IA
     }
     
     // DYNAMIC RANGE

@@ -101,12 +101,12 @@ class EnhancedSuggestionEngine {
             // === MÉTRICAS DE LOUDNESS ===
             lufs_too_low: {
                 explanation: "Sua faixa está muito abaixo do nível ideal de loudness. Isso reduz o impacto e competitividade da música, especialmente em plataformas de streaming.",
-                action: "Use um limiter ou compressor no master e ajuste o ganho até atingir cerca de -8 a -10 LUFS para releases comerciais.",
+                action: "Use um limiter ou compressor no master e ajuste o ganho até atingir o nível alvo do gênero (confira os targets da análise técnica).",
                 dawExample: "Monitore com LUFS Meter no insert final. No Pro Tools: AudioSuite > Loudness Analyzer. No Logic: Multipressor + Adaptive Limiter."
             },
             lufs_too_high: {
                 explanation: "Sua faixa está com loudness excessivo, causando fadiga auditiva e possível distorção. Plataformas como Spotify vão reduzir o volume automaticamente.",
-                action: "Reduza o ganho do limiter ou compressor principal. Objetivo: -8 a -14 LUFS dependendo do gênero.",
+                action: "Reduza o ganho do limiter ou compressor principal até atingir o nível alvo do gênero (confira os targets da análise técnica).",
                 dawExample: "No master bus: reduza Output Gain do limiter em 2-4 dB. Ableton: reduzir o Gain do Limiter. Cubase: reduzir Output no Maximizer."
             },
             
@@ -122,12 +122,12 @@ class EnhancedSuggestionEngine {
             // === DYNAMIC RANGE ===
             dr_low: {
                 explanation: "Dynamic Range muito baixo indica que sua música está over-comprimida, perdendo dinâmica natural e groove.",
-                action: "Reduza compressão geral, use compressão paralela, e preserve transientes. Objetivo: DR acima de 6-8 para músicas comerciais.",
+                action: "Reduza compressão geral, use compressão paralela, e preserve transientes até atingir o DR alvo do gênero (confira os targets da análise técnica).",
                 dawExample: "Reduzir ratio do compressor master. Crear bus paralelo com compressor pesado (10:1) e misturar sutilmente (20-30%)."
             },
             dr_high: {
                 explanation: "Dynamic Range excessivo pode indicar falta de coesão e consistência, dificultando playback em sistemas variados.",
-                action: "Use compressão suave para unificar a dinâmica, mantendo a musicalidade. Objetivo: DR entre 8-14 dependendo do gênero.",
+                action: "Use compressão suave para unificar a dinâmica, mantendo a musicalidade. Ajuste até o DR alvo do gênero (confira os targets da análise técnica).",
                 dawExample: "Compressor suave no master: 2:1 ratio, attack médio (10ms), release auto. Leveling para equilibrar seções."
             },
             lra_too_low: {

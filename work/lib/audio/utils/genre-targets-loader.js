@@ -188,17 +188,23 @@ function convertToInternalFormat(rawTargets, genre) {
       converted.lufs = {
         target: rawTargets.lufs_target,
         tolerance: tolerance,
-        critical: tolerance * 1.5
+        critical: tolerance * 1.5,
+        min: isFiniteNumber(rawTargets.lufs_min) ? rawTargets.lufs_min : (rawTargets.lufs_target - tolerance),
+        max: isFiniteNumber(rawTargets.lufs_max) ? rawTargets.lufs_max : (rawTargets.lufs_target + tolerance)
       };
     }
     
     // 🔊 TRUE PEAK
+    // max é sempre -1.0 dBTP (teto fixo AutoMaster V1)
+    // true_peak_max do JSON (=0) representa o clipping absoluto, não o teto de masterização
     if (isFiniteNumber(rawTargets.true_peak_target)) {
       const tolerance = isFiniteNumber(rawTargets.tol_true_peak) ? rawTargets.tol_true_peak : 1.0;
       converted.truePeak = {
         target: rawTargets.true_peak_target,
         tolerance: tolerance,
-        critical: tolerance * 1.5
+        critical: tolerance * 1.5,
+        min: isFiniteNumber(rawTargets.true_peak_min) ? rawTargets.true_peak_min : (rawTargets.true_peak_target - tolerance),
+        max: -1.0  // Teto fixo AutoMaster V1 — nunca usar true_peak_max do JSON
       };
     }
     
@@ -208,7 +214,9 @@ function convertToInternalFormat(rawTargets, genre) {
       converted.dr = {
         target: rawTargets.dr_target,
         tolerance: tolerance,
-        critical: tolerance * 1.5
+        critical: tolerance * 1.5,
+        min: isFiniteNumber(rawTargets.dr_min) ? rawTargets.dr_min : (rawTargets.dr_target - tolerance),
+        max: isFiniteNumber(rawTargets.dr_max) ? rawTargets.dr_max : (rawTargets.dr_target + tolerance)
       };
     }
     
