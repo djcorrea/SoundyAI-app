@@ -150,7 +150,7 @@
     .topbar {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       padding: 18px 32px;
       border-bottom: 1px solid var(--border-subtle);
       background: rgba(8, 11, 20, 0.7);
@@ -707,12 +707,16 @@
 
     /* Genre selector */
     .genre-row {
-      padding: 14px 24px;
-      border-top: 1px solid var(--border-subtle);
+      padding: 20px 24px 0;
       display: flex;
+      justify-content: center;
+    }
+    .genre-wrapper {
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 12px;
-      background: rgba(8, 11, 20, 0.3);
+      gap: 8px;
+      margin-bottom: 4px;
     }
     .genre-label {
       font-family: 'Rajdhani', sans-serif;
@@ -1287,26 +1291,22 @@
       <div class="topbar-logo-icon" aria-hidden="true">🎛️</div>
       <span class="topbar-logo-text">SoundyAI</span>
     </a>
-    <nav class="topbar-nav" aria-label="Navigation">
-      <a href="home.html" class="active">Analyzer</a>
-      <a href="master.html">AutoMaster</a>
-    </nav>
   </header>
 
   <!-- ── HERO ────────────────────────────────────────────────── -->
   <section class="hero" aria-labelledby="hero-title">
     <div class="hero-badge" aria-label="System status: online">
       <span class="hero-badge-dot" aria-hidden="true"></span>
-      AI Audio Lab · Online
+      SoundyAI Lab · Online
     </div>
 
     <h1 class="hero-title" id="hero-title">
-      Analisador de Áudio com IA<br>&amp; Motor de Mastering
+      MASTERIZAÇÃO AUTOMÁTICA <br>INTELIGENTE
     </h1>
 
     <p class="hero-subtitle">
-      Envie sua faixa e receba instantaneamente uma análise técnica profunda
-      com sugestões de mastering baseadas em IA — ou vá direto para o AutoMaster.
+      Envie sua faixa e aplique uma masterização inteligente em segundos.
+      O sistema entende sua música antes de processar — mede, analisa e decide até onde pode ir, entregando um resultado forte sem distorcer ou destruir sua música.
     </p>
 
     <button class="hero-cta" id="heroCta" aria-label="Enviar Faixa">
@@ -1316,7 +1316,7 @@
 
     <div class="hero-specs" aria-label="Formatos suportados e capacidades">
       <div class="hero-spec"><span class="hero-spec-icon" aria-hidden="true">🎵</span> WAV · MP3 · AIFF · FLAC</div>
-      <div class="hero-spec"><span class="hero-spec-icon" aria-hidden="true">⚡</span> Análise em Tempo Real</div>
+      <div class="hero-spec"><span class="hero-spec-icon" aria-hidden="true">⚡</span> Análise de Mix</div>
       <div class="hero-spec"><span class="hero-spec-icon" aria-hidden="true">🤖</span> Sugestões por IA</div>
       <div class="hero-spec"><span class="hero-spec-icon" aria-hidden="true">🔒</span> Upload Seguro</div>
     </div>
@@ -1340,15 +1340,35 @@
     <!-- Upload Hub — unified inline state machine -->
     <div class="upload-panel uploadHub" id="uploadHub" role="region" aria-label="Audio upload panel">
 
-      <div class="upload-panel-header" aria-hidden="true">
-        <span class="upload-panel-header-dot dot-red"></span>
-        <span class="upload-panel-header-dot dot-amber"></span>
-        <span class="upload-panel-header-dot dot-green"></span>
-        <span class="upload-panel-title">Audio Input</span>
-      </div>
-
       <!-- ── STATE: IDLE — drop zone ─────────────────────── -->
       <div id="hubPanelIdle" class="hub-panel hub-active">
+
+        <!-- Gênero — visível apenas no estado inicial, no topo do container -->
+        <div class="genre-row">
+          <div class="genre-wrapper">
+            <span class="genre-label">Gênero</span>
+            <select class="genre-select" id="homeGenreSelect" aria-label="Select analysis genre">
+            <option value="pop">Pop</option>
+            <option value="rock_indie">Rock / Indie</option>
+            <option value="sertanejo">Sertanejo</option>
+            <option value="piseiro_forro">Piseiro/Forró</option>
+            <option value="edm">EDM</option>
+            <option value="trap">Trap</option>
+            <option value="rap_drill">Hip Hop</option>
+            <option value="brazilian_phonk">Brazilian Phonk</option>
+            <option value="funk_mandela">Funk BR</option>
+            <option value="funk_bh">Funk BH</option>
+            <option value="funk_bruxaria">Funk Bruxaria</option>
+            <option value="funk_consciente">Funk Consciente</option>
+            <option value="eletrofunk">Eletrofunk</option>
+            <option value="house">House</option>
+            <option value="tech_house">Tech House</option>
+            <option value="progressive_trance">Progressive Trance</option>
+            <option value="fullon">Full On</option>
+          </select>
+          </div><!-- /genre-wrapper -->
+        </div><!-- /genre-row -->
+
         <div
           class="upload-dropzone"
           id="homeDropzone"
@@ -1458,29 +1478,6 @@
         <span id="hubErrorText"></span>
       </div>
 
-      <!-- Genre Selector Row — always visible -->
-      <div class="genre-row">
-        <span class="genre-label">Gênero</span>
-        <select class="genre-select" id="homeGenreSelect" aria-label="Select analysis genre">
-          <option value="pop">Pop</option>
-          <option value="rock_indie">Rock / Indie</option>
-          <option value="sertanejo">Sertanejo</option>
-          <option value="piseiro_forro">Piseiro/Forró</option>
-          <option value="edm">EDM</option>
-          <option value="trap">Trap</option>
-          <option value="rap_drill">Hip Hop</option>
-          <option value="brazilian_phonk">Brazilian Phonk</option>
-          <option value="funk_mandela">Funk BR</option>
-          <option value="funk_bh">Funk BH</option>
-          <option value="funk_bruxaria">Funk Bruxaria</option>
-          <option value="funk_consciente">Funk Consciente</option>
-          <option value="eletrofunk">Eletrofunk</option>
-          <option value="house">House</option>
-          <option value="tech_house">Tech House</option>
-          <option value="progressive_trance">Progressive Trance</option>
-          <option value="fullon">Full On</option>
-        </select>
-      </div>
 
     </div><!-- /uploadHub -->
 
@@ -1489,17 +1486,17 @@
       <div class="feature-card">
         <div class="feature-card-icon" aria-hidden="true">📊</div>
         <div class="feature-card-title">Análise Profunda</div>
-        <div class="feature-card-desc">LUFS, True Peak, Dynamic Range, Balanço Espectral e mais</div>
+        <div class="feature-card-desc">Descubra rapidamente problemas de loudness, dinâmica e equilíbrio antes de masterizar.</div>
       </div>
       <div class="feature-card">
         <div class="feature-card-icon" aria-hidden="true">🤖</div>
         <div class="feature-card-title">Sugestões por IA</div>
-        <div class="feature-card-desc">Recomendações baseadas no gênero para melhorar seu mix</div>
+        <div class="feature-card-desc">Receba direcionamentos claros para melhorar sua mix antes de aplicar a masterização.</div>
       </div>
       <div class="feature-card">
         <div class="feature-card-icon" aria-hidden="true">🎛️</div>
-        <div class="feature-card-title">AutoMaster</div>
-        <div class="feature-card-desc">Mastering automático com IA e processamento transparente</div>
+        <div class="feature-card-title">Masterização segura</div>
+        <div class="feature-card-desc">Seu áudio vai até onde aguenta — sem distorção, sem esmagar a dinâmica.</div>
       </div>
     </div>
 
