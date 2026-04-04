@@ -3810,9 +3810,15 @@ async function loadGenreTargets(genre) {
     if (!res.ok) {
         throw new Error(`Targets não encontrados para gênero: ${genre} (HTTP ${res.status})`);
     }
-    const targets = await res.json();
+    const fullJson = await res.json();
+    // 🔥 FIX: Extrair sub-objeto do gênero — o JSON tem formato { pop: { lufs_target, dr_min, ... } }
+    // Enviar o objeto raiz { pop: {...} } ao backend causa falha silenciosa em resolveTargets
+    const targets = fullJson[genre] || fullJson[Object.keys(fullJson)[0]] || fullJson;
     window.__CURRENT_GENRE_TARGETS = targets;
-    log('[PR2] loadGenreTargets: targets carregados para', genre, Object.keys(targets));
+    log('[PR2] loadGenreTargets: targets carregados para', genre, {
+        dr_min: targets.dr_min, dr_max: targets.dr_max, dr_target: targets.dr_target,
+        lufs_min: targets.lufs_min, lufs_max: targets.lufs_max
+    });
     return targets;
 }
 
@@ -6447,16 +6453,21 @@ function applyGenreSelection(genre) {
         window.PROD_AI_REF_GENRE = genre;
         
         // Extrair targets do __activeRefData carregado
-        if (window.__activeRefData?.targets) {
-            window.__CURRENT_GENRE_TARGETS = window.__activeRefData.targets;
-            window.currentGenreTargets = window.__activeRefData.targets;
+        // 🔥 FIX: __activeRefData já é o sub-objeto flat (json[rootKey]) com dr_min, lufs_target etc.
+        // NÃO usar __activeRefData.targets — esse path não existe na estrutura do JSON
+        if (window.__activeRefData && typeof window.__activeRefData === 'object' &&
+            (window.__activeRefData.lufs_target != null || window.__activeRefData.dr_target != null)) {
+            window.__CURRENT_GENRE_TARGETS = window.__activeRefData;
+            window.currentGenreTargets = window.__activeRefData;
             log('[APPLY-GENRE] ✅ Gênero e targets salvos:', {
                 genre: genre,
-                hasTargets: true,
-                targetKeys: Object.keys(window.__activeRefData.targets)
+                dr_min: window.__activeRefData.dr_min,
+                dr_max: window.__activeRefData.dr_max,
+                lufs_min: window.__activeRefData.lufs_min,
+                lufs_max: window.__activeRefData.lufs_max
             });
         } else {
-            warn('[APPLY-GENRE] ⚠️ Targets não encontrados em __activeRefData');
+            warn('[APPLY-GENRE] ⚠️ __activeRefData sem targets válidos:', window.__activeRefData ? Object.keys(window.__activeRefData).slice(0,5) : 'null');
         }
         
         try {

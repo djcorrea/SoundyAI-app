@@ -1438,6 +1438,11 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
           // 🔥 USAR PIPELINE CENTRAL: resolveTargets + compareWithTargets
           const resolvedTargets = resolveTargets(finalGenre, 'pista', options.genreTargets);
           
+          // 🔍 LOG DIAGNÓSTICO: rastrear valores finais de DR (deve mostrar min:7, max:12 para pop)
+          console.log('[JSON-OUTPUT] DR RANGE FINAL:', resolvedTargets.dr?.min, resolvedTargets.dr?.max,
+            '| LUFS:', resolvedTargets.lufs?.min, resolvedTargets.lufs?.max,
+            '| TP:', resolvedTargets.truePeak?.min, resolvedTargets.truePeak?.max);
+          
           // Validar targets (guardrail)
           const validation = validateTargets(resolvedTargets);
           if (!validation.valid) {
