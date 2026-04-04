@@ -283,12 +283,12 @@
           "severity": "soft"
         }
       },
-      "lufs_min": -24,
+      "lufs_min": -26,
       "lufs_max": -13,
       "dr_min": 7,
-      "dr_max": 14,
+      "dr_max": 12,
       "true_peak_min": -12,
-      "true_peak_max": -2,
+      "true_peak_max": -1,
       "true_peak_warn_from": -2
     },
     "last_updated": "2026-03-12T00:00:00.000Z",
@@ -305,12 +305,12 @@
       "new_id": "edm",
       "note": "Renomeado de 'funk_automotivo' para 'edm' - ID oficial"
     },
-    "lufs_min": -24,
+    "lufs_min": -26,
     "lufs_max": -13,
     "dr_min": 7,
-    "dr_max": 14,
+    "dr_max": 12,
     "true_peak_min": -12,
-    "true_peak_max": -2,
+    "true_peak_max": -1,
     "true_peak_warn_from": -2,
     "correction_info": {
       "correction_date": "2026-03-13T00:42:53.177Z",

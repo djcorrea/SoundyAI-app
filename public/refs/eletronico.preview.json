@@ -17,8 +17,8 @@
       "tol_dr_stat": 2,
       "lra_target": 6.6,
       "tol_lra": 1.5,
-      "lra_min": 5,
-      "lra_max": 8,
+      "lra_min": 4,
+      "lra_max": 12,
       "stereo_target": 0.88,
       "tol_stereo": 0.15,
       "bands": {
