@@ -1054,10 +1054,17 @@ const automasterState = {
 // ================================================================
 // AUTH & API
 // ================================================================
-function getAuthToken() {
-  const t = localStorage.getItem('idToken') || localStorage.getItem('token');
-  if (!t) console.warn('⚠️ [AUTOMASTER] Sem token de autenticação');
-  return t;
+
+/**
+ * Obtém um token Firebase sempre fresco (force refresh = true).
+ * Nunca usa localStorage — o token é gerado sob demanda pelo SDK.
+ * Lança NOT_AUTHENTICATED se não houver usuário logado.
+ */
+async function getValidIdToken() {
+  const auth = window.__firebaseAuth;
+  const user = auth ? auth.currentUser : null;
+  if (!user) throw new Error('NOT_AUTHENTICATED');
+  return await user.getIdToken(true); // force refresh garante que nunca usa token expirado
 }
 
 // ================================================================
@@ -1084,8 +1091,19 @@ function clearPendingMaster() {
 }
 
 async function apiRequest(endpoint, options = {}, timeoutMs = 120000) {
-  const token = getAuthToken();
-  if (!token) throw new Error('Você precisa estar logado para usar o AutoMaster.');
+  // Sempre obtém token fresco via Firebase SDK — nunca lê do localStorage
+  let token;
+  try {
+    token = await getValidIdToken();
+  } catch (authErr) {
+    if (authErr.message === 'NOT_AUTHENTICATED') {
+      savePendingMaster();
+      window.location.href = '/login.html?returnTo=master';
+      throw new Error('Sessão encerrada. Redirecionando para login...');
+    }
+    throw authErr;
+  }
+
   const ctrl    = new AbortController();
   const tid     = setTimeout(() => ctrl.abort(), timeoutMs);
   const headers = { ...options.headers };
@@ -1097,7 +1115,9 @@ async function apiRequest(endpoint, options = {}, timeoutMs = 120000) {
     if (!res.ok) {
       let msg = `Erro ${res.status}`;
       try { const b = await res.json(); msg = b.error || b.message || msg; } catch(_){}
-      throw new Error(msg);
+      const statusErr = new Error(msg);
+      statusErr.httpStatus = res.status;
+      throw statusErr;
     }
     return await res.json();
   } catch (err) {
@@ -1405,9 +1425,9 @@ async function startProcessing() {
     }
 
     // Token expirado ou sessão inválida — redirecionar para login preservando o upload
-    if (err.message && (err.message.toLowerCase().includes('unauthorized') || err.message.includes('Token inválido') || err.message.includes('expirado'))) {
+    if (err.message && (err.message === 'NOT_AUTHENTICATED' || err.message.toLowerCase().includes('unauthorized') || err.message.includes('Token inválido') || err.message.includes('expirado'))) {
       savePendingMaster();
-      window.location.href = 'auth.html?returnTo=master';
+      window.location.href = '/login.html?returnTo=master';
       return;
     }
 
@@ -1796,8 +1816,11 @@ async function downloadMaster() {
 async function triggerBlobDownload(url) {
   const name = `master_${(automasterState.fileName || 'audio').replace(/\.[^.]+$/, '')}.wav`;
   try {
-    const token = getAuthToken();
-    const hdrs  = token ? { Authorization: `Bearer ${token}` } : {};
+    let hdrs = {};
+    try {
+      const token = await getValidIdToken();
+      if (token) hdrs = { Authorization: `Bearer ${token}` };
+    } catch (_) { /* download tenta mesmo sem token */ }
     const res   = await fetch(url, { headers: hdrs });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const blob  = await res.blob();
@@ -1842,22 +1865,23 @@ function resetFlow() {
 // ================================================================
 // INIT
 // ================================================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   console.log('🎚️ [AUTOMASTER] AutoMaster V1 — Produção');
 
   // ── AUTH GUARD ────────────────────────────────────────────
-  // Verificar token antes de exibir qualquer funcionalidade.
-  // Se ausente: salvar estado (fileKey) e redirecionar para login.
-  const token = getAuthToken();
-  if (!token) {
+  // Aguarda o Firebase resolver o estado inicial de autenticação.
+  // window.__firebaseAuthReady é uma Promise criada pelo script module abaixo.
+  // Não usa localStorage — garante que o token seja real e não expirado.
+  const user = await (window.__firebaseAuthReady || Promise.resolve(null));
+  if (!user) {
     if (automasterState.fromHomeFlow && automasterState.fileKey) {
       savePendingMaster(); // preserva fileKey para restauração pós-login
     }
     console.warn('⚠️ [AUTOMASTER] Usuário não autenticado — redirecionando para login');
-    window.location.href = 'auth.html?returnTo=master';
+    window.location.href = '/login.html?returnTo=master';
     return; // interrompe init
   }
-  console.log('✅ [AUTOMASTER] Usuário autenticado');
+  console.log('✅ [AUTOMASTER] Usuário autenticado:', user.uid);
   clearPendingMaster(); // limpar qualquer pendência antiga ao entrar autenticado
 
   // Fluxo contínuo: adaptar UI
@@ -1883,6 +1907,27 @@ if (window.location.hostname === 'localhost') {
   console.log('🔧 [AUTOMASTER-DEBUG] Modo debug ativado');
   window.automasterState = automasterState;
 }
+</script>
+
+<!-- Firebase Auth — expõe window.__firebaseAuth e window.__firebaseAuthReady para o script acima -->
+<!-- Deve vir APÓS o script principal para que as funções (savePendingMaster etc.) já existam -->
+<script type="module">
+import { auth } from './firebase.js';
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
+
+// Expõe a instância de auth para getValidIdToken() (chamada nos requests)
+window.__firebaseAuth = auth;
+
+// Promise que resolve com o usuário atual (ou null) assim que o Firebase conclui
+// a verificação inicial do estado de autenticação.
+// O DOMContentLoaded async aguarda esta Promise.
+window.__firebaseAuthReady = new Promise((resolve) => {
+  const unsub = onAuthStateChanged(auth, (user) => {
+    unsub(); // escuta apenas o estado inicial
+    window.__firebaseUser = user;
+    resolve(user);
+  });
+});
 </script>
 </body>
 </html>

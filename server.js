@@ -1,4 +1,4 @@
-// server.js
+﻿// server.js
 import express from "express";
 import cors from "cors";
 import path from "path";
@@ -183,6 +183,21 @@ app.get(["/index", "/index.html", "/app", "/home"], (req, res) => {
   res.sendFile(path.join(publicPath, "index.html"));
 });
 
+
+
+// 🔑 Rotas explícitas para páginas de autenticação e masterização
+// Garante que nunca retornem 404, independente de CDN ou cache
+app.get(["/login", "/login.html"], (req, res) => {
+  res.sendFile(path.join(publicPath, "login.html"));
+});
+app.get(["/master", "/master.html"], (req, res) => {
+  res.sendFile(path.join(publicPath, "master.html"));
+});
+// Compatibilidade: /auth.html -> /login.html (preserva query string)
+app.get("/auth.html", (req, res) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(301, '/login.html' + qs);
+});
 // � MODO DEMO: Rota especial que serve index.html mas ativa modo demo
 app.get(["/demo", "/demo.html"], (req, res) => {
   console.log('🔥 [DEMO] Servindo index.html em modo demo');
