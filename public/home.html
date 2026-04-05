@@ -1274,6 +1274,163 @@
       .upload-dropzone { padding: 36px 20px; }
       .decision-modal { padding: 28px 20px; }
     }
+
+    /* ══════════════════════════════════════════════
+       AUTO MASTER — UI PREMIUM (Fase 4)
+    ══════════════════════════════════════════════ */
+    .am-wrapper {
+      width: 100%; max-width: 900px; margin: 0 auto;
+      padding: 2.5rem 2rem;
+      background: linear-gradient(145deg,#0e0b20 0%,#0a0d1f 100%);
+      border: 1px solid rgba(130,80,255,.25); border-radius: 20px;
+      box-shadow: 0 0 40px rgba(100,60,220,.1),0 2px 40px rgba(0,0,0,.4);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      text-align: center;
+    }
+    .am-eyebrow {
+      font-size: .72rem; letter-spacing: .15em; text-transform: uppercase;
+      color: rgba(180,140,255,.7); margin: 0 0 .4rem;
+    }
+    .am-title  { font-size: 1.5rem; font-weight: 700; color: #ededff; margin: 0 0 .4rem; }
+    .am-subtitle { font-size: .85rem; color: #7777a0; margin: 0 0 2rem; }
+    .am-subtitle strong { color: #c9c9ee; }
+    /* ── mode cards ── */
+    .am-mode-grid {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      gap: 1rem; margin-bottom: 2rem;
+    }
+    @media (max-width: 720px) { .am-mode-grid { grid-template-columns: repeat(2,1fr); } }
+    .am-mode-card {
+      background: rgba(255,255,255,.04);
+      border: 1.5px solid rgba(120,80,255,.2); border-radius: 14px;
+      padding: 1.25rem .75rem; cursor: pointer;
+      display: flex; flex-direction: column; gap: .35rem; align-items: center;
+      transition: background .18s,border-color .18s,transform .15s,box-shadow .18s;
+    }
+    .am-mode-card:hover {
+      background: rgba(120,80,255,.12); border-color: rgba(160,100,255,.55);
+      transform: translateY(-2px); box-shadow: 0 4px 20px rgba(120,80,255,.2);
+    }
+    .am-mode-card.am-selected {
+      background: rgba(120,80,255,.18); border-color: #9060ff;
+      box-shadow: 0 0 0 2px rgba(144,96,255,.35),0 4px 24px rgba(120,80,255,.3);
+    }
+    .am-mode-icon { font-size: 1.6rem; line-height: 1; }
+    .am-mode-name { font-size: .95rem; font-weight: 700; color: #e8e8ff; }
+    .am-mode-desc { font-size: .72rem; color: #7777a0; line-height: 1.35; }
+    .am-mode-lufs { font-size: .72rem; color: rgba(144,96,255,.85); font-weight: 600; margin-top: .15rem; }
+    .am-back-btn {
+      background: none; border: 1px solid rgba(100,80,200,.25);
+      color: #7777a0; padding: .5rem 1.25rem; border-radius: 8px;
+      cursor: pointer; font-size: .84rem; transition: border-color .15s,color .15s;
+    }
+    .am-back-btn:hover { border-color: rgba(144,96,255,.5); color: #c0c0dd; }
+    /* ── processing ── */
+    .am-processing {
+      display: flex; flex-direction: column; align-items: center; gap: .6rem;
+      padding: 1rem 0 .5rem;
+    }
+    .am-spinner-ring {
+      width: 60px; height: 60px; border-radius: 50%;
+      border: 3px solid rgba(144,96,255,.2); border-top-color: #9060ff;
+      animation: am-spin .85s linear infinite;
+      box-shadow: 0 0 20px rgba(144,96,255,.3); margin-bottom: 1rem;
+    }
+    @keyframes am-spin { to { transform: rotate(360deg); } }
+    .am-processing-title { font-size: 1.25rem; font-weight: 700; color: #ededff; margin: 0 0 .15rem; }
+    .am-processing-step  { font-size: .84rem; color: rgba(180,140,255,.8); min-height: 1.2em; }
+    .am-progress-bar-track {
+      width: 100%; max-width: 320px; height: 4px;
+      background: rgba(255,255,255,.08); border-radius: 4px;
+      overflow: hidden; margin-top: 1.25rem;
+    }
+    .am-progress-bar-fill {
+      height: 100%; background: linear-gradient(90deg,#6030d0,#9060ff,#cc80ff);
+      border-radius: 4px; transition: width .4s ease;
+      box-shadow: 0 0 6px rgba(144,96,255,.6);
+    }
+    /* ── result ── */
+    .am-result-wrapper { padding: 2rem 2rem 2.5rem; }
+    .am-result-header  { margin-bottom: 1.75rem; }
+    .am-success-icon {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: rgba(74,222,128,.12); border: 1.5px solid rgba(74,222,128,.45);
+      color: #4ade80; font-size: 1.5rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto .75rem; box-shadow: 0 0 20px rgba(74,222,128,.2);
+    }
+    .am-metrics-grid {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      gap: .85rem; margin-bottom: 1.75rem;
+    }
+    @media (max-width: 700px) { .am-metrics-grid { grid-template-columns: repeat(2,1fr); } }
+    .am-metric-card {
+      background: rgba(255,255,255,.04); border: 1px solid rgba(120,80,255,.2);
+      border-radius: 12px; padding: 1rem .5rem;
+      display: flex; flex-direction: column; align-items: center; gap: .3rem;
+      transition: box-shadow .2s;
+    }
+    .am-metric-card:hover { box-shadow: 0 0 16px rgba(144,96,255,.18); border-color: rgba(144,96,255,.4); }
+    .am-metric-label  { font-size: .68rem; color: #7777a0; letter-spacing: .08em; text-transform: uppercase; }
+    .am-metric-values { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; justify-content: center; }
+    .am-metric-before { font-size: 1rem; font-weight: 600; color: #9090b8; }
+    .am-metric-arrow  { font-size: .8rem; color: rgba(144,96,255,.6); }
+    .am-metric-after  { font-size: 1.1rem; font-weight: 700; color: #ededff; }
+    .am-metric-unit   { font-size: .65rem; color: rgba(144,96,255,.7); }
+    /* ── a/b preview ── */
+    .am-preview-ab {
+      background: rgba(255,255,255,.03); border: 1px solid rgba(120,80,255,.18);
+      border-radius: 14px; padding: 1.25rem 1rem; margin-bottom: 1.75rem;
+    }
+    .am-preview-label-row {
+      display: flex; justify-content: space-between;
+      font-size: .7rem; letter-spacing: .12em; text-transform: uppercase;
+      margin-bottom: .75rem; padding: 0 .5rem;
+    }
+    .am-preview-label-before { color: #7777a0; }
+    .am-preview-label-after  { color: rgba(144,96,255,.85); font-weight: 700; }
+    .am-preview-controls     { display: flex; align-items: center; justify-content: center; gap: .75rem; }
+    .am-ab-btn {
+      padding: .5rem 1.1rem; border-radius: 8px; cursor: pointer;
+      font-size: .8rem; font-weight: 600;
+      border: 1.5px solid rgba(120,80,255,.3);
+      background: rgba(120,80,255,.08); color: #c0b0ee;
+      transition: background .15s,border-color .15s,transform .12s;
+    }
+    .am-ab-btn:hover { background: rgba(120,80,255,.18); transform: scale(1.04); }
+    .am-ab-play-center {
+      width: 54px; height: 54px; border-radius: 50%;
+      font-size: 1.15rem; padding: 0;
+      background: linear-gradient(135deg,#6030d0,#9060ff);
+      border-color: transparent; color: #fff;
+      box-shadow: 0 0 20px rgba(144,96,255,.4);
+    }
+    .am-ab-play-center:hover { box-shadow: 0 0 28px rgba(144,96,255,.6); }
+    /* ── result actions ── */
+    .am-result-actions { display: flex; flex-direction: column; align-items: center; gap: .75rem; }
+    .am-download-btn {
+      display: inline-block; padding: .8rem 2.5rem;
+      background: linear-gradient(135deg,#6030d0,#9060ff);
+      color: #fff; border-radius: 12px; font-weight: 700; font-size: .95rem;
+      text-decoration: none; cursor: pointer; border: none; letter-spacing: .02em;
+      box-shadow: 0 4px 24px rgba(144,96,255,.4);
+      transition: box-shadow .2s,transform .15s;
+    }
+    .am-download-btn:hover { box-shadow: 0 6px 32px rgba(144,96,255,.6); transform: translateY(-1px); }
+    .am-secondary-btn {
+      background: none; border: 1px solid rgba(120,80,255,.3);
+      color: #7777a0; padding: .5rem 1.5rem; border-radius: 8px;
+      cursor: pointer; font-size: .84rem; transition: border-color .15s,color .15s;
+    }
+    .am-secondary-btn:hover { border-color: rgba(144,96,255,.5); color: #c0c0dd; }
+    /* ── error state ── */
+    .am-error-icon {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: rgba(248,113,113,.1); border: 1.5px solid rgba(248,113,113,.4);
+      color: #f87171; font-size: 1.4rem;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto .75rem; box-shadow: 0 0 16px rgba(248,113,113,.15);
+    }
   </style>
 </head>
 <body>
@@ -1874,7 +2031,9 @@
     masterJobId:      null,
     creditConsumed:   false,  // Fase 3: impede duplo consumo de crédito
     _masterPollTimer: null,   // Fase 3: referência global ao setInterval do polling
-    pendingAction:    false   // Fase 3.1: intenção confirmada pelo usuário antes do login
+    pendingAction:    false,  // Fase 3.1: intenção confirmada pelo usuário antes do login
+    _progressTimer:   null,   // Fase 4: fake progress bar timer
+    _textTimer:       null    // Fase 4: cycling text timer
   };
 
   var HUB_PANEL_IDS = ['idle', 'uploading', 'uploaded', 'analyzing'];
@@ -2162,27 +2321,48 @@
     var container = document.getElementById('uploadHub');
     if (!container) return;
     if (!container.__originalHTML__) container.__originalHTML__ = container.innerHTML;
+
+    // Cancela timers de animação anteriores
+    if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
+    if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
+
     var label = modeLabel(mode);
-    container.innerHTML = [
-      '<div class="home-master-processing" style="',
-        'padding:2.5rem 1.5rem;text-align:center;',
-        'background:var(--bg-card,#0d0d1e);',
-        'border:1px solid var(--border-dim,rgba(79,142,247,0.18));',
-        'border-radius:16px;',
-      '">',
-        '<div class="home-master-spinner" style="',
-          'width:48px;height:48px;border-radius:50%;',
-          'border:3px solid rgba(79,142,247,0.25);',
-          'border-top-color:var(--primary,#4f8ef7);',
-          'animation:spin 0.9s linear infinite;',
-          'margin:0 auto 1.5rem;',
-        '"></div>',
-        '<p style="font-size:0.8rem;color:var(--text-2,#8888aa);margin-bottom:0.5rem;letter-spacing:.1em;text-transform:uppercase;">AutoMaster · Modo ' + label + '</p>',
-        '<h2 style="font-size:1.3rem;font-weight:700;margin-bottom:0.5rem;color:var(--text-1,#f0f0ff);">Masterizando sua faixa…</h2>',
-        '<p style="font-size:0.82rem;color:var(--text-2,#8888aa);">Isso pode levar até 2 minutos. Aguarde.</p>',
-      '</div>',
-      '<style>@keyframes spin{to{transform:rotate(360deg)}}</style>'
-    ].join('');
+    container.innerHTML = '<div class="am-wrapper">'
+      + '<div class="am-processing">'
+      + '<div class="am-spinner-ring"></div>'
+      + '<p class="am-eyebrow">AutoMaster · Modo ' + label + '</p>'
+      + '<h2 class="am-processing-title">Masterizando sua faixa…</h2>'
+      + '<p class="am-processing-step" id="amProcessingStep">Analisando dinâmica...</p>'
+      + '<div class="am-progress-bar-track">'
+      +   '<div class="am-progress-bar-fill" id="amProgressFill" style="width:10%"></div>'
+      + '</div>'
+      + '</div>'
+      + '</div>';
+
+    // Texto rotativo a cada 1.5s
+    var steps = [
+      'Analisando dinâmica...',
+      'Ajustando loudness...',
+      'Controlando true peak...',
+      'Aplicando limiter...',
+      'Finalizando master...'
+    ];
+    var stepIdx = 0;
+    _state._textTimer = setInterval(function () {
+      stepIdx = (stepIdx + 1) % steps.length;
+      var el = document.getElementById('amProcessingStep');
+      if (el) el.textContent = steps[stepIdx];
+    }, 1500);
+
+    // Fake progress bar: 10% → 90% suavemente
+    var progress = 10;
+    _state._progressTimer = setInterval(function () {
+      if (progress < 90) {
+        progress += Math.random() * 0.7 + 0.15;
+        var el = document.getElementById('amProgressFill');
+        if (el) el.style.width = Math.min(progress, 90).toFixed(1) + '%';
+      }
+    }, 300);
   }
 
   /* ── Render: resultado com download e métricas ─────────────────────────── */
@@ -2190,84 +2370,121 @@
     var container = document.getElementById('uploadHub');
     if (!container) return;
 
-    var metricsHtml = '';
-    if (data.metrics) {
-      var m = data.metrics;
-      var fmt = function (v) { return (v !== undefined && v !== null) ? Number(v).toFixed(1) : '—'; };
-      metricsHtml = [
-        '<div style="display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap;margin:1.25rem 0;font-size:0.82rem;color:var(--text-2,#8888aa);">',
-          '<span>LUFS: <strong style="color:var(--text-1,#f0f0ff)">' + fmt(m.lufsBefore) + ' → ' + fmt(m.lufsAfter) + '</strong></span>',
-          '<span>True Peak: <strong style="color:var(--text-1,#f0f0ff)">' + fmt(m.truePeakBefore) + ' → ' + fmt(m.truePeakAfter) + ' dBFS</strong></span>',
-        '</div>'
-      ].join('');
-    }
+    // Para animações de processamento
+    if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
+    if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
+
+    var m   = data.metrics || {};
+    var fmt = function (v) { return (v !== undefined && v !== null) ? Number(v).toFixed(1) : '—'; };
+
+    var metricDefs = [
+      { label: 'LUFS',         before: fmt(m.lufsBefore),     after: fmt(m.lufsAfter),     unit: 'LUFS' },
+      { label: 'True Peak',    before: fmt(m.truePeakBefore), after: fmt(m.truePeakAfter), unit: 'dBFS' },
+      { label: 'Dinâmica (DR)', before: fmt(m.drBefore),      after: fmt(m.drAfter),       unit: 'DR'   },
+      { label: 'Headroom',     before: fmt(m.headroomBefore), after: fmt(m.headroomAfter), unit: 'dB'   }
+    ];
+
+    var metricsHtml = '<div class="am-metrics-grid">'
+      + metricDefs.map(function (c) {
+          return '<div class="am-metric-card">'
+            + '<div class="am-metric-label">' + c.label + '</div>'
+            + '<div class="am-metric-values">'
+            +   '<span class="am-metric-before">' + c.before + '</span>'
+            +   '<span class="am-metric-arrow">→</span>'
+            +   '<span class="am-metric-after">' + c.after + '</span>'
+            + '</div>'
+            + '<div class="am-metric-unit">' + c.unit + '</div>'
+            + '</div>';
+        }).join('')
+      + '</div>';
 
     var previewHtml = '';
     if (data.previewBefore && data.previewAfter) {
-      previewHtml = [
-        '<div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.25rem;">',
-          '<div style="text-align:center;">',
-            '<p style="font-size:0.72rem;color:var(--text-2,#8888aa);margin-bottom:4px;">ANTES</p>',
-            '<audio controls src="' + data.previewBefore + '" style="width:180px;height:32px;opacity:.75"></audio>',
-          '</div>',
-          '<div style="text-align:center;">',
-            '<p style="font-size:0.72rem;color:var(--primary,#4f8ef7);margin-bottom:4px;font-weight:700;">DEPOIS</p>',
-            '<audio controls src="' + data.previewAfter + '" style="width:180px;height:32px"></audio>',
-          '</div>',
-        '</div>'
-      ].join('');
+      previewHtml = '<div class="am-preview-ab">'
+        + '<div class="am-preview-label-row">'
+        +   '<span class="am-preview-label-before">ANTES</span>'
+        +   '<span class="am-preview-label-after">DEPOIS</span>'
+        + '</div>'
+        + '<audio id="amAudioBefore" src="' + data.previewBefore + '" preload="none"></audio>'
+        + '<audio id="amAudioAfter"  src="' + data.previewAfter  + '" preload="none"></audio>'
+        + '<div class="am-preview-controls">'
+        +   '<button class="am-ab-btn" type="button" onclick="__amPlayAB(\'before\')">&#9654; ANTES</button>'
+        +   '<button class="am-ab-btn am-ab-play-center" type="button" id="amAbPlayBtn" onclick="__amToggleAB()">&#9654;</button>'
+        +   '<button class="am-ab-btn" type="button" onclick="__amPlayAB(\'after\')">&#9654; DEPOIS</button>'
+        + '</div>'
+        + '</div>';
     }
 
-    container.innerHTML = [
-      '<div class="home-master-result" style="',
-        'padding:2rem 1.5rem;text-align:center;',
-        'background:var(--bg-card,#0d0d1e);',
-        'border:1px solid rgba(74,222,128,0.35);',
-        'border-radius:16px;',
-      '">',
-        '<div style="font-size:2.2rem;margin-bottom:0.5rem">✅</div>',
-        '<p style="font-size:0.8rem;color:var(--text-2,#8888aa);margin-bottom:0.25rem;letter-spacing:.1em;text-transform:uppercase;">AutoMaster concluído</p>',
-        '<h2 style="font-size:1.3rem;font-weight:700;margin-bottom:0.25rem;color:var(--text-1,#f0f0ff);">Faixa masterizada com sucesso!</h2>',
-        metricsHtml,
-        previewHtml,
-        '<a href="' + data.downloadUrl + '" onclick="event.preventDefault();downloadMaster(this.href)" style="',
-          'display:inline-block;margin:0.5rem 0 1.25rem;',
-          'background:var(--primary,#4f8ef7);color:#fff;',
-          'padding:0.65rem 1.75rem;border-radius:10px;',
-          'font-weight:600;font-size:0.9rem;text-decoration:none;cursor:pointer;',
-        '">⬇ Baixar faixa masterizada</a>',
-        '<br>',
-        '<button onclick="resetMasterFlow()" style="',
-          'background:none;border:1px solid var(--border-dim,rgba(79,142,247,0.18));',
-          'color:var(--text-2,#8888aa);padding:0.45rem 1.2rem;border-radius:8px;cursor:pointer;font-size:0.82rem;',
-        '">Masterizar outra faixa</button>',
-      '</div>'
-    ].join('');
+    container.innerHTML = '<div class="am-wrapper am-result-wrapper">'
+      + '<div class="am-result-header">'
+      +   '<div class="am-success-icon">✓</div>'
+      +   '<p class="am-eyebrow">AutoMaster concluído</p>'
+      +   '<h2 class="am-title">Masterização concluída</h2>'
+      + '</div>'
+      + metricsHtml
+      + previewHtml
+      + '<div class="am-result-actions">'
+      +   '<a class="am-download-btn" href="' + data.downloadUrl + '" onclick="event.preventDefault();downloadMaster(this.href)">'
+      +     '⬇ Baixar faixa masterizada'
+      +   '</a>'
+      +   '<button class="am-secondary-btn" type="button" onclick="resetMasterFlow()">Masterizar outra</button>'
+      + '</div>'
+      + '</div>';
+
+    // Controles A/B
+    window.__amCurrentAB = null;
+    window.__amPlayAB = function (which) {
+      var before = document.getElementById('amAudioBefore');
+      var after  = document.getElementById('amAudioAfter');
+      if (!before || !after) return;
+      var target = which === 'before' ? before : after;
+      var other  = which === 'before' ? after  : before;
+      other.pause();
+      var btn = document.getElementById('amAbPlayBtn');
+      if (target.paused) {
+        target.play();
+        window.__amCurrentAB = which;
+        if (btn) btn.innerHTML = '&#9646;&#9646;';
+      } else {
+        target.pause();
+        window.__amCurrentAB = null;
+        if (btn) btn.innerHTML = '&#9654;';
+      }
+    };
+    window.__amToggleAB = function () {
+      if (window.__amCurrentAB) {
+        var id = window.__amCurrentAB === 'before' ? 'amAudioBefore' : 'amAudioAfter';
+        var el = document.getElementById(id);
+        if (el) el.pause();
+        window.__amCurrentAB = null;
+        var btn = document.getElementById('amAbPlayBtn');
+        if (btn) btn.innerHTML = '&#9654;';
+      } else {
+        window.__amPlayAB('after');
+      }
+    };
   }
 
   /* ── Render: erro com botão de voltar ──────────────────────────────────── */
   function renderErrorState(message) {
     var container = document.getElementById('uploadHub');
     if (!container) return;
-    container.innerHTML = [
-      '<div class="home-master-error" style="',
-        'padding:2rem 1.5rem;text-align:center;',
-        'background:var(--bg-card,#0d0d1e);',
-        'border:1px solid rgba(248,113,113,0.35);',
-        'border-radius:16px;',
-      '">',
-        '<div style="font-size:2rem;margin-bottom:0.5rem">⚠️</div>',
-        '<p style="font-size:0.8rem;color:var(--text-2,#8888aa);margin-bottom:0.25rem;letter-spacing:.1em;text-transform:uppercase;">AutoMaster</p>',
-        '<h2 style="font-size:1.15rem;font-weight:700;margin-bottom:0.75rem;color:var(--text-1,#f0f0ff);">Erro no processamento</h2>',
-        '<p style="font-size:0.85rem;color:rgba(248,113,113,0.85);margin-bottom:1.5rem;max-width:340px;margin-left:auto;margin-right:auto;">' + (message || 'Erro desconhecido.') + '</p>',
-        '<div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">',
-          '<button onclick="resetMasterFlow()" style="',
-            'background:var(--primary,#4f8ef7);border:none;color:#fff;',
-            'padding:0.55rem 1.5rem;border-radius:8px;cursor:pointer;font-size:0.85rem;font-weight:600;',
-          '">← Tentar novamente</button>',
-        '</div>',
-      '</div>'
-    ].join('');
+
+    // Para animações de processamento
+    if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
+    if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
+
+    container.innerHTML = '<div class="am-wrapper" style="border-color:rgba(248,113,113,.35)">'
+      + '<div class="am-error-icon">&#9888;</div>'
+      + '<p class="am-eyebrow">AutoMaster</p>'
+      + '<h2 class="am-title" style="font-size:1.2rem">Erro no processamento</h2>'
+      + '<p style="font-size:.85rem;color:rgba(248,113,113,.85);margin:.5rem auto 1.5rem;max-width:340px;line-height:1.5">'
+      +   (message || 'Erro desconhecido.')
+      + '</p>'
+      + '<div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap">'
+      +   '<button onclick="resetMasterFlow()" class="am-download-btn">← Tentar novamente</button>'
+      + '</div>'
+      + '</div>';
   }
 
   /* ── Render: needs_confirmation — auto-confirma para fluxo embutido ────── */
@@ -2276,6 +2493,9 @@
     // (equivalente ao fromHomeFlow=true do master.html)
     var container = document.getElementById('uploadHub');
     if (!container) return;
+    // Para animações de processamento anteriores
+    if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
+    if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
     // Mostra spinner enquanto confirma
     if (!container.__originalHTML__) container.__originalHTML__ = container.innerHTML;
     container.innerHTML = [
@@ -2361,29 +2581,30 @@
     // Preserva o HTML original para restaurar depois
     container.__originalHTML__ = container.innerHTML;
 
-    container.innerHTML = [
-      '<div class="home-master-mode-selection" style="',
-        'padding:2rem 1.5rem;text-align:center;',
-        'background:var(--bg-card,#0d0d1e);',
-        'border:1px solid var(--border-dim,rgba(79,142,247,0.18));',
-        'border-radius:16px;',
-      '">',
-        '<p style="font-size:0.8rem;color:var(--text-2,#8888aa);margin-bottom:0.5rem;letter-spacing:.1em;text-transform:uppercase;">AutoMaster</p>',
-        '<h2 style="font-size:1.4rem;font-weight:700;margin-bottom:0.5rem;color:var(--text-1,#f0f0ff);">Escolha o modo de masterização</h2>',
-        '<p style="font-size:0.85rem;color:var(--text-2,#8888aa);margin-bottom:2rem;">',
-          'Arquivo: <strong style="color:var(--text-1,#f0f0ff)">' + (resolveFileName() || 'áudio') + '</strong>',
-        '</p>',
-        '<div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;margin-bottom:2rem;">',
-          '<button onclick="selectMasterMode(\'LOW\')"    class="home-master-mode-btn" data-mode="LOW">Suave</button>',
-          '<button onclick="selectMasterMode(\'MEDIUM\')" class="home-master-mode-btn" data-mode="MEDIUM">Balanceado</button>',
-          '<button onclick="selectMasterMode(\'HIGH\')"   class="home-master-mode-btn" data-mode="HIGH">Impacto</button>',
-        '</div>',
-        '<button onclick="resetMasterFlow()" style="',
-          'background:none;border:1px solid var(--border-dim,rgba(79,142,247,0.18));',
-          'color:var(--text-2,#8888aa);padding:0.5rem 1.25rem;border-radius:8px;cursor:pointer;font-size:0.85rem;',
-        '">← Voltar</button>',
-      '</div>'
-    ].join('');
+    var modes = [
+      { key: 'LOW',     label: 'Suave',      desc: 'Mais dinâmica, menos compressão',    lufs: '~ −14 LUFS', icon: '🌿' },
+      { key: 'MEDIUM',  label: 'Balanceado', desc: 'Equilíbrio entre impacto e clareza', lufs: '~ −12 LUFS', icon: '⚖️' },
+      { key: 'HIGH',    label: 'Alto',       desc: 'Mais pressão sonora',                lufs: '~ −10 LUFS', icon: '🔥' },
+      { key: 'EXTREME', label: 'Extremo',    desc: 'Máximo impacto possível',            lufs: '~ −8 LUFS',  icon: '⚡' }
+    ];
+
+    var cardsHtml = modes.map(function (m) {
+      return '<button class="am-mode-card" data-mode="' + m.key + '" type="button"'
+        + ' onclick="selectMasterMode(\'' + m.key + '\')">'
+        + '<div class="am-mode-icon">' + m.icon + '</div>'
+        + '<div class="am-mode-name">' + m.label + '</div>'
+        + '<div class="am-mode-desc">' + m.desc + '</div>'
+        + '<div class="am-mode-lufs">' + m.lufs + '</div>'
+        + '</button>';
+    }).join('');
+
+    container.innerHTML = '<div class="am-wrapper">'
+      + '<p class="am-eyebrow">AutoMaster</p>'
+      + '<h2 class="am-title">Escolha o modo de masterização</h2>'
+      + '<p class="am-subtitle">Arquivo: <strong>' + (resolveFileName() || 'áudio') + '</strong></p>'
+      + '<div class="am-mode-grid">' + cardsHtml + '</div>'
+      + '<button class="am-back-btn" type="button" onclick="resetMasterFlow()">← Voltar</button>'
+      + '</div>';
   }
 
   /**
@@ -2399,16 +2620,14 @@
     _state.masterMode = mode;
     console.log('[HOME-MASTER] Modo selecionado:', mode, '| fileKey:', resolveFileKey());
 
-    // Feedback visual: marcar botão selecionado
-    var btns = document.querySelectorAll('.home-master-mode-btn');
+    // Feedback visual: marca card selecionado
+    var btns = document.querySelectorAll('.am-mode-card');
     btns.forEach(function (b) {
-      b.style.background = b.dataset.mode === mode
-        ? 'var(--primary,#4f8ef7)'
-        : '';
-      b.style.color = b.dataset.mode === mode ? '#fff' : '';
-      b.style.borderColor = b.dataset.mode === mode
-        ? 'var(--primary,#4f8ef7)'
-        : 'var(--border-dim,rgba(79,142,247,0.18))';
+      if (b.dataset.mode === mode) {
+        b.classList.add('am-selected');
+      } else {
+        b.classList.remove('am-selected');
+      }
     });
 
     // Inicia o processamento com pequeno delay para o feedback visual ser percebido
@@ -2421,11 +2640,13 @@
    * Cancela o fluxo de master embutido e restaura o hub original.
    */
   window.resetMasterFlow = function resetMasterFlow() {
-    // Cancela polling ativo se existir
+    // Cancela polling e animações ativas
     if (_state._masterPollTimer) {
       clearInterval(_state._masterPollTimer);
       _state._masterPollTimer = null;
     }
+    if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
+    if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
     _state.masterMode     = null;
     _state.masterJobId    = null;
     _state.creditConsumed = false;
