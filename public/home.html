@@ -1275,186 +1275,248 @@
       .decision-modal { padding: 28px 20px; }
     }
 
-    /* ══════════════════════════════════════════════
-       AUTO MASTER — UI PREMIUM (Fase 4)
-    ══════════════════════════════════════════════ */
+    /* ═══════════════════════════════════════════════════════════════
+       AUTO MASTER — CINEMATIC REBUILD V2
+       Direction: AI Audio Engineering · Neon · Precision · Glass
+    ═══════════════════════════════════════════════════════════════ */
+
+    /* ── Wrapper principal ───────────────────────────────────────── */
     .am-wrapper {
-      width: 100%; max-width: 900px; margin: 0 auto;
-      padding: 2.5rem 2rem;
-      background: linear-gradient(145deg,#0e0b20 0%,#0a0d1f 100%);
-      border: 1px solid rgba(130,80,255,.25); border-radius: 20px;
-      box-shadow: 0 0 40px rgba(100,60,220,.1),0 2px 40px rgba(0,0,0,.4);
-      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-      text-align: center;
+      width: 100%; max-width: 940px; margin: 0 auto;
+      padding: 2.75rem 2.25rem;
+      background: linear-gradient(160deg, #09071a 0%, #0b0d22 45%, #080818 100%);
+      border: 1px solid rgba(124,58,237,.22); border-radius: 24px;
+      box-shadow: 0 0 60px rgba(124,58,237,.08), 0 0 0 1px rgba(255,255,255,.03) inset, 0 24px 80px rgba(0,0,0,.5);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      text-align: center; position: relative; overflow: hidden;
+    }
+    .am-wrapper::before {
+      content: ''; position: absolute; top: -60px; left: 50%; transform: translateX(-50%);
+      width: 400px; height: 120px;
+      background: radial-gradient(ellipse at 50% 0%, rgba(124,58,237,.18) 0%, transparent 70%);
+      pointer-events: none;
     }
     .am-eyebrow {
-      font-size: .72rem; letter-spacing: .15em; text-transform: uppercase;
-      color: rgba(180,140,255,.7); margin: 0 0 .4rem;
+      font-size: .7rem; letter-spacing: .18em; text-transform: uppercase;
+      color: rgba(167,139,250,.65); margin: 0 0 .5rem; font-weight: 600;
     }
-    .am-title  {
-      font-size: 1.5rem; font-weight: 800; color: #ededff; margin: 0 0 .4rem;
-      text-transform: uppercase; letter-spacing: .06em;
+    .am-title {
+      font-size: 1.55rem; font-weight: 800; color: #f0ecff; margin: 0 0 .45rem;
+      text-transform: uppercase; letter-spacing: .07em;
+      text-shadow: 0 0 30px rgba(167,139,250,.2);
     }
-    .am-subtitle { font-size: .85rem; color: #7777a0; margin: 0 0 2rem; }
-    .am-subtitle strong { color: #c9c9ee; }
-    /* ── mode cards ── */
+    .am-subtitle { font-size: .84rem; color: #6060a0; margin: 0 0 2.25rem; }
+    .am-subtitle strong { color: #bcbcdd; }
+
+    /* ── Mode Cards ──────────────────────────────────────────────── */
     .am-mode-grid {
       display: grid; grid-template-columns: repeat(4,1fr);
       gap: 1rem; margin-bottom: 2rem;
     }
     @media (max-width: 720px) { .am-mode-grid { grid-template-columns: repeat(2,1fr); } }
     .am-mode-card {
-      background: rgba(255,255,255,.04);
-      border: 1.5px solid rgba(120,80,255,.2); border-radius: 14px;
-      padding: 1.25rem .75rem; cursor: pointer;
-      display: flex; flex-direction: column; gap: .35rem; align-items: center;
-      transition: background .18s,border-color .18s,transform .15s,box-shadow .18s;
+      position: relative;
+      background: rgba(255,255,255,.03); border: 1.5px solid rgba(255,255,255,.07);
+      border-radius: 16px; padding: 1.5rem .85rem 1.25rem;
+      cursor: pointer; display: flex; flex-direction: column; gap: .45rem; align-items: center;
+      transition: background .2s, border-color .2s, transform .18s, box-shadow .2s;
+      overflow: hidden;
     }
-    .am-mode-card:hover {
-      background: rgba(120,80,255,.12); border-color: rgba(160,100,255,.55);
-      transform: translateY(-2px); box-shadow: 0 4px 20px rgba(120,80,255,.2);
+    .am-mode-card:hover { transform: translateY(-3px); }
+    /* Per-mode hover */
+    .am-mode-card[data-mode="LOW"]:hover     { border-color: rgba(16,185,129,.55);  background: rgba(16,185,129,.07);  box-shadow: 0 6px 24px rgba(16,185,129,.15); }
+    .am-mode-card[data-mode="MEDIUM"]:hover  { border-color: rgba(59,130,246,.55);  background: rgba(59,130,246,.07);  box-shadow: 0 6px 24px rgba(59,130,246,.15); }
+    .am-mode-card[data-mode="HIGH"]:hover    { border-color: rgba(245,158,11,.55);  background: rgba(245,158,11,.07);  box-shadow: 0 6px 24px rgba(245,158,11,.15); }
+    .am-mode-card[data-mode="EXTREME"]:hover { border-color: rgba(239,68,68,.55);   background: rgba(239,68,68,.07);   box-shadow: 0 6px 24px rgba(239,68,68,.15);  }
+    /* Per-mode selected */
+    .am-mode-card[data-mode="LOW"].am-selected     { border-color: #10b981; background: rgba(16,185,129,.12);  box-shadow: 0 0 0 2px rgba(16,185,129,.28),  0 6px 24px rgba(16,185,129,.2); }
+    .am-mode-card[data-mode="MEDIUM"].am-selected  { border-color: #3b82f6; background: rgba(59,130,246,.12);  box-shadow: 0 0 0 2px rgba(59,130,246,.28),  0 6px 24px rgba(59,130,246,.2); }
+    .am-mode-card[data-mode="HIGH"].am-selected    { border-color: #f59e0b; background: rgba(245,158,11,.12);  box-shadow: 0 0 0 2px rgba(245,158,11,.28),  0 6px 24px rgba(245,158,11,.2); }
+    .am-mode-card[data-mode="EXTREME"].am-selected { border-color: #ef4444; background: rgba(239,68,68,.12);   box-shadow: 0 0 0 2px rgba(239,68,68,.28),   0 6px 24px rgba(239,68,68,.2);  }
+    .am-mode-icon    { font-size: 2rem; line-height: 1; margin-bottom: .05rem; }
+    .am-mode-name    { font-size: .88rem; font-weight: 800; color: #ededff; letter-spacing: .06em; text-transform: uppercase; }
+    .am-mode-tagline { font-size: .7rem; color: #5c5c80; line-height: 1.45; }
+    .am-mode-lufs    {
+      font-size: .68rem; font-weight: 700; color: rgba(167,139,250,.85); letter-spacing: .04em;
+      padding: .2rem .55rem; border-radius: 20px;
+      background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.3); margin-top: .1rem;
     }
-    .am-mode-card.am-selected {
-      background: rgba(120,80,255,.18); border-color: #9060ff;
-      box-shadow: 0 0 0 2px rgba(144,96,255,.35),0 4px 24px rgba(120,80,255,.3);
-    }
-    .am-mode-icon { font-size: 1.6rem; line-height: 1; }
-    .am-mode-name { font-size: .95rem; font-weight: 700; color: #e8e8ff; }
-    .am-mode-desc { font-size: .72rem; color: #7777a0; line-height: 1.35; }
-    .am-mode-lufs { font-size: .72rem; color: rgba(144,96,255,.85); font-weight: 600; margin-top: .15rem; }
     .am-back-btn {
-      background: none; border: 1px solid rgba(100,80,200,.25);
-      color: #7777a0; padding: .5rem 1.25rem; border-radius: 8px;
-      cursor: pointer; font-size: .84rem; transition: border-color .15s,color .15s;
+      background: none; border: 1px solid rgba(255,255,255,.1); color: #606080;
+      padding: .5rem 1.5rem; border-radius: 10px; cursor: pointer; font-size: .82rem;
+      transition: border-color .15s, color .15s, background .15s;
     }
-    .am-back-btn:hover { border-color: rgba(144,96,255,.5); color: #c0c0dd; }
-    /* ── processing ── */
-    .am-processing {
-      display: flex; flex-direction: column; align-items: center; gap: .6rem;
-      padding: 1rem 0 .5rem;
+    .am-back-btn:hover { border-color: rgba(167,139,250,.4); color: #c0c0e0; background: rgba(167,139,250,.06); }
+
+    /* ── Processing — Triple Ring Loader ─────────────────────────── */
+    .am-processing { display: flex; flex-direction: column; align-items: center; gap: .5rem; padding: 1rem 0; position: relative; }
+    .am-proc-glow {
+      width: 100px; height: 100px; border-radius: 50%;
+      box-shadow: 0 0 70px rgba(124,58,237,.4), 0 0 120px rgba(124,58,237,.14);
+      position: absolute; top: 1rem; left: 50%; transform: translateX(-50%);
+      pointer-events: none;
     }
-    .am-spinner-ring {
-      width: 72px; height: 72px; border-radius: 50%;
-      border: 5px solid rgba(144,96,255,.15); border-top-color: #9060ff;
-      animation: am-spin .8s linear infinite;
-      box-shadow: 0 0 28px rgba(144,96,255,.45),0 0 8px rgba(144,96,255,.2) inset;
-      margin-bottom: 1.25rem;
+    .am-loader-complex { position: relative; width: 100px; height: 100px; margin: 0 auto 1.75rem; flex-shrink: 0; }
+    .am-ring { position: absolute; border-radius: 50%; border-style: solid; }
+    .am-ring-outer  {
+      inset: 0; border-width: 2.5px;
+      border-color: rgba(124,58,237,.15) rgba(124,58,237,.15) rgba(124,58,237,.15) #7c3aed;
+      animation: am-spin-slow 2.8s linear infinite;
     }
-    @keyframes am-spin { to { transform: rotate(360deg); } }
+    .am-ring-middle {
+      inset: 13px; border-width: 2px;
+      border-color: rgba(59,130,246,.12) rgba(59,130,246,.12) #3b82f6 rgba(59,130,246,.12);
+      animation: am-spin-medium 1.8s linear infinite reverse;
+    }
+    .am-ring-inner  {
+      inset: 26px; border-width: 2px;
+      border-color: rgba(167,139,250,.1) #a78bfa rgba(167,139,250,.1) rgba(167,139,250,.1);
+      animation: am-spin-fast 1.1s linear infinite;
+    }
+    .am-loader-core {
+      position: absolute; inset: 38px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+      animation: am-pulse-core 2s ease-in-out infinite;
+    }
+    @keyframes am-spin-slow   { to { transform: rotate(360deg);  } }
+    @keyframes am-spin-medium { to { transform: rotate(-360deg); } }
+    @keyframes am-spin-fast   { to { transform: rotate(360deg);  } }
+    @keyframes am-pulse-core  { 0%,100% { opacity:.5; transform: scale(.88); } 50% { opacity:1; transform: scale(1.12); } }
     .am-processing-title {
-      font-size: 1.3rem; font-weight: 800; color: #ededff; margin: 0 0 .15rem;
-      text-transform: uppercase; letter-spacing: .08em;
+      font-size: 1.25rem; font-weight: 800; color: #f0ecff; margin: 0 0 .2rem;
+      text-transform: uppercase; letter-spacing: .1em;
     }
-    .am-processing-step  {
-      font-size: .84rem; color: rgba(200,170,255,.9); min-height: 1.2em;
-      text-transform: uppercase; letter-spacing: .06em;
+    .am-processing-step {
+      font-size: .78rem; color: rgba(167,139,250,.82); min-height: 1.3em;
+      text-transform: uppercase; letter-spacing: .08em; transition: opacity .25s; font-weight: 600;
     }
+    .am-pipeline-dots { display: flex; gap: .4rem; margin: .5rem 0; }
+    .am-pipeline-dot  { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.14); transition: background .4s, box-shadow .4s; }
+    .am-pipeline-dot.active { background: #a78bfa; box-shadow: 0 0 7px rgba(167,139,250,.65); }
     .am-progress-bar-track {
-      width: 100%; max-width: 320px; height: 4px;
-      background: rgba(255,255,255,.08); border-radius: 4px;
-      overflow: hidden; margin-top: 1.25rem;
+      width: 100%; max-width: 340px; height: 3px;
+      background: rgba(255,255,255,.07); border-radius: 4px; overflow: hidden; margin-top: 1.5rem;
     }
     .am-progress-bar-fill {
-      height: 100%; background: linear-gradient(90deg,#6030d0,#9060ff,#cc80ff);
+      height: 100%; background: linear-gradient(90deg, #3b82f6, #7c3aed, #a78bfa);
       border-radius: 4px; transition: width .4s ease;
-      box-shadow: 0 0 6px rgba(144,96,255,.6);
+      box-shadow: 0 0 8px rgba(167,139,250,.5);
     }
-    /* ── result ── */
-    .am-result-wrapper { padding: 2rem 2rem 2.5rem; }
-    .am-result-header  { margin-bottom: 1.75rem; }
+
+    /* ── Result ──────────────────────────────────────────────────── */
+    .am-result-wrapper { padding: .5rem 0; }
+    .am-result-header  { margin-bottom: 2rem; }
     .am-success-icon {
-      width: 56px; height: 56px; border-radius: 50%;
-      background: rgba(74,222,128,.12); border: 1.5px solid rgba(74,222,128,.45);
-      color: #4ade80; font-size: 1.5rem; font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-      margin: 0 auto .75rem; box-shadow: 0 0 20px rgba(74,222,128,.2);
-    }
-    .am-metrics-grid {
-      display: grid; grid-template-columns: repeat(4,1fr);
-      gap: .85rem; margin-bottom: 1.75rem;
-    }
-    @media (max-width: 700px) { .am-metrics-grid { grid-template-columns: repeat(2,1fr); } }
-    .am-metric-card {
-      background: rgba(255,255,255,.04); border: 1px solid rgba(120,80,255,.2);
-      border-radius: 12px; padding: 1rem .5rem;
-      display: flex; flex-direction: column; align-items: center; gap: .3rem;
-      transition: box-shadow .2s;
-    }
-    .am-metric-card:hover { box-shadow: 0 0 16px rgba(144,96,255,.18); border-color: rgba(144,96,255,.4); }
-    .am-metric-label  { font-size: .68rem; color: #7777a0; letter-spacing: .1em; text-transform: uppercase; }
-    .am-metric-values { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; justify-content: center; margin: .25rem 0; }
-    .am-metric-before { font-size: .95rem; font-weight: 500; color: #6060a0; text-decoration: line-through; text-decoration-color: rgba(96,96,160,.4); }
-    .am-metric-arrow  { font-size: .9rem; color: rgba(144,96,255,.5); }
-    .am-metric-after  { font-size: 1.35rem; font-weight: 800; color: #e0d0ff; text-shadow: 0 0 12px rgba(144,96,255,.35); }
-    .am-metric-unit   { font-size: .65rem; color: rgba(144,96,255,.65); letter-spacing: .06em; text-transform: uppercase; }
-    .am-preview-ab {
-      background: rgba(255,255,255,.03); border: 1px solid rgba(120,80,255,.18);
-      border-radius: 16px; padding: 1.4rem 1rem 1.1rem; margin-bottom: 1.75rem;
-    }
-    .am-preview-label-row {
-      display: flex; justify-content: space-between;
-      font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; font-weight: 700;
-      margin-bottom: 1rem; padding: 0 .5rem;
-    }
-    .am-preview-label-before { color: #5050a0; }
-    .am-preview-label-after  { color: rgba(144,96,255,.9); }
-    .am-preview-controls     { display: flex; align-items: center; justify-content: center; gap: .85rem; }
-    .am-ab-btn {
-      padding: .5rem 1.2rem; border-radius: 10px; cursor: pointer;
-      font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-      border: 1.5px solid rgba(120,80,255,.3);
-      background: rgba(120,80,255,.07); color: #8888c0;
-      transition: background .15s,border-color .2s,box-shadow .2s,transform .12s;
-    }
-    .am-ab-btn:hover { background: rgba(120,80,255,.18); transform: scale(1.04); border-color: rgba(144,96,255,.5); }
-    .am-ab-btn.am-active {
-      background: rgba(120,80,255,.22); border-color: #9060ff; color: #e0d0ff;
-      box-shadow: 0 0 12px rgba(144,96,255,.35);
-    }
-    .am-ab-play-center {
       width: 60px; height: 60px; border-radius: 50%;
-      font-size: 1.25rem; padding: 0;
-      background: linear-gradient(135deg,#5020c0,#9060ff);
-      border-color: transparent; color: #fff;
-      box-shadow: 0 0 24px rgba(144,96,255,.5);
-      transition: box-shadow .2s,transform .15s;
-    }
-    .am-ab-play-center:hover { box-shadow: 0 0 36px rgba(144,96,255,.7); transform: scale(1.06); }
-    .am-shared-bar-track {
-      width: 88%; max-width: 380px; height: 3px;
-      background: rgba(255,255,255,.08); border-radius: 4px;
-      overflow: hidden; margin: .85rem auto 0;
-    }
-    .am-shared-bar-fill {
-      height: 100%; background: linear-gradient(90deg,#6030d0,#9060ff);
-      border-radius: 4px; transition: width .15s linear;
-      box-shadow: 0 0 4px rgba(144,96,255,.5);
-      width: 0%;
-    }
-    /* ── result actions ── */
-    .am-result-actions { display: flex; flex-direction: column; align-items: center; gap: .75rem; }
-    .am-download-btn {
-      display: inline-block; padding: .8rem 2.5rem;
-      background: linear-gradient(135deg,#6030d0,#9060ff);
-      color: #fff; border-radius: 12px; font-weight: 700; font-size: .95rem;
-      text-decoration: none; cursor: pointer; border: none; letter-spacing: .02em;
-      box-shadow: 0 4px 24px rgba(144,96,255,.4);
-      transition: box-shadow .2s,transform .15s;
-    }
-    .am-download-btn:hover { box-shadow: 0 6px 32px rgba(144,96,255,.6); transform: translateY(-1px); }
-    .am-secondary-btn {
-      background: none; border: 1px solid rgba(120,80,255,.3);
-      color: #7777a0; padding: .5rem 1.5rem; border-radius: 8px;
-      cursor: pointer; font-size: .84rem; transition: border-color .15s,color .15s;
-    }
-    .am-secondary-btn:hover { border-color: rgba(144,96,255,.5); color: #c0c0dd; }
-    /* ── error state ── */
-    .am-error-icon {
-      width: 52px; height: 52px; border-radius: 50%;
-      background: rgba(248,113,113,.1); border: 1.5px solid rgba(248,113,113,.4);
-      color: #f87171; font-size: 1.4rem;
+      background: rgba(74,222,128,.1); border: 1.5px solid rgba(74,222,128,.4);
+      color: #4ade80; font-size: 1.6rem; font-weight: 700;
       display: flex; align-items: center; justify-content: center;
-      margin: 0 auto .75rem; box-shadow: 0 0 16px rgba(248,113,113,.15);
+      margin: 0 auto 1rem;
+      box-shadow: 0 0 28px rgba(74,222,128,.25);
+      animation: am-success-pulse 2.5s ease-in-out infinite;
+    }
+    @keyframes am-success-pulse {
+      0%,100% { box-shadow: 0 0 28px rgba(74,222,128,.25); }
+      50%      { box-shadow: 0 0 48px rgba(74,222,128,.42); }
+    }
+
+    /* Metrics: BEFORE / AFTER split panel */
+    .am-comparison-block {
+      display: grid; grid-template-columns: 1fr 1px 1fr;
+      margin-bottom: 2rem;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(167,139,250,.12); border-radius: 18px; overflow: hidden;
+    }
+    .am-comp-panel               { padding: 1.4rem 1.25rem 1.6rem; }
+    .am-comp-panel--before       { background: rgba(0,0,0,.18); }
+    .am-comp-panel--after        { background: rgba(124,58,237,.05); }
+    .am-comp-divider             { background: linear-gradient(to bottom, transparent 5%, rgba(167,139,250,.2) 30%, rgba(167,139,250,.2) 70%, transparent 95%); }
+    .am-comp-header              { font-size: .64rem; letter-spacing: .2em; text-transform: uppercase; font-weight: 700; margin-bottom: 1.1rem; }
+    .am-comp-header--before      { color: #484870; }
+    .am-comp-header--after       { color: rgba(167,139,250,.95); }
+    .am-comp-metrics             { display: flex; flex-direction: column; gap: .55rem; }
+    .am-comp-metric              { display: flex; justify-content: space-between; align-items: baseline; padding: .3rem .4rem; border-radius: 8px; transition: background .15s; }
+    .am-comp-metric:hover        { background: rgba(255,255,255,.04); }
+    .am-comp-metric-label        { font-size: .64rem; color: #4e4e80; letter-spacing: .09em; text-transform: uppercase; }
+    .am-comp-metric-value-before { font-size: 1.05rem; font-weight: 700; color: #484870; }
+    .am-comp-metric-value-after  { font-size: 1.22rem; font-weight: 800; color: #d8c8ff; text-shadow: 0 0 10px rgba(167,139,250,.32); }
+    .am-comp-metric-unit         { font-size: .6rem; color: rgba(167,139,250,.5); text-transform: uppercase; margin-left: .2rem; }
+    @media (max-width: 600px) {
+      .am-comparison-block { grid-template-columns: 1fr; }
+      .am-comp-divider     { height: 1px; background: linear-gradient(to right, transparent 5%, rgba(167,139,250,.2) 30%, rgba(167,139,250,.2) 70%, transparent 95%); }
+    }
+
+    /* ── A/B Player ──────────────────────────────────────────────── */
+    .am-player-section {
+      background: rgba(0,0,0,.2); border: 1px solid rgba(167,139,250,.15);
+      border-radius: 20px; padding: 1.75rem 1.5rem 1.5rem; margin-bottom: 1.75rem;
+    }
+    .am-player-section-label {
+      font-size: .63rem; letter-spacing: .22em; text-transform: uppercase;
+      color: rgba(167,139,250,.5); margin-bottom: 1.25rem; font-weight: 700;
+    }
+    .am-ab-controls { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1.5rem; }
+    .am-ab-btn {
+      padding: .55rem 1.4rem; border-radius: 12px; cursor: pointer;
+      font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+      border: 1.5px solid rgba(255,255,255,.1);
+      background: rgba(255,255,255,.04); color: #48487a;
+      transition: background .15s, border-color .2s, box-shadow .2s, color .15s, transform .12s;
+    }
+    .am-ab-btn:hover             { transform: scale(1.04); }
+    .am-ab-btn.am-active-before  { border-color: rgba(100,100,200,.6); color: #a0a0d8; background: rgba(80,80,180,.14); box-shadow: 0 0 14px rgba(100,100,220,.22); }
+    .am-ab-btn.am-active-after   { border-color: #7c3aed; color: #c4b5fd; background: rgba(124,58,237,.18); box-shadow: 0 0 14px rgba(124,58,237,.42), 0 0 32px rgba(124,58,237,.12); }
+    .am-play-btn {
+      width: 68px; height: 68px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
+      background: radial-gradient(circle at 38% 38%, #9f7aff, #5b21b6);
+      border: none; color: #fff; font-size: 1.3rem; padding: 0;
+      box-shadow: 0 0 32px rgba(124,58,237,.6), 0 0 60px rgba(124,58,237,.2);
+      transition: box-shadow .2s, transform .15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .am-play-btn:hover  { box-shadow: 0 0 44px rgba(124,58,237,.82), 0 0 80px rgba(124,58,237,.3); transform: scale(1.07); }
+    .am-play-btn:active { transform: scale(.97); }
+    .am-player-timeline { width: 100%; max-width: 440px; margin: 0 auto; }
+    .am-player-bar-track { position: relative; height: 4px; background: rgba(255,255,255,.1); border-radius: 4px; overflow: visible; cursor: pointer; }
+    .am-player-bar-fill {
+      height: 100%; background: linear-gradient(90deg, #4f46e5, #7c3aed, #a78bfa);
+      border-radius: 4px; box-shadow: 0 0 8px rgba(167,139,250,.5);
+      transition: width .15s linear; position: relative; width: 0%;
+    }
+    .am-player-bar-fill::after {
+      content: ''; position: absolute; right: -5px; top: 50%; transform: translateY(-50%);
+      width: 12px; height: 12px; border-radius: 50%; background: #c4b5fd;
+      box-shadow: 0 0 8px rgba(196,181,253,.8);
+    }
+    .am-player-time { display: flex; justify-content: space-between; font-size: .64rem; color: #6060a0; margin-top: .55rem; font-variant-numeric: tabular-nums; }
+
+    /* ── Result Actions ───────────────────────────────────────────── */
+    .am-result-actions { display: flex; flex-direction: column; align-items: center; gap: .8rem; }
+    .am-download-btn {
+      display: inline-flex; align-items: center; gap: .55rem;
+      padding: .9rem 2.75rem;
+      background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 50%, #a855f7 100%);
+      color: #fff; border-radius: 14px; font-weight: 800; font-size: .95rem;
+      text-decoration: none; cursor: pointer; border: none;
+      letter-spacing: .04em; text-transform: uppercase;
+      box-shadow: 0 6px 28px rgba(124,58,237,.45), 0 0 0 1px rgba(255,255,255,.07) inset;
+      transition: box-shadow .2s, transform .15s;
+    }
+    .am-download-btn:hover { box-shadow: 0 8px 40px rgba(124,58,237,.67), 0 0 0 1px rgba(255,255,255,.1) inset; transform: translateY(-2px); }
+    .am-secondary-btn {
+      background: none; border: 1px solid rgba(255,255,255,.1); color: #606080;
+      padding: .5rem 1.75rem; border-radius: 10px; cursor: pointer; font-size: .82rem;
+      transition: border-color .15s, color .15s, background .15s;
+    }
+    .am-secondary-btn:hover { border-color: rgba(167,139,250,.4); color: #c0c0e0; background: rgba(167,139,250,.06); }
+
+    /* ── Error ────────────────────────────────────────────────────── */
+    .am-error-icon {
+      width: 60px; height: 60px; border-radius: 50%;
+      background: rgba(239,68,68,.1); border: 1.5px solid rgba(239,68,68,.4);
+      color: #f87171; font-size: 1.6rem;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1rem; box-shadow: 0 0 24px rgba(239,68,68,.2);
     }
   </style>
 </head>
@@ -2341,61 +2403,78 @@
     return map[String(mode).toUpperCase()] || mode || '';
   }
 
-  /* ── Render: estado de processamento (spinner) ─────────────────────────── */
+  /* ── Render: estado de processamento (triple ring loader) ─────────────── */
   function renderProcessingState(mode) {
     var container = document.getElementById('uploadHub');
     if (!container) return;
     if (!container.__originalHTML__) container.__originalHTML__ = container.innerHTML;
 
-    // Cancela timers de animação anteriores
     if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
     if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
 
     var label = modeLabel(mode);
+    var steps = [
+      'ANALISANDO ESPECTRO SONORO',
+      'DETECTANDO DINÂMICA DO MIX',
+      'CALCULANDO GANHO IDEAL',
+      'AJUSTANDO LOUDNESS',
+      'CONTROLANDO TRUE PEAK',
+      'OTIMIZANDO TRANSIENTES',
+      'APLICANDO LIMITER ADAPTATIVO',
+      'FINALIZANDO MASTER'
+    ];
+
+    var dotsHtml = steps.map(function (_, i) {
+      return '<div class="am-pipeline-dot' + (i === 0 ? ' active' : '') + '" data-idx="' + i + '"></div>';
+    }).join('');
+
     container.innerHTML = '<div class="am-wrapper">'
       + '<div class="am-processing">'
-      + '<div class="am-spinner-ring"></div>'
-      + '<p class="am-eyebrow">AutoMaster · Modo ' + label + '</p>'
-      + '<h2 class="am-processing-title">Masterizando sua faixa…</h2>'
-      + '<p class="am-processing-step" id="amProcessingStep">Analisando dinâmica...</p>'
+      + '<div class="am-proc-glow"></div>'
+      + '<div class="am-loader-complex">'
+      +   '<div class="am-ring am-ring-outer"></div>'
+      +   '<div class="am-ring am-ring-middle"></div>'
+      +   '<div class="am-ring am-ring-inner"></div>'
+      +   '<div class="am-loader-core">⚡</div>'
+      + '</div>'
+      + '<p class="am-eyebrow">AutoMaster · ' + label + '</p>'
+      + '<h2 class="am-processing-title">PROCESSANDO</h2>'
+      + '<p class="am-processing-step" id="amProcessingStep">' + steps[0] + '</p>'
+      + '<div class="am-pipeline-dots" id="amPipelineDots">' + dotsHtml + '</div>'
       + '<div class="am-progress-bar-track">'
-      +   '<div class="am-progress-bar-fill" id="amProgressFill" style="width:10%"></div>'
+      +   '<div class="am-progress-bar-fill" id="amProgressFill" style="width:4%"></div>'
       + '</div>'
       + '</div>'
       + '</div>';
 
-    // Texto rotativo a cada 1.5s
-    var steps = [
-      'ANALISANDO DINÂMICA',
-      'AJUSTANDO LOUDNESS',
-      'CONTROLANDO TRUE PEAK',
-      'APLICANDO LIMITER',
-      'FINALIZANDO MASTER'
-    ];
     var stepIdx = 0;
     _state._textTimer = setInterval(function () {
       stepIdx = (stepIdx + 1) % steps.length;
       var el = document.getElementById('amProcessingStep');
-      if (el) el.textContent = steps[stepIdx];
-    }, 1500);
-
-    // Fake progress bar: 10% → 90% suavemente
-    var progress = 10;
-    _state._progressTimer = setInterval(function () {
-      if (progress < 90) {
-        progress += Math.random() * 0.7 + 0.15;
-        var el = document.getElementById('amProgressFill');
-        if (el) el.style.width = Math.min(progress, 90).toFixed(1) + '%';
+      if (el) {
+        el.style.opacity = '0';
+        setTimeout(function () { if (el) { el.textContent = steps[stepIdx]; el.style.opacity = '1'; } }, 200);
       }
-    }, 300);
+      var dots = document.querySelectorAll('#amPipelineDots .am-pipeline-dot');
+      dots.forEach(function (d, i) { d.classList.toggle('active', i === stepIdx); });
+    }, 1800);
+
+    var progress = 4;
+    _state._progressTimer = setInterval(function () {
+      if (progress < 88) {
+        var inc = (88 - progress) * 0.012 + Math.random() * 0.4 + 0.08;
+        progress = Math.min(progress + inc, 88);
+        var el = document.getElementById('amProgressFill');
+        if (el) el.style.width = progress.toFixed(1) + '%';
+      }
+    }, 250);
   }
 
-  /* ── Render: resultado com download e métricas ─────────────────────────── */
+  /* ── Render: resultado — painel ANTES/DEPOIS + player A/B profissional ─── */
   function renderResultState(data) {
     var container = document.getElementById('uploadHub');
     if (!container) return;
 
-    // Para animações de processamento
     if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
     if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
 
@@ -2403,42 +2482,54 @@
     var fmt = function (v) { return (v !== undefined && v !== null) ? Number(v).toFixed(1) : '—'; };
 
     var metricDefs = [
-      { label: 'LUFS',         before: fmt(m.lufsBefore),     after: fmt(m.lufsAfter),     unit: 'LUFS' },
-      { label: 'True Peak',    before: fmt(m.truePeakBefore), after: fmt(m.truePeakAfter), unit: 'dBFS' },
-      { label: 'Dinâmica (DR)', before: fmt(m.drBefore),      after: fmt(m.drAfter),       unit: 'DR'   },
-      { label: 'Headroom',     before: fmt(m.headroomBefore), after: fmt(m.headroomAfter), unit: 'dB'   }
+      { label: 'LUFS',      unit: 'LUFS', before: fmt(m.lufsBefore),     after: fmt(m.lufsAfter)     },
+      { label: 'TRUE PEAK', unit: 'dBFS', before: fmt(m.truePeakBefore), after: fmt(m.truePeakAfter) },
+      { label: 'DINÂMICA',  unit: 'DR',   before: fmt(m.drBefore),       after: fmt(m.drAfter)       },
+      { label: 'HEADROOM',  unit: 'dB',   before: fmt(m.headroomBefore), after: fmt(m.headroomAfter) }
     ];
 
-    var metricsHtml = '<div class="am-metrics-grid">'
-      + metricDefs.map(function (c) {
-          return '<div class="am-metric-card">'
-            + '<div class="am-metric-label">' + c.label + '</div>'
-            + '<div class="am-metric-values">'
-            +   '<span class="am-metric-before">' + c.before + '</span>'
-            +   '<span class="am-metric-arrow">→</span>'
-            +   '<span class="am-metric-after">' + c.after + '</span>'
-            + '</div>'
-            + '<div class="am-metric-unit">' + c.unit + '</div>'
-            + '</div>';
-        }).join('')
+    var beforeMetrics = metricDefs.map(function (c) {
+      return '<div class="am-comp-metric">'
+        + '<span class="am-comp-metric-label">' + c.label + '</span>'
+        + '<span class="am-comp-metric-value-before">' + c.before + '<span class="am-comp-metric-unit"> ' + c.unit + '</span></span>'
+        + '</div>';
+    }).join('');
+
+    var afterMetrics = metricDefs.map(function (c) {
+      return '<div class="am-comp-metric">'
+        + '<span class="am-comp-metric-label">' + c.label + '</span>'
+        + '<span class="am-comp-metric-value-after">' + c.after + '<span class="am-comp-metric-unit"> ' + c.unit + '</span></span>'
+        + '</div>';
+    }).join('');
+
+    var comparisonHtml = '<div class="am-comparison-block">'
+      + '<div class="am-comp-panel am-comp-panel--before">'
+      +   '<div class="am-comp-header am-comp-header--before">ANTES</div>'
+      +   '<div class="am-comp-metrics">' + beforeMetrics + '</div>'
+      + '</div>'
+      + '<div class="am-comp-divider"></div>'
+      + '<div class="am-comp-panel am-comp-panel--after">'
+      +   '<div class="am-comp-header am-comp-header--after">DEPOIS</div>'
+      +   '<div class="am-comp-metrics">' + afterMetrics + '</div>'
+      + '</div>'
       + '</div>';
 
-    var previewHtml = '';
+    var playerHtml = '';
     if (data.previewBefore && data.previewAfter) {
-      previewHtml = '<div class="am-preview-ab">'
-        + '<div class="am-preview-label-row">'
-        +   '<span class="am-preview-label-before">ANTES</span>'
-        +   '<span class="am-preview-label-after">DEPOIS</span>'
-        + '</div>'
-        + '<audio id="amAudioBefore" src="' + data.previewBefore + '" preload="none"></audio>'
-        + '<audio id="amAudioAfter"  src="' + data.previewAfter  + '" preload="none"></audio>'
-        + '<div class="am-preview-controls">'
+      playerHtml = '<div class="am-player-section">'
+        + '<div class="am-player-section-label">COMPARAÇÃO A / B</div>'
+        + '<audio id="amAudioBefore" src="' + data.previewBefore + '" preload="metadata"></audio>'
+        + '<audio id="amAudioAfter"  src="' + data.previewAfter  + '" preload="metadata"></audio>'
+        + '<div class="am-ab-controls">'
         +   '<button class="am-ab-btn" type="button" id="amBtnBefore" onclick="__amPlayAB(\'before\')">ANTES</button>'
-        +   '<button class="am-ab-btn am-ab-play-center" type="button" id="amAbPlayBtn" onclick="__amToggleAB()">&#9654;</button>'
-        +   '<button class="am-ab-btn" type="button" id="amBtnAfter" onclick="__amPlayAB(\'after\')">DEPOIS</button>'
+        +   '<button class="am-play-btn" type="button" id="amAbPlayBtn" onclick="__amToggleAB()" title="Play / Pause">&#9654;</button>'
+        +   '<button class="am-ab-btn" type="button" id="amBtnAfter"  onclick="__amPlayAB(\'after\')">DEPOIS</button>'
         + '</div>'
-        + '<div class="am-shared-bar-track">'
-        +   '<div class="am-shared-bar-fill" id="amSharedBarFill"></div>'
+        + '<div class="am-player-timeline">'
+        +   '<div class="am-player-bar-track" id="amBarTrack">'
+        +     '<div class="am-player-bar-fill" id="amSharedBarFill"></div>'
+        +   '</div>'
+        +   '<div class="am-player-time"><span id="amTimeCurrent">0:00</span><span id="amTimeDuration">–:––</span></div>'
         + '</div>'
         + '</div>';
     }
@@ -2446,28 +2537,35 @@
     container.innerHTML = '<div class="am-wrapper am-result-wrapper">'
       + '<div class="am-result-header">'
       +   '<div class="am-success-icon">✓</div>'
-      +   '<p class="am-eyebrow">AutoMaster concluído</p>'
+      +   '<p class="am-eyebrow">AutoMaster · Processamento Concluído</p>'
       +   '<h2 class="am-title">MASTERIZAÇÃO CONCLUÍDA</h2>'
       + '</div>'
-      + metricsHtml
-      + previewHtml
+      + comparisonHtml
+      + playerHtml
       + '<div class="am-result-actions">'
       +   '<a class="am-download-btn" href="' + data.downloadUrl + '" onclick="event.preventDefault();downloadMaster(this.href)">'
       +     '⬇ BAIXAR FAIXA MASTERIZADA'
       +   '</a>'
-      +   '<button class="am-secondary-btn" type="button" onclick="resetMasterFlow()">Masterizar outra</button>'
+      +   '<button class="am-secondary-btn" type="button" onclick="resetMasterFlow()">Masterizar outra faixa</button>'
       + '</div>'
       + '</div>';
 
-    // Controles A/B — sync de tempo + estado ativo
+    // A/B Controls — tempo sincronizado + estado ativo por classe
     window.__amCurrentAB = null;
+
+    function _amFmtTime(s) {
+      if (!isFinite(s) || s < 0) return '–:––';
+      var mins = Math.floor(s / 60);
+      var secs = Math.floor(s % 60);
+      return mins + ':' + (secs < 10 ? '0' : '') + secs;
+    }
+
     window.__amPlayAB = function (which) {
       var before = document.getElementById('amAudioBefore');
       var after  = document.getElementById('amAudioAfter');
       if (!before || !after) return;
       var target = which === 'before' ? before : after;
       var other  = which === 'before' ? after  : before;
-      // Sincroniza tempo ao trocar
       var currentTime = other.currentTime || 0;
       if (!other.paused) { other.pause(); target.currentTime = currentTime; }
       var btnBefore = document.getElementById('amBtnBefore');
@@ -2476,94 +2574,105 @@
       if (target.paused) {
         target.play();
         window.__amCurrentAB = which;
-        if (playBtn) playBtn.innerHTML = '&#9646;&#9646;';
-        if (btnBefore) btnBefore.classList.toggle('am-active', which === 'before');
-        if (btnAfter)  btnAfter.classList.toggle('am-active',  which === 'after');
+        if (playBtn)   playBtn.innerHTML = '&#9646;&#9646;';
+        if (btnBefore) btnBefore.className = 'am-ab-btn' + (which === 'before' ? ' am-active-before' : '');
+        if (btnAfter)  btnAfter.className  = 'am-ab-btn' + (which === 'after'  ? ' am-active-after'  : '');
       } else {
         target.pause();
         window.__amCurrentAB = null;
-        if (playBtn)  playBtn.innerHTML = '&#9654;';
-        if (btnBefore) btnBefore.classList.remove('am-active');
-        if (btnAfter)  btnAfter.classList.remove('am-active');
+        if (playBtn)   playBtn.innerHTML = '&#9654;';
+        if (btnBefore) btnBefore.className = 'am-ab-btn';
+        if (btnAfter)  btnAfter.className  = 'am-ab-btn';
       }
     };
+
     window.__amToggleAB = function () {
       if (window.__amCurrentAB) {
-        var id  = window.__amCurrentAB === 'before' ? 'amAudioBefore' : 'amAudioAfter';
-        var el  = document.getElementById(id);
+        var id = window.__amCurrentAB === 'before' ? 'amAudioBefore' : 'amAudioAfter';
+        var el = document.getElementById(id);
         if (el) el.pause();
         window.__amCurrentAB = null;
         var playBtn   = document.getElementById('amAbPlayBtn');
         var btnBefore = document.getElementById('amBtnBefore');
         var btnAfter  = document.getElementById('amBtnAfter');
-        if (playBtn)  playBtn.innerHTML = '&#9654;';
-        if (btnBefore) btnBefore.classList.remove('am-active');
-        if (btnAfter)  btnAfter.classList.remove('am-active');
+        if (playBtn)   playBtn.innerHTML = '&#9654;';
+        if (btnBefore) btnBefore.className = 'am-ab-btn';
+        if (btnAfter)  btnAfter.className  = 'am-ab-btn';
       } else {
         window.__amPlayAB('after');
       }
     };
-    // Shared progress bar (timeupdate)
+
     function _amUpdateBar() {
       var activeEl = window.__amCurrentAB
         ? document.getElementById(window.__amCurrentAB === 'before' ? 'amAudioBefore' : 'amAudioAfter')
         : null;
-      var fill = document.getElementById('amSharedBarFill');
+      var fill    = document.getElementById('amSharedBarFill');
+      var timeCur = document.getElementById('amTimeCurrent');
+      var timeDur = document.getElementById('amTimeDuration');
       if (!fill) return;
       if (activeEl && activeEl.duration) {
-        fill.style.width = ((activeEl.currentTime / activeEl.duration) * 100).toFixed(1) + '%';
+        var pct = (activeEl.currentTime / activeEl.duration) * 100;
+        fill.style.width = pct.toFixed(2) + '%';
+        if (timeCur) timeCur.textContent = _amFmtTime(activeEl.currentTime);
+        if (timeDur) timeDur.textContent = _amFmtTime(activeEl.duration);
       } else {
         fill.style.width = '0%';
       }
     }
-    ['amAudioBefore','amAudioAfter'].forEach(function (id) {
+
+    ['amAudioBefore', 'amAudioAfter'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('timeupdate', _amUpdateBar);
     });
   }
 
-  /* ── Render: erro com botão de voltar ──────────────────────────────────── */
+  /* ── Render: erro ────────────────────────────────────────────────────────── */
   function renderErrorState(message) {
     var container = document.getElementById('uploadHub');
     if (!container) return;
 
-    // Para animações de processamento
     if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
     if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
 
-    container.innerHTML = '<div class="am-wrapper" style="border-color:rgba(248,113,113,.35)">'
-      + '<div class="am-error-icon">&#9888;</div>'
+    container.innerHTML = '<div class="am-wrapper" style="border-color:rgba(239,68,68,.32)">'
+      + '<div class="am-error-icon">&#10005;</div>'
       + '<p class="am-eyebrow">AutoMaster</p>'
-      + '<h2 class="am-title" style="font-size:1.15rem">ERRO NO PROCESSAMENTO</h2>'
-      + '<p style="font-size:.85rem;color:rgba(248,113,113,.85);margin:.5rem auto 1.5rem;max-width:340px;line-height:1.5">'
-      +   (message || 'Erro desconhecido.')
+      + '<h2 class="am-title" style="color:#fca5a5">ERRO NO PROCESSAMENTO</h2>'
+      + '<p style="font-size:.85rem;color:rgba(252,165,165,.75);margin:.6rem auto 2rem;max-width:360px;line-height:1.6">'
+      +   (message || 'Ocorreu um erro inesperado.')
       + '</p>'
       + '<div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap">'
-      +   '<button onclick="resetMasterFlow()" class="am-download-btn">TENTAR NOVAMENTE</button>'
+      +   '<button onclick="resetMasterFlow()" class="am-download-btn" style="background:linear-gradient(135deg,#7f1d1d,#dc2626)">'
+      +     '↺ TENTAR NOVAMENTE'
+      +   '</button>'
       + '</div>'
       + '</div>';
   }
 
   /* ── Render: needs_confirmation — auto-confirma para fluxo embutido ────── */
   function renderNeedsConfirmationState(jobId, statusData) {
-    // No fluxo embutido do home, confirmamos automaticamente sem modal
-    // (equivalente ao fromHomeFlow=true do master.html)
     var container = document.getElementById('uploadHub');
     if (!container) return;
-    // Para animações de processamento anteriores
     if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
     if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
-    // Mostra spinner enquanto confirma
     if (!container.__originalHTML__) container.__originalHTML__ = container.innerHTML;
+
     container.innerHTML = '<div class="am-wrapper">'
       + '<div class="am-processing">'
-      + '<div class="am-spinner-ring"></div>'
+      + '<div class="am-proc-glow"></div>'
+      + '<div class="am-loader-complex">'
+      +   '<div class="am-ring am-ring-outer"></div>'
+      +   '<div class="am-ring am-ring-middle"></div>'
+      +   '<div class="am-ring am-ring-inner"></div>'
+      +   '<div class="am-loader-core">🔒</div>'
+      + '</div>'
       + '<p class="am-eyebrow">AutoMaster</p>'
-      + '<p class="am-processing-step">CONFIRMANDO MASTERIZAÇÃO SEGURA…</p>'
+      + '<h2 class="am-processing-title">CONFIRMANDO</h2>'
+      + '<p class="am-processing-step">VERIFICANDO SAÍDA — MASTERIZAÇÃO SEGURA…</p>'
       + '</div>'
       + '</div>';
 
-    // Confirma e retoma polling
     getValidIdToken().then(function (token) {
       return fetch('/api/automaster/confirm/' + encodeURIComponent(jobId), {
         method: 'POST',
@@ -2613,42 +2722,32 @@
     renderModeSelection();
   };
 
-  /**
-   * Renderiza o seletor de modo de masterização no container do hub.
-   * Substitui o painel atual por uma UI simples de escolha de modo.
-   * NOTA: o container original é restaurado por resetMasterFlow().
-   */
-  function renderModeSelection() {
+function renderModeSelection() {
     var container = document.getElementById('uploadHub');
-    if (!container) {
-      console.error('[HOME-MASTER] #uploadHub não encontrado');
-      return;
-    }
-
-    // Preserva o HTML original para restaurar depois
+    if (!container) { console.error('[HOME-MASTER] #uploadHub não encontrado'); return; }
     container.__originalHTML__ = container.innerHTML;
 
     var modes = [
-      { key: 'LOW',     label: 'Suave',      desc: 'Mais dinâmica, menos compressão',    lufs: '~ −14 LUFS', icon: '🌿' },
-      { key: 'MEDIUM',  label: 'Balanceado', desc: 'Equilíbrio entre impacto e clareza', lufs: '~ −12 LUFS', icon: '⚖️' },
-      { key: 'HIGH',    label: 'Alto',       desc: 'Mais pressão sonora',                lufs: '~ −10 LUFS', icon: '🔥' },
-      { key: 'EXTREME', label: 'Extremo',    desc: 'Máximo impacto possível',            lufs: '~ −8 LUFS',  icon: '⚡' }
+      { key: 'LOW',     icon: '🌿', name: 'SUAVE',       lufs: '~ −14 LUFS', tagline: 'Dinâmica preservada, som natural'         },
+      { key: 'MEDIUM',  icon: '⚖️', name: 'BALANCEADO',  lufs: '~ −12 LUFS', tagline: 'Equilíbrio entre impacto e clareza'      },
+      { key: 'HIGH',    icon: '🔥', name: 'ALTO',        lufs: '~ −10 LUFS', tagline: 'Mais pressão, mais presença'              },
+      { key: 'EXTREME', icon: '⚡', name: 'EXTREMO',     lufs: '~ −8 LUFS',  tagline: 'Máximo impacto — trap, phonk, agressivo' }
     ];
 
     var cardsHtml = modes.map(function (m) {
       return '<button class="am-mode-card" data-mode="' + m.key + '" type="button"'
-        + ' onclick="selectMasterMode(\'' + m.key + '\')">'
+        + ' onclick="selectMasterMode(\'' + m.key + '\')">'  
         + '<div class="am-mode-icon">' + m.icon + '</div>'
-        + '<div class="am-mode-name">' + m.label + '</div>'
-        + '<div class="am-mode-desc">' + m.desc + '</div>'
+        + '<div class="am-mode-name">' + m.name + '</div>'
         + '<div class="am-mode-lufs">' + m.lufs + '</div>'
+        + '<div class="am-mode-tagline">' + m.tagline + '</div>'
         + '</button>';
     }).join('');
 
     container.innerHTML = '<div class="am-wrapper">'
-      + '<p class="am-eyebrow">AutoMaster</p>'
-      + '<h2 class="am-title">Escolha o modo de masterização</h2>'
-      + '<p class="am-subtitle">Arquivo: <strong>' + (resolveFileName() || 'áudio') + '</strong></p>'
+      + '<p class="am-eyebrow">SoundyAI AutoMaster</p>'
+      + '<h2 class="am-title">Escolha a intensidade</h2>'
+      + '<p class="am-subtitle">Arquivo: <strong>' + (resolveFileName() || 'sua faixa') + '</strong></p>'
       + '<div class="am-mode-grid">' + cardsHtml + '</div>'
       + '<button class="am-back-btn" type="button" onclick="resetMasterFlow()">← Voltar</button>'
       + '</div>';
@@ -2857,6 +2956,15 @@
    * @param {string} mode
    */
   window.runMasterInHome = async function runMasterInHome(mode) {
+    // Verifica autenticação ANTES de exibir o spinner — abre modal imediatamente se necessário
+    var _authObj = window.__firebaseAuth || null;
+    var _currentUser = _authObj ? _authObj.currentUser : null;
+    if (!_currentUser) {
+      _state.pendingAction = true;
+      openLoginModal();
+      return;
+    }
+
     try {
       renderProcessingState(mode);
       var jobId = await startAutomasterJob(mode);
@@ -2868,7 +2976,7 @@
           || _runErrMsg.toLowerCase().includes('unauthorized')
           || _runErrMsg.toLowerCase().includes('token')
           || _runErrMsg.toLowerCase().includes('not_authenticated')) {
-        _state.pendingAction = true; // Etapa 3.1: intenção confirmada pelo usuário
+        _state.pendingAction = true;
         openLoginModal();
         return;
       }
