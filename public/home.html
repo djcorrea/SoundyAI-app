@@ -1862,9 +1862,18 @@
   // ── STATE ─────────────────────────────────────────────────
   var _currentHubState = 'idle';
   var _state = {
-    fileKey:      null,
-    fileName:     null,
-    analysisOpen: false
+    // Upload
+    fileKey:          null,   // NUNCA zerado após upload — limpo apenas em homeCloseAnalysis manual
+    fileName:         null,
+    analysisOpen:     false,
+    // Preserva o fileKey que foi analisado (set em setState('done'))
+    analysisFileKey:  null,
+    analysisFileName: null,
+    // AutoMaster (Fase 2/3)
+    masterMode:       null,   // 'LOW'|'MEDIUM'|'HIGH'|'EXTREME'|'STREAMING'
+    masterJobId:      null,
+    creditConsumed:   false,  // Fase 3: impede duplo consumo de crédito
+    _masterPollTimer: null    // Fase 3: referência global ao setInterval do polling
   };
 
   var HUB_PANEL_IDS = ['idle', 'uploading', 'uploaded', 'analyzing'];
@@ -1932,10 +1941,7 @@
 
     // Side effects
     if (_currentHubState === 'analyzing') restartAnalyzingSteps();
-    if (_currentHubState === 'idle') {
-      _state.fileKey  = null;
-      _state.fileName = null;
-    }
+    // NOTA: NÃO zeramos fileKey ao voltar para idle — o master pode precisar dele
   }
 
   // ── setState ──────────────────────────────────────────────
@@ -1945,8 +1951,13 @@
     // 'done': abrir modal de resultados + resetar hub para idle
     if (newState === 'done') {
       openAnalysisModal();
-      _state.fileKey  = null;
-      _state.fileName = null;
+      // CORREÇÃO CRÍTICA: preservar fileKey para uso do AutoMaster pós-análise.
+      // NÃO nulificar _state.fileKey — o motor de master precisa dele.
+      _state.analysisFileKey  = _state.fileKey;
+      _state.analysisFileName = _state.fileName;
+      // Garantir que o global persiste (fallback para MutationObserver)
+      window.__HOME_FILE_KEY__  = _state.fileKey  || window.__HOME_FILE_KEY__;
+      window.__HOME_FILE_NAME__ = _state.fileName || window.__HOME_FILE_NAME__;
       _currentHubState = 'idle';
       updateUI();
       return;
@@ -2000,6 +2011,13 @@
       showError('Arquivo muito grande. Tamanho máximo: 150 MB.');
       return;
     }
+
+    // Novo arquivo → limpar estado de análise/master anterior
+    _state.analysisFileKey  = null;
+    _state.analysisFileName = null;
+    _state.masterMode       = null;
+    _state.masterJobId      = null;
+    _state.creditConsumed   = false;
 
     // Update uploading panel filename display
     var fnEl = document.getElementById('hubUploadFileName');
@@ -2076,8 +2094,8 @@
       modal.setAttribute('aria-hidden', 'true');
     }
     _state.analysisOpen = false;
-    _state.fileKey  = null;
-    _state.fileName = null;
+    // Não zeramos fileKey/fileName aqui — o AutoMaster embutido pode precisar deles.
+    // Eles são limpos apenas em processFile() quando um novo arquivo é enviado.
     // If hub was already reset to idle by setState('done'), idle panel is already visible.
     // Only trigger setState if we're not already in idle (e.g. error mid-analysis).
     if (_currentHubState !== 'idle') {
@@ -2135,6 +2153,628 @@
     // Reset hub after opening master page
     setState('idle');
   }
+
+  // ── AUTO MASTER — FASE 2 (embutido no home) ─────────────────────────────
+  // Novo fluxo de masterização sem sair da página.
+  // Fase 2 atual: apenas seleciona modo e loga. DSP/preview virão nas fases seguintes.
+
+  /* ── Helpers de label de modo ──────────────────────────────────────────── */
+  function modeLabel(mode) {
+    var map = { LOW: 'Suave', MEDIUM: 'Balanceado', HIGH: 'Impacto', EXTREME: 'Extremo', STREAMING: 'Streaming' };
+    return map[String(mode).toUpperCase()] || mode || '';
+  }
+
+  /* ── Render: estado de processamento (spinner) ─────────────────────────── */
+  function renderProcessingState(mode) {
+    var container = document.getElementById('uploadHub');
+    if (!container) return;
+    if (!container.__originalHTML__) container.__originalHTML__ = container.innerHTML;
+    var label = modeLabel(mode);
+    container.innerHTML = [
+      '<div class="home-master-processing" style="',
+        'padding:2.5rem 1.5rem;text-align:center;',
+        'background:var(--bg-card,#0d0d1e);',
+        'border:1px solid var(--border-dim,rgba(79,142,247,0.18));',
+        'border-radius:16px;',
+      '">',
+        '<div class="home-master-spinner" style="',
+          'width:48px;height:48px;border-radius:50%;',
+          'border:3px solid rgba(79,142,247,0.25);',
+          'border-top-color:var(--primary,#4f8ef7);',
+          'animation:spin 0.9s linear infinite;',
+          'margin:0 auto 1.5rem;',
+        '"></div>',
+        '<p style="font-size:0.8rem;color:var(--text-2,#8888aa);margin-bottom:0.5rem;letter-spacing:.1em;text-transform:uppercase;">AutoMaster · Modo ' + label + '</p>',
+        '<h2 style="font-size:1.3rem;font-weight:700;margin-bottom:0.5rem;color:var(--text-1,#f0f0ff);">Masterizando sua faixa…</h2>',
+        '<p style="font-size:0.82rem;color:var(--text-2,#8888aa);">Isso pode levar até 2 minutos. Aguarde.</p>',
+      '</div>',
+      '<style>@keyframes spin{to{transform:rotate(360deg)}}</style>'
+    ].join('');
+  }
+
+  /* ── Render: resultado com download e métricas ─────────────────────────── */
+  function renderResultState(data) {
+    var container = document.getElementById('uploadHub');
+    if (!container) return;
+
+    var metricsHtml = '';
+    if (data.metrics) {
+      var m = data.metrics;
+      var fmt = function (v) { return (v !== undefined && v !== null) ? Number(v).toFixed(1) : '—'; };
+      metricsHtml = [
+        '<div style="display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap;margin:1.25rem 0;font-size:0.82rem;color:var(--text-2,#8888aa);">',
+          '<span>LUFS: <strong style="color:var(--text-1,#f0f0ff)">' + fmt(m.lufsBefore) + ' → ' + fmt(m.lufsAfter) + '</strong></span>',
+          '<span>True Peak: <strong style="color:var(--text-1,#f0f0ff)">' + fmt(m.truePeakBefore) + ' → ' + fmt(m.truePeakAfter) + ' dBFS</strong></span>',
+        '</div>'
+      ].join('');
+    }
+
+    var previewHtml = '';
+    if (data.previewBefore && data.previewAfter) {
+      previewHtml = [
+        '<div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.25rem;">',
+          '<div style="text-align:center;">',
+            '<p style="font-size:0.72rem;color:var(--text-2,#8888aa);margin-bottom:4px;">ANTES</p>',
+            '<audio controls src="' + data.previewBefore + '" style="width:180px;height:32px;opacity:.75"></audio>',
+          '</div>',
+          '<div style="text-align:center;">',
+            '<p style="font-size:0.72rem;color:var(--primary,#4f8ef7);margin-bottom:4px;font-weight:700;">DEPOIS</p>',
+            '<audio controls src="' + data.previewAfter + '" style="width:180px;height:32px"></audio>',
+          '</div>',
+        '</div>'
+      ].join('');
+    }
+
+    container.innerHTML = [
+      '<div class="home-master-result" style="',
+        'padding:2rem 1.5rem;text-align:center;',
+        'background:var(--bg-card,#0d0d1e);',
+        'border:1px solid rgba(74,222,128,0.35);',
+        'border-radius:16px;',
+      '">',
+        '<div style="font-size:2.2rem;margin-bottom:0.5rem">✅</div>',
+        '<p style="font-size:0.8rem;color:var(--text-2,#8888aa);margin-bottom:0.25rem;letter-spacing:.1em;text-transform:uppercase;">AutoMaster concluído</p>',
+        '<h2 style="font-size:1.3rem;font-weight:700;margin-bottom:0.25rem;color:var(--text-1,#f0f0ff);">Faixa masterizada com sucesso!</h2>',
+        metricsHtml,
+        previewHtml,
+        '<a href="' + data.downloadUrl + '" onclick="event.preventDefault();downloadMaster(this.href)" style="',
+          'display:inline-block;margin:0.5rem 0 1.25rem;',
+          'background:var(--primary,#4f8ef7);color:#fff;',
+          'padding:0.65rem 1.75rem;border-radius:10px;',
+          'font-weight:600;font-size:0.9rem;text-decoration:none;cursor:pointer;',
+        '">⬇ Baixar faixa masterizada</a>',
+        '<br>',
+        '<button onclick="resetMasterFlow()" style="',
+          'background:none;border:1px solid var(--border-dim,rgba(79,142,247,0.18));',
+          'color:var(--text-2,#8888aa);padding:0.45rem 1.2rem;border-radius:8px;cursor:pointer;font-size:0.82rem;',
+        '">Masterizar outra faixa</button>',
+      '</div>'
+    ].join('');
+  }
+
+  /* ── Render: erro com botão de voltar ──────────────────────────────────── */
+  function renderErrorState(message) {
+    var container = document.getElementById('uploadHub');
+    if (!container) return;
+    container.innerHTML = [
+      '<div class="home-master-error" style="',
+        'padding:2rem 1.5rem;text-align:center;',
+        'background:var(--bg-card,#0d0d1e);',
+        'border:1px solid rgba(248,113,113,0.35);',
+        'border-radius:16px;',
+      '">',
+        '<div style="font-size:2rem;margin-bottom:0.5rem">⚠️</div>',
+        '<p style="font-size:0.8rem;color:var(--text-2,#8888aa);margin-bottom:0.25rem;letter-spacing:.1em;text-transform:uppercase;">AutoMaster</p>',
+        '<h2 style="font-size:1.15rem;font-weight:700;margin-bottom:0.75rem;color:var(--text-1,#f0f0ff);">Erro no processamento</h2>',
+        '<p style="font-size:0.85rem;color:rgba(248,113,113,0.85);margin-bottom:1.5rem;max-width:340px;margin-left:auto;margin-right:auto;">' + (message || 'Erro desconhecido.') + '</p>',
+        '<div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">',
+          '<button onclick="resetMasterFlow()" style="',
+            'background:var(--primary,#4f8ef7);border:none;color:#fff;',
+            'padding:0.55rem 1.5rem;border-radius:8px;cursor:pointer;font-size:0.85rem;font-weight:600;',
+          '">← Tentar novamente</button>',
+        '</div>',
+      '</div>'
+    ].join('');
+  }
+
+  /* ── Render: needs_confirmation — auto-confirma para fluxo embutido ────── */
+  function renderNeedsConfirmationState(jobId, statusData) {
+    // No fluxo embutido do home, confirmamos automaticamente sem modal
+    // (equivalente ao fromHomeFlow=true do master.html)
+    var container = document.getElementById('uploadHub');
+    if (!container) return;
+    // Mostra spinner enquanto confirma
+    if (!container.__originalHTML__) container.__originalHTML__ = container.innerHTML;
+    container.innerHTML = [
+      '<div style="',
+        'padding:2.5rem 1.5rem;text-align:center;',
+        'background:var(--bg-card,#0d0d1e);',
+        'border:1px solid var(--border-dim,rgba(79,142,247,0.18));',
+        'border-radius:16px;',
+      '">',
+        '<div style="',
+          'width:48px;height:48px;border-radius:50%;',
+          'border:3px solid rgba(79,142,247,0.25);',
+          'border-top-color:var(--primary,#4f8ef7);',
+          'animation:spin 0.9s linear infinite;',
+          'margin:0 auto 1.5rem;',
+        '"></div>',
+        '<p style="font-size:0.82rem;color:var(--text-2,#8888aa);">Confirmando masterização segura…</p>',
+      '</div>'
+    ].join('');
+
+    // Confirma e retoma polling
+    getValidIdToken().then(function (token) {
+      return fetch('/api/automaster/confirm/' + encodeURIComponent(jobId), {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+    }).then(function () {
+      startPollingJob(jobId);
+    }).catch(function (err) {
+      renderErrorState(err.message || 'Falha ao confirmar masterização.');
+    });
+  }
+
+  /**
+   * Resolve o melhor fileKey disponível no estado atual.
+   * Ordem de prioridade:
+   *   1. _state.fileKey      (upload recente, fluxo "masterizar sem análise")
+   *   2. _state.analysisFileKey  (upload que passou pela análise antes do master)
+   *   3. window.__HOME_FILE_KEY__ (fallback global persistido após upload)
+   */
+  function resolveFileKey() {
+    return _state.fileKey || _state.analysisFileKey || window.__HOME_FILE_KEY__ || null;
+  }
+  function resolveFileName() {
+    return _state.fileName || _state.analysisFileName || window.__HOME_FILE_NAME__ || '';
+  }
+
+  /**
+   * Inicia o fluxo de AutoMaster embutido.
+   * Chamado pelo botão "Masterizar" inline (fase 2+).
+   */
+  window.startMasterFlow = function startMasterFlow() {
+    var fileKey = resolveFileKey();
+
+    if (!fileKey) {
+      console.error('[HOME-MASTER] fileKey não encontrado — envie um arquivo primeiro.');
+      showError('Nenhum arquivo disponível para masterizar. Por favor, envie uma faixa primeiro.');
+      return;
+    }
+
+    console.log('[HOME-MASTER] Iniciando fluxo de master no home. fileKey:', fileKey);
+    _state.masterMode      = null;
+    _state.masterJobId     = null;
+    _state.creditConsumed  = false;
+
+    renderModeSelection();
+  };
+
+  /**
+   * Renderiza o seletor de modo de masterização no container do hub.
+   * Substitui o painel atual por uma UI simples de escolha de modo.
+   * NOTA: o container original é restaurado por resetMasterFlow().
+   */
+  function renderModeSelection() {
+    var container = document.getElementById('uploadHub');
+    if (!container) {
+      console.error('[HOME-MASTER] #uploadHub não encontrado');
+      return;
+    }
+
+    // Preserva o HTML original para restaurar depois
+    container.__originalHTML__ = container.innerHTML;
+
+    container.innerHTML = [
+      '<div class="home-master-mode-selection" style="',
+        'padding:2rem 1.5rem;text-align:center;',
+        'background:var(--bg-card,#0d0d1e);',
+        'border:1px solid var(--border-dim,rgba(79,142,247,0.18));',
+        'border-radius:16px;',
+      '">',
+        '<p style="font-size:0.8rem;color:var(--text-2,#8888aa);margin-bottom:0.5rem;letter-spacing:.1em;text-transform:uppercase;">AutoMaster</p>',
+        '<h2 style="font-size:1.4rem;font-weight:700;margin-bottom:0.5rem;color:var(--text-1,#f0f0ff);">Escolha o modo de masterização</h2>',
+        '<p style="font-size:0.85rem;color:var(--text-2,#8888aa);margin-bottom:2rem;">',
+          'Arquivo: <strong style="color:var(--text-1,#f0f0ff)">' + (resolveFileName() || 'áudio') + '</strong>',
+        '</p>',
+        '<div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;margin-bottom:2rem;">',
+          '<button onclick="selectMasterMode(\'LOW\')"    class="home-master-mode-btn" data-mode="LOW">Suave</button>',
+          '<button onclick="selectMasterMode(\'MEDIUM\')" class="home-master-mode-btn" data-mode="MEDIUM">Balanceado</button>',
+          '<button onclick="selectMasterMode(\'HIGH\')"   class="home-master-mode-btn" data-mode="HIGH">Impacto</button>',
+        '</div>',
+        '<button onclick="resetMasterFlow()" style="',
+          'background:none;border:1px solid var(--border-dim,rgba(79,142,247,0.18));',
+          'color:var(--text-2,#8888aa);padding:0.5rem 1.25rem;border-radius:8px;cursor:pointer;font-size:0.85rem;',
+        '">← Voltar</button>',
+      '</div>'
+    ].join('');
+  }
+
+  /**
+   * Seleciona o modo de masterização e registra no estado.
+   * Próximas fases: chamar startProcessing() do DSP.
+   */
+  window.selectMasterMode = function selectMasterMode(mode) {
+    var allowed = ['STREAMING','LOW','MEDIUM','HIGH','EXTREME'];
+    if (!allowed.indexOf || allowed.indexOf(mode) === -1) {
+      console.error('[HOME-MASTER] Modo inválido:', mode);
+      return;
+    }
+    _state.masterMode = mode;
+    console.log('[HOME-MASTER] Modo selecionado:', mode, '| fileKey:', resolveFileKey());
+
+    // Feedback visual: marcar botão selecionado
+    var btns = document.querySelectorAll('.home-master-mode-btn');
+    btns.forEach(function (b) {
+      b.style.background = b.dataset.mode === mode
+        ? 'var(--primary,#4f8ef7)'
+        : '';
+      b.style.color = b.dataset.mode === mode ? '#fff' : '';
+      b.style.borderColor = b.dataset.mode === mode
+        ? 'var(--primary,#4f8ef7)'
+        : 'var(--border-dim,rgba(79,142,247,0.18))';
+    });
+
+    // Inicia o processamento com pequeno delay para o feedback visual ser percebido
+    // TODO Fase 3: iniciar DSP após seleção de modo
+    // startMasterProcessing(resolveFileKey(), mode);
+    setTimeout(function () { window.runMasterInHome(mode); }, 300);
+  };
+
+  /**
+   * Cancela o fluxo de master embutido e restaura o hub original.
+   */
+  window.resetMasterFlow = function resetMasterFlow() {
+    // Cancela polling ativo se existir
+    if (_state._masterPollTimer) {
+      clearInterval(_state._masterPollTimer);
+      _state._masterPollTimer = null;
+    }
+    _state.masterMode     = null;
+    _state.masterJobId    = null;
+    _state.creditConsumed = false;
+    var container = document.getElementById('uploadHub');
+    if (container && container.__originalHTML__) {
+      container.innerHTML = container.__originalHTML__;
+      container.__originalHTML__ = null;
+      // Re-attach event listeners que existiam no HTML do hub
+      // (os inline onclick são preservados no HTML restaurado)
+      // Mas precisamos re-inicializar os event listeners do DOMContentLoaded
+      // que usam addEventListener — re-bindear apenas os do hub
+      var fileInput = document.getElementById('homeFileInput');
+      if (fileInput) {
+        fileInput.addEventListener('change', function () {
+          if (this.files && this.files[0]) {
+            processFile(this.files[0]);
+            this.value = '';
+          }
+        });
+      }
+    }
+  };
+  /**
+   * Obtém um token de autenticação válido (force-refresh).
+   * Requer que window.__firebaseAuth seja inicializado pelo módulo Firebase
+   * injetado ao final do <body>.
+   */
+  async function getValidIdToken() {
+    var auth = window.__firebaseAuth || null;
+    var user = auth ? auth.currentUser : null;
+    if (!user) throw new Error('NOT_AUTHENTICATED');
+    return await user.getIdToken(true);
+  }
+
+  /**
+   * Envia o job de masterização para o backend.
+   * @param {string} mode  Ex: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME'
+   * @returns {Promise<string>} jobId
+   */
+  async function startAutomasterJob(mode) {
+    var fileKey = resolveFileKey();
+    if (!fileKey) throw new Error('fileKey não encontrado. Envie um arquivo primeiro.');
+    var token = await getValidIdToken();
+    var fd = new FormData();
+    fd.append('fileKey', fileKey);
+    fd.append('mode', mode);
+    var res = await fetch('/api/automaster', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+      body: fd
+    });
+    var data;
+    try { data = await res.json(); } catch (e) { throw new Error('Resposta inválida do servidor.'); }
+    if (res.status === 409) throw new Error('Já existe um processamento em andamento. Aguarde o atual terminar.');
+    if (!res.ok) throw new Error(data.error || data.message || 'Erro ao iniciar masterização.');
+    if (!data.success) throw new Error(data.error || data.message || 'Falha ao enfileirar job.');
+    if (!data.jobId) throw new Error('Servidor não retornou jobId.');
+    return data.jobId;
+  }
+
+  /**
+   * Inicia polling a cada 3s para acompanhar o status do job.
+   * Atualiza UI diretamente ao terminar (completed, failed, not_apt, etc.).
+   * @param {string} jobId
+   */
+  function startPollingJob(jobId) {
+    var MAX = 120;
+    var INT = 3000;
+    var attempt = 0;
+
+    if (_state._masterPollTimer) {
+      clearInterval(_state._masterPollTimer);
+      _state._masterPollTimer = null;
+    }
+
+    _state._masterPollTimer = setInterval(async function () {
+      attempt++;
+      if (attempt > MAX) {
+        clearInterval(_state._masterPollTimer);
+        _state._masterPollTimer = null;
+        renderErrorState('Tempo limite esgotado. O processamento excedeu 6 minutos.');
+        return;
+      }
+      try {
+        var token = await getValidIdToken();
+        var res = await fetch('/api/automaster/status/' + encodeURIComponent(jobId), {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.status === 409) {
+          clearInterval(_state._masterPollTimer);
+          _state._masterPollTimer = null;
+          renderErrorState('Já existe um processamento em andamento. Aguarde e tente novamente.');
+          return;
+        }
+        var s;
+        try { s = await res.json(); } catch (e) { return; /* parse error — continua polling */ }
+        if (!s || !s.status) return;
+
+        if (s.status === 'completed') {
+          clearInterval(_state._masterPollTimer);
+          _state._masterPollTimer = null;
+          if (!s.downloadUrl) {
+            renderErrorState('Processamento concluído, mas URL de download ausente. Contate o suporte.');
+            return;
+          }
+          renderResultState(s);
+        } else if (s.status === 'needs_confirmation') {
+          clearInterval(_state._masterPollTimer);
+          _state._masterPollTimer = null;
+          renderNeedsConfirmationState(jobId, s);
+        } else if (s.status === 'not_apt') {
+          clearInterval(_state._masterPollTimer);
+          _state._masterPollTimer = null;
+          renderErrorState('Modo incompatível com o material enviado. Tente o modo Balanceado ou Suave.');
+        } else if (s.status === 'needs_mode_change') {
+          clearInterval(_state._masterPollTimer);
+          _state._masterPollTimer = null;
+          var recommended = (s.recommendedMode || '').toLowerCase();
+          var modeLabel = recommended === 'low' ? 'Suave' : recommended === 'medium' ? 'Balanceado' : recommended === 'high' ? 'Impacto' : recommended;
+          renderErrorState('Modo incompatível. ' + (modeLabel ? 'Recomendado: ' + modeLabel + '.' : 'Tente outro modo.'));
+        } else if (s.status === 'failed' || s.status === 'error') {
+          clearInterval(_state._masterPollTimer);
+          _state._masterPollTimer = null;
+          if (s.errorCode === 'MODE_INCOMPATIBLE') {
+            renderErrorState('Modo incompatível com o material. Tente o modo Balanceado ou Suave.');
+          } else {
+            renderErrorState(s.error || s.message || 'Falha no processamento.');
+          }
+        }
+        // Outros status (pending, processing, queued): continua polling silenciosamente
+      } catch (err) {
+        var _pollErrMsg = err.message || '';
+        if (_pollErrMsg === 'NOT_AUTHENTICATED'
+            || _pollErrMsg.toLowerCase().includes('token')
+            || _pollErrMsg.toLowerCase().includes('auth')) {
+          clearInterval(_state._masterPollTimer);
+          _state._masterPollTimer = null;
+          openLoginModal();
+          return;
+        }
+        console.warn('[HOME-POLL] Erro de rede (tentativa ' + attempt + '):', err.message);
+        // Erro de rede não fatal — continua polling
+      }
+    }, INT);
+  }
+
+  /**
+   * Orquestrador principal: inicia job → polling → renderiza resultado.
+   * Chamado por selectMasterMode() após seleção de modo.
+   * @param {string} mode
+   */
+  window.runMasterInHome = async function runMasterInHome(mode) {
+    try {
+      renderProcessingState(mode);
+      var jobId = await startAutomasterJob(mode);
+      _state.masterJobId = jobId;
+      startPollingJob(jobId);
+    } catch (err) {
+      var _runErrMsg = err.message || '';
+      if (_runErrMsg === 'NOT_AUTHENTICATED'
+          || _runErrMsg.toLowerCase().includes('unauthorized')
+          || _runErrMsg.toLowerCase().includes('token')
+          || _runErrMsg.toLowerCase().includes('not_authenticated')) {
+        openLoginModal();
+        return;
+      }
+      renderErrorState(err.message);
+    }
+  };
+
+  /**
+   * Baixa a faixa masterizada, garantindo execução única (sem duplo consumo).
+   * @param {string} url  URL pre-assinada do arquivo masterizado
+   */
+  window.downloadMaster = function downloadMaster(url) {
+    if (_state.creditConsumed) {
+      console.warn('[HOME-MASTER] Download já realizado para este job. Bloqueado.');
+      return;
+    }
+    _state.creditConsumed = true;
+    window.open(url, '_blank');
+  };
+
+  // ── LOGIN INLINE (Fase 3) ───────────────────────────────────────────────
+
+  /**
+   * Abre modal de login inline — sem redirecionar para login.html.
+   * Após login bem-sucedido, retoma o fluxo de master automaticamente.
+   * NOTA: funções de handler usam prefixo __hm para não conflitar com auth.js
+   */
+  window.openLoginModal = function openLoginModal() {
+    // Evita abrir dois modais
+    if (document.getElementById('homeMasterLoginModal')) return;
+
+    var overlay = document.createElement('div');
+    overlay.id = 'homeMasterLoginModal';
+    overlay.style.cssText = [
+      'position:fixed;inset:0;z-index:9999;',
+      'background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);',
+      'display:flex;align-items:center;justify-content:center;',
+      'padding:1rem;'
+    ].join('');
+
+    overlay.innerHTML = [
+      '<div id="homeMasterLoginBox" style="',
+        'background:#0d0d1e;border:1px solid rgba(79,142,247,0.3);',
+        'border-radius:16px;padding:2rem 1.75rem;width:100%;max-width:360px;',
+        'text-align:center;position:relative;',
+      '">',
+        '<button onclick="document.getElementById(\'homeMasterLoginModal\').remove()" style="',
+          'position:absolute;top:12px;right:14px;background:none;border:none;',
+          'color:#8888aa;font-size:1.2rem;cursor:pointer;line-height:1;',
+        '">&times;</button>',
+        '<p style="font-size:0.75rem;color:#8888aa;letter-spacing:.1em;text-transform:uppercase;margin-bottom:0.5rem;">AutoMaster</p>',
+        '<h2 style="font-size:1.25rem;font-weight:700;color:#f0f0ff;margin-bottom:0.5rem;">Entre para continuar</h2>',
+        '<p style="font-size:0.82rem;color:#8888aa;margin-bottom:1.75rem;">Crie sua conta ou entre para masterizar gratuitamente</p>',
+        '<div id="homeMasterLoginContent">',
+          '<button onclick="__hmLoginGoogle()" style="',
+            'width:100%;padding:0.65rem 1rem;border-radius:10px;margin-bottom:0.75rem;',
+            'background:#fff;border:none;color:#111;font-weight:600;font-size:0.88rem;',
+            'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.5rem;',
+          '">',
+            '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">',
+              '<path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.251 17.64 11.946 17.64 9.2z" fill="#4285F4"/>',
+              '<path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>',
+              '<path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>',
+              '<path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>',
+            '</svg>',
+            'Entrar com Google',
+          '</button>',
+          '<button onclick="__hmLoginEmailForm()" style="',
+            'width:100%;padding:0.65rem 1rem;border-radius:10px;',
+            'background:none;border:1px solid rgba(79,142,247,0.3);',
+            'color:#8888aa;font-size:0.88rem;cursor:pointer;',
+          '">Entrar com Email</button>',
+          '<div id="homeMasterLoginMsg" style="margin-top:0.75rem;font-size:0.8rem;color:rgba(248,113,113,0.85);min-height:1.2em;"></div>',
+        '</div>',
+      '</div>'
+    ].join('');
+
+    document.body.appendChild(overlay);
+
+    // Fecha ao clicar no overlay (fora da box)
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) overlay.remove();
+    });
+  };
+
+  /** Exibe formulário de email/senha dentro do modal de login */
+  window.__hmLoginEmailForm = function __hmLoginEmailForm() {
+    var content = document.getElementById('homeMasterLoginContent');
+    if (!content) return;
+    content.innerHTML = [
+      '<input id="hmLoginEmail" type="email" placeholder="Seu e-mail" style="',
+        'width:100%;padding:0.6rem 0.75rem;border-radius:8px;margin-bottom:0.5rem;',
+        'background:#1a1a2e;border:1px solid rgba(79,142,247,0.3);color:#f0f0ff;',
+        'font-size:0.88rem;box-sizing:border-box;outline:none;',
+      '">',
+      '<input id="hmLoginPass" type="password" placeholder="Senha" style="',
+        'width:100%;padding:0.6rem 0.75rem;border-radius:8px;margin-bottom:0.75rem;',
+        'background:#1a1a2e;border:1px solid rgba(79,142,247,0.3);color:#f0f0ff;',
+        'font-size:0.88rem;box-sizing:border-box;outline:none;',
+      '">',
+      '<button onclick="__hmLoginEmail()" style="',
+        'width:100%;padding:0.65rem 1rem;border-radius:10px;margin-bottom:0.5rem;',
+        'background:var(--primary,#4f8ef7);border:none;color:#fff;',
+        'font-weight:600;font-size:0.88rem;cursor:pointer;',
+      '">Entrar</button>',
+      '<button onclick="__hmLoginGoogle()" style="',
+        'width:100%;padding:0.55rem 1rem;border-radius:10px;',
+        'background:none;border:1px solid rgba(79,142,247,0.3);',
+        'color:#8888aa;font-size:0.85rem;cursor:pointer;',
+      '">← Entrar com Google</button>',
+      '<div id="homeMasterLoginMsg" style="margin-top:0.75rem;font-size:0.8rem;color:rgba(248,113,113,0.85);min-height:1.2em;"></div>'
+    ].join('');
+  };
+
+  /** Helper: exibe mensagem de erro dentro do modal */
+  function _loginModalError(msg) {
+    var el = document.getElementById('homeMasterLoginMsg');
+    if (el) el.textContent = msg || '';
+  }
+
+  /** Helper: ação após login bem-sucedido — fecha modal e retoma master */
+  function _onLoginSuccess() {
+    var modal = document.getElementById('homeMasterLoginModal');
+    if (modal) modal.remove();
+    var pendingMode = _state.masterMode;
+    if (pendingMode) {
+      console.log('[HOME-MASTER] Login concluído. Retomando master com modo:', pendingMode);
+      window.runMasterInHome(pendingMode);
+    }
+  }
+
+  /**
+   * Login com Google via popup — prefixado __hm para não conflitar com auth.js
+   * auth.js define window.loginWithGoogle que redireciona para index.html;
+   * esta versão é exclusiva do modal AutoMaster e retoma o fluxo após login.
+   */
+  window.__hmLoginGoogle = async function __hmLoginGoogle() {
+    _loginModalError('');
+    if (typeof window.__homeLoginWithGoogle !== 'function') {
+      _loginModalError('Módulo de autenticação não carregado. Recarregue a página.');
+      return;
+    }
+    try {
+      await window.__homeLoginWithGoogle();
+      _onLoginSuccess();
+    } catch (err) {
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
+      _loginModalError(err.message || 'Erro ao entrar com Google.');
+    }
+  };
+
+  /** Login com email+senha — prefixado __hm para não conflitar com auth.js */
+  window.__hmLoginEmail = async function __hmLoginEmail() {
+    _loginModalError('');
+    var emailEl = document.getElementById('hmLoginEmail');
+    var passEl  = document.getElementById('hmLoginPass');
+    var email   = (emailEl ? emailEl.value : '').trim();
+    var pass    = passEl ? passEl.value : '';
+    if (!email || !pass) { _loginModalError('Preencha e-mail e senha.'); return; }
+    if (typeof window.__homeLoginWithEmail !== 'function') {
+      _loginModalError('Módulo de autenticação não carregado. Recarregue a página.');
+      return;
+    }
+    try {
+      await window.__homeLoginWithEmail(email, pass);
+      _onLoginSuccess();
+    } catch (err) {
+      var code = err.code || '';
+      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        _loginModalError('Senha incorreta ou conta não encontrada.');
+      } else if (code === 'auth/user-not-found') {
+        _loginModalError('Nenhuma conta encontrada com este e-mail.');
+      } else if (code === 'auth/invalid-email') {
+        _loginModalError('E-mail inválido.');
+      } else {
+        _loginModalError(err.message || 'Erro ao entrar.');
+      }
+    }
+  };
+
+  // ── FIM AUTO MASTER FASE 2/3 ────────────────────────────────────────────
 
   // ── MASTERIZAR BUTTON (shown after analysis completes) ─────
   // MutationObserver watches #audioAnalysisResults for display changes
@@ -2313,6 +2953,32 @@
   /* Caso a seção já esteja aberta na carga da página */
   document.querySelectorAll('.dt-expand-body:not([hidden])').forEach(addSectionTitles);
 })();
+</script>
+<!-- Firebase Auth — expõe window.__firebaseAuth + helpers de login inline (Fase 2/3) -->
+<script type="module">
+import { auth } from './firebase.js';
+import {
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword
+} from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
+
+window.__firebaseAuth = auth;
+window.__firebaseAuthReady = window.__firebaseAuthReady || new Promise(function (resolve) {
+  var unsub = onAuthStateChanged(auth, function (user) { unsub(); resolve(user); });
+});
+
+/** Login com Google via popup — resolve com UserCredential */
+window.__homeLoginWithGoogle = async function () {
+  var provider = new GoogleAuthProvider();
+  return await signInWithPopup(auth, provider);
+};
+
+/** Login com email/senha — resolve com UserCredential */
+window.__homeLoginWithEmail = async function (email, password) {
+  return await signInWithEmailAndPassword(auth, email, password);
+};
 </script>
 
 </body>
