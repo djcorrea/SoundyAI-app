@@ -1897,7 +1897,9 @@ log('🚀 Carregando auth.js...');
           }
           */
           
-          if (!isLoginPage) window.location.href = "login.html";
+          // 🏠 HOME: Acesso livre — login apenas quando clicar em Masterizar
+          const isHomePage = window.location.pathname.includes('home.html');
+          if (!isLoginPage && !isHomePage) window.location.href = "login.html";
           resolve(null);
         }, 5000);
 
@@ -1910,6 +1912,9 @@ log('🚀 Carregando auth.js...');
                               window.location.pathname === '';
           const isDemoPage = window.location.pathname.includes("/demo") || 
                              window.location.search.includes("mode=demo");
+          // 🏠 HOME: Acesso livre — login apenas no modal de masterização
+          const isHomePage = window.location.pathname.includes('home.html');
+          console.log('AUTH CHECK:', user ? user.uid : null, '| page:', window.location.pathname);
 
           // ✅ BUG #2 FIX: Proteger cadastro em progresso
           if (window.isNewUserRegistering && isEntrevistaPage) {
@@ -1920,7 +1925,7 @@ log('🚀 Carregando auth.js...');
             return;
           }
 
-          if (!user && !isLoginPage) {
+          if (!user && !isLoginPage && !isHomePage) {
             // 🔥 MODO DEMO: Permitir acesso sem login
             if (isDemoPage) {
               log('🔥 [AUTH] Usuário não logado na página demo - permitindo acesso');
