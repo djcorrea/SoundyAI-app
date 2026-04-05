@@ -1291,7 +1291,10 @@
       font-size: .72rem; letter-spacing: .15em; text-transform: uppercase;
       color: rgba(180,140,255,.7); margin: 0 0 .4rem;
     }
-    .am-title  { font-size: 1.5rem; font-weight: 700; color: #ededff; margin: 0 0 .4rem; }
+    .am-title  {
+      font-size: 1.5rem; font-weight: 800; color: #ededff; margin: 0 0 .4rem;
+      text-transform: uppercase; letter-spacing: .06em;
+    }
     .am-subtitle { font-size: .85rem; color: #7777a0; margin: 0 0 2rem; }
     .am-subtitle strong { color: #c9c9ee; }
     /* ── mode cards ── */
@@ -1331,14 +1334,21 @@
       padding: 1rem 0 .5rem;
     }
     .am-spinner-ring {
-      width: 60px; height: 60px; border-radius: 50%;
-      border: 3px solid rgba(144,96,255,.2); border-top-color: #9060ff;
-      animation: am-spin .85s linear infinite;
-      box-shadow: 0 0 20px rgba(144,96,255,.3); margin-bottom: 1rem;
+      width: 72px; height: 72px; border-radius: 50%;
+      border: 5px solid rgba(144,96,255,.15); border-top-color: #9060ff;
+      animation: am-spin .8s linear infinite;
+      box-shadow: 0 0 28px rgba(144,96,255,.45),0 0 8px rgba(144,96,255,.2) inset;
+      margin-bottom: 1.25rem;
     }
     @keyframes am-spin { to { transform: rotate(360deg); } }
-    .am-processing-title { font-size: 1.25rem; font-weight: 700; color: #ededff; margin: 0 0 .15rem; }
-    .am-processing-step  { font-size: .84rem; color: rgba(180,140,255,.8); min-height: 1.2em; }
+    .am-processing-title {
+      font-size: 1.3rem; font-weight: 800; color: #ededff; margin: 0 0 .15rem;
+      text-transform: uppercase; letter-spacing: .08em;
+    }
+    .am-processing-step  {
+      font-size: .84rem; color: rgba(200,170,255,.9); min-height: 1.2em;
+      text-transform: uppercase; letter-spacing: .06em;
+    }
     .am-progress-bar-track {
       width: 100%; max-width: 320px; height: 4px;
       background: rgba(255,255,255,.08); border-radius: 4px;
@@ -1371,41 +1381,56 @@
       transition: box-shadow .2s;
     }
     .am-metric-card:hover { box-shadow: 0 0 16px rgba(144,96,255,.18); border-color: rgba(144,96,255,.4); }
-    .am-metric-label  { font-size: .68rem; color: #7777a0; letter-spacing: .08em; text-transform: uppercase; }
-    .am-metric-values { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; justify-content: center; }
-    .am-metric-before { font-size: 1rem; font-weight: 600; color: #9090b8; }
-    .am-metric-arrow  { font-size: .8rem; color: rgba(144,96,255,.6); }
-    .am-metric-after  { font-size: 1.1rem; font-weight: 700; color: #ededff; }
-    .am-metric-unit   { font-size: .65rem; color: rgba(144,96,255,.7); }
-    /* ── a/b preview ── */
+    .am-metric-label  { font-size: .68rem; color: #7777a0; letter-spacing: .1em; text-transform: uppercase; }
+    .am-metric-values { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; justify-content: center; margin: .25rem 0; }
+    .am-metric-before { font-size: .95rem; font-weight: 500; color: #6060a0; text-decoration: line-through; text-decoration-color: rgba(96,96,160,.4); }
+    .am-metric-arrow  { font-size: .9rem; color: rgba(144,96,255,.5); }
+    .am-metric-after  { font-size: 1.35rem; font-weight: 800; color: #e0d0ff; text-shadow: 0 0 12px rgba(144,96,255,.35); }
+    .am-metric-unit   { font-size: .65rem; color: rgba(144,96,255,.65); letter-spacing: .06em; text-transform: uppercase; }
     .am-preview-ab {
       background: rgba(255,255,255,.03); border: 1px solid rgba(120,80,255,.18);
-      border-radius: 14px; padding: 1.25rem 1rem; margin-bottom: 1.75rem;
+      border-radius: 16px; padding: 1.4rem 1rem 1.1rem; margin-bottom: 1.75rem;
     }
     .am-preview-label-row {
       display: flex; justify-content: space-between;
-      font-size: .7rem; letter-spacing: .12em; text-transform: uppercase;
-      margin-bottom: .75rem; padding: 0 .5rem;
+      font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; font-weight: 700;
+      margin-bottom: 1rem; padding: 0 .5rem;
     }
-    .am-preview-label-before { color: #7777a0; }
-    .am-preview-label-after  { color: rgba(144,96,255,.85); font-weight: 700; }
-    .am-preview-controls     { display: flex; align-items: center; justify-content: center; gap: .75rem; }
+    .am-preview-label-before { color: #5050a0; }
+    .am-preview-label-after  { color: rgba(144,96,255,.9); }
+    .am-preview-controls     { display: flex; align-items: center; justify-content: center; gap: .85rem; }
     .am-ab-btn {
-      padding: .5rem 1.1rem; border-radius: 8px; cursor: pointer;
-      font-size: .8rem; font-weight: 600;
+      padding: .5rem 1.2rem; border-radius: 10px; cursor: pointer;
+      font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
       border: 1.5px solid rgba(120,80,255,.3);
-      background: rgba(120,80,255,.08); color: #c0b0ee;
-      transition: background .15s,border-color .15s,transform .12s;
+      background: rgba(120,80,255,.07); color: #8888c0;
+      transition: background .15s,border-color .2s,box-shadow .2s,transform .12s;
     }
-    .am-ab-btn:hover { background: rgba(120,80,255,.18); transform: scale(1.04); }
+    .am-ab-btn:hover { background: rgba(120,80,255,.18); transform: scale(1.04); border-color: rgba(144,96,255,.5); }
+    .am-ab-btn.am-active {
+      background: rgba(120,80,255,.22); border-color: #9060ff; color: #e0d0ff;
+      box-shadow: 0 0 12px rgba(144,96,255,.35);
+    }
     .am-ab-play-center {
-      width: 54px; height: 54px; border-radius: 50%;
-      font-size: 1.15rem; padding: 0;
-      background: linear-gradient(135deg,#6030d0,#9060ff);
+      width: 60px; height: 60px; border-radius: 50%;
+      font-size: 1.25rem; padding: 0;
+      background: linear-gradient(135deg,#5020c0,#9060ff);
       border-color: transparent; color: #fff;
-      box-shadow: 0 0 20px rgba(144,96,255,.4);
+      box-shadow: 0 0 24px rgba(144,96,255,.5);
+      transition: box-shadow .2s,transform .15s;
     }
-    .am-ab-play-center:hover { box-shadow: 0 0 28px rgba(144,96,255,.6); }
+    .am-ab-play-center:hover { box-shadow: 0 0 36px rgba(144,96,255,.7); transform: scale(1.06); }
+    .am-shared-bar-track {
+      width: 88%; max-width: 380px; height: 3px;
+      background: rgba(255,255,255,.08); border-radius: 4px;
+      overflow: hidden; margin: .85rem auto 0;
+    }
+    .am-shared-bar-fill {
+      height: 100%; background: linear-gradient(90deg,#6030d0,#9060ff);
+      border-radius: 4px; transition: width .15s linear;
+      box-shadow: 0 0 4px rgba(144,96,255,.5);
+      width: 0%;
+    }
     /* ── result actions ── */
     .am-result-actions { display: flex; flex-direction: column; align-items: center; gap: .75rem; }
     .am-download-btn {
@@ -2341,11 +2366,11 @@
 
     // Texto rotativo a cada 1.5s
     var steps = [
-      'Analisando dinâmica...',
-      'Ajustando loudness...',
-      'Controlando true peak...',
-      'Aplicando limiter...',
-      'Finalizando master...'
+      'ANALISANDO DINÂMICA',
+      'AJUSTANDO LOUDNESS',
+      'CONTROLANDO TRUE PEAK',
+      'APLICANDO LIMITER',
+      'FINALIZANDO MASTER'
     ];
     var stepIdx = 0;
     _state._textTimer = setInterval(function () {
@@ -2408,9 +2433,12 @@
         + '<audio id="amAudioBefore" src="' + data.previewBefore + '" preload="none"></audio>'
         + '<audio id="amAudioAfter"  src="' + data.previewAfter  + '" preload="none"></audio>'
         + '<div class="am-preview-controls">'
-        +   '<button class="am-ab-btn" type="button" onclick="__amPlayAB(\'before\')">&#9654; ANTES</button>'
+        +   '<button class="am-ab-btn" type="button" id="amBtnBefore" onclick="__amPlayAB(\'before\')">ANTES</button>'
         +   '<button class="am-ab-btn am-ab-play-center" type="button" id="amAbPlayBtn" onclick="__amToggleAB()">&#9654;</button>'
-        +   '<button class="am-ab-btn" type="button" onclick="__amPlayAB(\'after\')">&#9654; DEPOIS</button>'
+        +   '<button class="am-ab-btn" type="button" id="amBtnAfter" onclick="__amPlayAB(\'after\')">DEPOIS</button>'
+        + '</div>'
+        + '<div class="am-shared-bar-track">'
+        +   '<div class="am-shared-bar-fill" id="amSharedBarFill"></div>'
         + '</div>'
         + '</div>';
     }
@@ -2419,19 +2447,19 @@
       + '<div class="am-result-header">'
       +   '<div class="am-success-icon">✓</div>'
       +   '<p class="am-eyebrow">AutoMaster concluído</p>'
-      +   '<h2 class="am-title">Masterização concluída</h2>'
+      +   '<h2 class="am-title">MASTERIZAÇÃO CONCLUÍDA</h2>'
       + '</div>'
       + metricsHtml
       + previewHtml
       + '<div class="am-result-actions">'
       +   '<a class="am-download-btn" href="' + data.downloadUrl + '" onclick="event.preventDefault();downloadMaster(this.href)">'
-      +     '⬇ Baixar faixa masterizada'
+      +     '⬇ BAIXAR FAIXA MASTERIZADA'
       +   '</a>'
       +   '<button class="am-secondary-btn" type="button" onclick="resetMasterFlow()">Masterizar outra</button>'
       + '</div>'
       + '</div>';
 
-    // Controles A/B
+    // Controles A/B — sync de tempo + estado ativo
     window.__amCurrentAB = null;
     window.__amPlayAB = function (which) {
       var before = document.getElementById('amAudioBefore');
@@ -2439,30 +2467,59 @@
       if (!before || !after) return;
       var target = which === 'before' ? before : after;
       var other  = which === 'before' ? after  : before;
-      other.pause();
-      var btn = document.getElementById('amAbPlayBtn');
+      // Sincroniza tempo ao trocar
+      var currentTime = other.currentTime || 0;
+      if (!other.paused) { other.pause(); target.currentTime = currentTime; }
+      var btnBefore = document.getElementById('amBtnBefore');
+      var btnAfter  = document.getElementById('amBtnAfter');
+      var playBtn   = document.getElementById('amAbPlayBtn');
       if (target.paused) {
         target.play();
         window.__amCurrentAB = which;
-        if (btn) btn.innerHTML = '&#9646;&#9646;';
+        if (playBtn) playBtn.innerHTML = '&#9646;&#9646;';
+        if (btnBefore) btnBefore.classList.toggle('am-active', which === 'before');
+        if (btnAfter)  btnAfter.classList.toggle('am-active',  which === 'after');
       } else {
         target.pause();
         window.__amCurrentAB = null;
-        if (btn) btn.innerHTML = '&#9654;';
+        if (playBtn)  playBtn.innerHTML = '&#9654;';
+        if (btnBefore) btnBefore.classList.remove('am-active');
+        if (btnAfter)  btnAfter.classList.remove('am-active');
       }
     };
     window.__amToggleAB = function () {
       if (window.__amCurrentAB) {
-        var id = window.__amCurrentAB === 'before' ? 'amAudioBefore' : 'amAudioAfter';
-        var el = document.getElementById(id);
+        var id  = window.__amCurrentAB === 'before' ? 'amAudioBefore' : 'amAudioAfter';
+        var el  = document.getElementById(id);
         if (el) el.pause();
         window.__amCurrentAB = null;
-        var btn = document.getElementById('amAbPlayBtn');
-        if (btn) btn.innerHTML = '&#9654;';
+        var playBtn   = document.getElementById('amAbPlayBtn');
+        var btnBefore = document.getElementById('amBtnBefore');
+        var btnAfter  = document.getElementById('amBtnAfter');
+        if (playBtn)  playBtn.innerHTML = '&#9654;';
+        if (btnBefore) btnBefore.classList.remove('am-active');
+        if (btnAfter)  btnAfter.classList.remove('am-active');
       } else {
         window.__amPlayAB('after');
       }
     };
+    // Shared progress bar (timeupdate)
+    function _amUpdateBar() {
+      var activeEl = window.__amCurrentAB
+        ? document.getElementById(window.__amCurrentAB === 'before' ? 'amAudioBefore' : 'amAudioAfter')
+        : null;
+      var fill = document.getElementById('amSharedBarFill');
+      if (!fill) return;
+      if (activeEl && activeEl.duration) {
+        fill.style.width = ((activeEl.currentTime / activeEl.duration) * 100).toFixed(1) + '%';
+      } else {
+        fill.style.width = '0%';
+      }
+    }
+    ['amAudioBefore','amAudioAfter'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('timeupdate', _amUpdateBar);
+    });
   }
 
   /* ── Render: erro com botão de voltar ──────────────────────────────────── */
@@ -2477,12 +2534,12 @@
     container.innerHTML = '<div class="am-wrapper" style="border-color:rgba(248,113,113,.35)">'
       + '<div class="am-error-icon">&#9888;</div>'
       + '<p class="am-eyebrow">AutoMaster</p>'
-      + '<h2 class="am-title" style="font-size:1.2rem">Erro no processamento</h2>'
+      + '<h2 class="am-title" style="font-size:1.15rem">ERRO NO PROCESSAMENTO</h2>'
       + '<p style="font-size:.85rem;color:rgba(248,113,113,.85);margin:.5rem auto 1.5rem;max-width:340px;line-height:1.5">'
       +   (message || 'Erro desconhecido.')
       + '</p>'
       + '<div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap">'
-      +   '<button onclick="resetMasterFlow()" class="am-download-btn">← Tentar novamente</button>'
+      +   '<button onclick="resetMasterFlow()" class="am-download-btn">TENTAR NOVAMENTE</button>'
       + '</div>'
       + '</div>';
   }
@@ -2498,23 +2555,13 @@
     if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
     // Mostra spinner enquanto confirma
     if (!container.__originalHTML__) container.__originalHTML__ = container.innerHTML;
-    container.innerHTML = [
-      '<div style="',
-        'padding:2.5rem 1.5rem;text-align:center;',
-        'background:var(--bg-card,#0d0d1e);',
-        'border:1px solid var(--border-dim,rgba(79,142,247,0.18));',
-        'border-radius:16px;',
-      '">',
-        '<div style="',
-          'width:48px;height:48px;border-radius:50%;',
-          'border:3px solid rgba(79,142,247,0.25);',
-          'border-top-color:var(--primary,#4f8ef7);',
-          'animation:spin 0.9s linear infinite;',
-          'margin:0 auto 1.5rem;',
-        '"></div>',
-        '<p style="font-size:0.82rem;color:var(--text-2,#8888aa);">Confirmando masterização segura…</p>',
-      '</div>'
-    ].join('');
+    container.innerHTML = '<div class="am-wrapper">'
+      + '<div class="am-processing">'
+      + '<div class="am-spinner-ring"></div>'
+      + '<p class="am-eyebrow">AutoMaster</p>'
+      + '<p class="am-processing-step">CONFIRMANDO MASTERIZAÇÃO SEGURA…</p>'
+      + '</div>'
+      + '</div>';
 
     // Confirma e retoma polling
     getValidIdToken().then(function (token) {
