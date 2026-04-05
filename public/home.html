@@ -2478,8 +2478,14 @@
     if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
     if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
 
-    var m   = data.metrics || {};
-    var fmt = function (v) { return (v !== undefined && v !== null) ? Number(v).toFixed(1) : '—'; };
+    // ── PARTE 5: Validação de métricas ──────────────────────────────
+    var m = data.metrics || {};
+    var hasMetrics = (m.lufsAfter !== undefined && m.lufsAfter !== null)
+                  || (m.lufsBefore !== undefined && m.lufsBefore !== null);
+    if (!hasMetrics) {
+      console.warn('[HOME-MASTER] metrics incompletas ou ausentes:', m);
+    }
+    var fmt = function (v) { return (v !== undefined && v !== null && !isNaN(Number(v))) ? Number(v).toFixed(1) : '—'; };
 
     var metricDefs = [
       { label: 'LUFS',      unit: 'LUFS', before: fmt(m.lufsBefore),     after: fmt(m.lufsAfter)     },
@@ -2534,12 +2540,24 @@
         + '</div>';
     }
 
+    // ── PARTE 5: Fallback quando métricas não existem ───────────────
+    var metricsFallbackBanner = '';
+    if (!hasMetrics) {
+      metricsFallbackBanner = '<div style="margin-bottom:1.5rem;padding:.75rem 1.25rem;'
+        + 'background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);'
+        + 'border-radius:12px;font-size:.78rem;color:rgba(253,186,116,.9)">'
+        + '⚠ Processamento concluído — métricas indisponíveis nesta sessão'
+        + '</div>';
+      comparisonHtml = '';
+    }
+
     container.innerHTML = '<div class="am-wrapper am-result-wrapper">'
       + '<div class="am-result-header">'
       +   '<div class="am-success-icon">✓</div>'
       +   '<p class="am-eyebrow">AutoMaster · Processamento Concluído</p>'
       +   '<h2 class="am-title">MASTERIZAÇÃO CONCLUÍDA</h2>'
       + '</div>'
+      + metricsFallbackBanner
       + comparisonHtml
       + playerHtml
       + '<div class="am-result-actions">'
@@ -2847,6 +2865,14 @@ function renderModeSelection() {
     });
     var data;
     try { data = await res.json(); } catch (e) { throw new Error('Resposta inválida do servidor.'); }
+    // ── PARTE 1: NO_CREDITS / 402 ─────────────────────────────────────
+    if (res.status === 402
+        || (data && (data.code === 'NO_CREDITS' || data.error === 'NO_CREDITS'
+                     || (typeof data.error === 'string' && data.error.toUpperCase().includes('NO_CREDITS'))))) {
+      var _nc = new Error('NO_CREDITS');
+      _nc.code = 'NO_CREDITS';
+      throw _nc;
+    }
     if (res.status === 409) throw new Error('Já existe um processamento em andamento. Aguarde o atual terminar.');
     if (!res.ok) throw new Error(data.error || data.message || 'Erro ao iniciar masterização.');
     if (!data.success) throw new Error(data.error || data.message || 'Falha ao enfileirar job.');
@@ -2972,6 +2998,14 @@ function renderModeSelection() {
       startPollingJob(jobId);
     } catch (err) {
       var _runErrMsg = err.message || '';
+      // ── NO_CREDITS: abre upgrade modal, não erro genérico ──────────
+      if (err.code === 'NO_CREDITS' || _runErrMsg === 'NO_CREDITS') {
+        // Para animações antes de mostrar modal
+        if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
+        if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
+        renderUpgradeModal();
+        return;
+      }
       if (_runErrMsg === 'NOT_AUTHENTICATED'
           || _runErrMsg.toLowerCase().includes('unauthorized')
           || _runErrMsg.toLowerCase().includes('token')
@@ -2982,7 +3016,7 @@ function renderModeSelection() {
       }
       renderErrorState(err.message);
     }
-  };
+  }
 
   /**
    * Baixa a faixa masterizada, garantindo execução única (sem duplo consumo).
@@ -3014,64 +3048,139 @@ function renderModeSelection() {
    * Após login bem-sucedido, retoma o fluxo de master automaticamente.
    * NOTA: funções de handler usam prefixo __hm para não conflitar com auth.js
    */
+  // ── UPGRADE MODAL (PARTE 1 — NO_CREDITS) ──────────────────────────────
+  window.renderUpgradeModal = function renderUpgradeModal() {
+    if (document.getElementById('hmUpgradeModal')) return;
+    var overlay = document.createElement('div');
+    overlay.id = 'hmUpgradeModal';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;'
+      + 'background:rgba(0,0,0,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);'
+      + 'display:flex;align-items:center;justify-content:center;padding:1.25rem;';
+    overlay.innerHTML = '<div style="'
+      + 'background:linear-gradient(160deg,#0d0b1f 0%,#100e26 100%);'
+      + 'border:1px solid rgba(124,58,237,.35);border-radius:22px;'
+      + 'padding:2.5rem 2rem;width:100%;max-width:400px;text-align:center;position:relative;'
+      + 'box-shadow:0 0 60px rgba(124,58,237,.15),0 24px 80px rgba(0,0,0,.55);">'
+      /* close */
+      + '<button onclick="document.getElementById(\'hmUpgradeModal\').remove()" style="'
+      +   'position:absolute;top:14px;right:16px;background:none;border:none;'
+      +   'color:#6060a0;font-size:1.2rem;cursor:pointer;">&#10005;</button>'
+      /* icon */
+      + '<div style="width:56px;height:56px;border-radius:50%;margin:0 auto 1.25rem;'
+      +   'background:rgba(124,58,237,.15);border:1.5px solid rgba(124,58,237,.4);'
+      +   'display:flex;align-items:center;justify-content:center;font-size:1.6rem;'
+      +   'box-shadow:0 0 24px rgba(124,58,237,.3);">⚡</div>'
+      /* copy */
+      + '<p style="font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(167,139,250,.65);margin:0 0 .5rem;font-weight:700;">AutoMaster</p>'
+      + '<h2 style="font-size:1.35rem;font-weight:800;color:#f0ecff;margin:0 0 .6rem;letter-spacing:.04em;">Desbloqueie o poder total</h2>'
+      + '<p style="font-size:.83rem;color:#6060a0;margin:0 0 1.5rem;line-height:1.55;">Você já usou sua master gratuita.<br>Assine um plano e continue masterizando.</p>'
+      /* bullets */
+      + '<div style="text-align:left;margin:0 auto 1.75rem;max-width:280px;">'
+      +   _upgradeCheckItem('Masters ilimitadas (fair use)')
+      +   _upgradeCheckItem('Preview A/B completo')
+      +   _upgradeCheckItem('Download em alta qualidade')
+      +   _upgradeCheckItem('Todos os 4 modos de intensidade')
+      + '</div>'
+      /* CTA */
+      + '<a href="/planos.html" style="'
+      +   'display:inline-block;width:100%;padding:.85rem 1rem;'
+      +   'background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7);'
+      +   'color:#fff;border-radius:13px;font-weight:800;font-size:.9rem;'
+      +   'text-decoration:none;letter-spacing:.04em;text-transform:uppercase;'
+      +   'box-shadow:0 6px 28px rgba(124,58,237,.45);'
+      + '">Ver Planos</a>'
+      + '<button onclick="resetMasterFlow();document.getElementById(\'hmUpgradeModal\').remove()" style="'
+      +   'margin-top:.85rem;background:none;border:none;color:#4a4a7a;font-size:.8rem;'
+      +   'cursor:pointer;text-decoration:underline;text-underline-offset:3px;">Cancelar</button>'
+      + '</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+  };
+
+  function _upgradeCheckItem(text) {
+    return '<div style="display:flex;align-items:center;gap:.6rem;padding:.3rem 0;">'
+      + '<span style="flex-shrink:0;width:18px;height:18px;border-radius:50%;'
+      +   'background:rgba(124,58,237,.2);border:1px solid rgba(124,58,237,.4);'
+      +   'display:flex;align-items:center;justify-content:center;'
+      +   'font-size:.65rem;color:#c4b5fd;">\u2713</span>'
+      + '<span style="font-size:.82rem;color:#b0b0d8;">' + text + '</span>'
+      + '</div>';
+  }
+
+  // ── LOGIN MODAL PREMIUM (PARTE 4) ──────────────────────────────────────
   window.openLoginModal = function openLoginModal() {
-    // Evita abrir dois modais (verifica pelo id e pela classe de segurança)
     if (document.getElementById('homeMasterLoginModal')) return;
     if (document.querySelector('.hm-login-modal-overlay')) return;
 
     var overlay = document.createElement('div');
     overlay.id = 'homeMasterLoginModal';
     overlay.className = 'hm-login-modal-overlay';
-    overlay.style.cssText = [
-      'position:fixed;inset:0;z-index:9999;',
-      'background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);',
-      'display:flex;align-items:center;justify-content:center;',
-      'padding:1rem;'
-    ].join('');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;'
+      + 'background:rgba(0,0,0,.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);'
+      + 'display:flex;align-items:center;justify-content:center;padding:1.25rem;'
+      + 'animation:hm-fade-in .2s ease;';
 
-    overlay.innerHTML = [
-      '<div id="homeMasterLoginBox" style="',
-        'background:#0d0d1e;border:1px solid rgba(79,142,247,0.3);',
-        'border-radius:16px;padding:2rem 1.75rem;width:100%;max-width:360px;',
-        'text-align:center;position:relative;',
-      '">',
-        '<button onclick="document.getElementById(\'homeMasterLoginModal\').remove()" style="',
-          'position:absolute;top:12px;right:14px;background:none;border:none;',
-          'color:#8888aa;font-size:1.2rem;cursor:pointer;line-height:1;',
-        '">&times;</button>',
-        '<p style="font-size:0.75rem;color:#8888aa;letter-spacing:.1em;text-transform:uppercase;margin-bottom:0.5rem;">AutoMaster</p>',
-        '<h2 style="font-size:1.25rem;font-weight:700;color:#f0f0ff;margin-bottom:0.5rem;">Entre para continuar</h2>',
-        '<p style="font-size:0.82rem;color:#8888aa;margin-bottom:1.75rem;">Crie sua conta ou entre para masterizar gratuitamente</p>',
-        '<div id="homeMasterLoginContent">',
-          '<button onclick="__hmLoginGoogle()" style="',
-            'width:100%;padding:0.65rem 1rem;border-radius:10px;margin-bottom:0.75rem;',
-            'background:#fff;border:none;color:#111;font-weight:600;font-size:0.88rem;',
-            'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.5rem;',
-          '">',
-            '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">',
-              '<path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.251 17.64 11.946 17.64 9.2z" fill="#4285F4"/>',
-              '<path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>',
-              '<path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>',
-              '<path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>',
-            '</svg>',
-            'Entrar com Google',
-          '</button>',
-          '<button onclick="__hmLoginEmailForm()" style="',
-            'width:100%;padding:0.65rem 1rem;border-radius:10px;',
-            'background:none;border:1px solid rgba(79,142,247,0.3);',
-            'color:#8888aa;font-size:0.88rem;cursor:pointer;',
-          '">Entrar com Email</button>',
-          '<div id="homeMasterLoginMsg" style="margin-top:0.75rem;font-size:0.8rem;color:rgba(248,113,113,0.85);min-height:1.2em;"></div>',
-        '</div>',
-      '</div>'
-    ].join('');
+    overlay.innerHTML = '<style>'
+      + '@keyframes hm-fade-in{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}'
+      + '@keyframes hm-slide-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}'
+      + '.hm-box{background:linear-gradient(160deg,#0a0818 0%,#0d0b22 100%);'
+      +   'border:1px solid rgba(124,58,237,.3);border-radius:22px;'
+      +   'padding:2.25rem 2rem;width:100%;max-width:380px;text-align:center;position:relative;'
+      +   'box-shadow:0 0 50px rgba(124,58,237,.12),0 0 120px rgba(124,58,237,.06),0 24px 80px rgba(0,0,0,.6);'
+      +   'animation:hm-slide-in .25s ease;}'
+      + '.hm-close-btn{position:absolute;top:14px;right:16px;background:none;border:none;'
+      +   'color:#4a4a7a;font-size:1.1rem;cursor:pointer;transition:color .15s;}'
+      + '.hm-close-btn:hover{color:#9090c0;}'
+      + '.hm-google-btn{width:100%;padding:.7rem 1rem;border-radius:12px;margin-bottom:.65rem;'
+      +   'background:#fff;border:none;color:#111;font-weight:600;font-size:.875rem;'
+      +   'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.55rem;'
+      +   'transition:box-shadow .15s,transform .12s;}'
+      + '.hm-google-btn:hover{box-shadow:0 4px 20px rgba(255,255,255,.18);transform:translateY(-1px);}'
+      + '.hm-email-btn{width:100%;padding:.65rem 1rem;border-radius:12px;'
+      +   'background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);'
+      +   'color:#a78bfa;font-size:.875rem;font-weight:600;cursor:pointer;'
+      +   'transition:background .15s,border-color .15s;}'
+      + '.hm-email-btn:hover{background:rgba(124,58,237,.18);border-color:rgba(167,139,250,.5);}'
+      + '.hm-input{width:100%;padding:.62rem .85rem;border-radius:10px;margin-bottom:.5rem;'
+      +   'background:rgba(255,255,255,.04);border:1px solid rgba(124,58,237,.2);color:#f0ecff;'
+      +   'font-size:.875rem;box-sizing:border-box;outline:none;transition:border-color .15s;}'
+      + '.hm-input:focus{border-color:rgba(167,139,250,.55);}'
+      + '.hm-submit-btn{width:100%;padding:.68rem 1rem;border-radius:12px;margin-bottom:.5rem;'
+      +   'background:linear-gradient(135deg,#5b21b6,#7c3aed);border:none;color:#fff;'
+      +   'font-weight:700;font-size:.875rem;cursor:pointer;letter-spacing:.03em;'
+      +   'transition:box-shadow .15s,transform .12s;box-shadow:0 4px 20px rgba(124,58,237,.35);}'
+      + '.hm-submit-btn:hover{box-shadow:0 6px 28px rgba(124,58,237,.55);transform:translateY(-1px);}'
+      + '</style>'
+      + '<div class="hm-box">'
+      /* close */
+      +   '<button class="hm-close-btn" onclick="document.getElementById(\'homeMasterLoginModal\').remove()">&#10005;</button>'
+      /* icon decoration */
+      +   '<div style="width:52px;height:52px;border-radius:50%;margin:0 auto 1.1rem;'
+      +     'background:radial-gradient(circle at 38% 38%,rgba(167,139,250,.3),rgba(124,58,237,.08));'
+      +     'border:1.5px solid rgba(124,58,237,.35);display:flex;align-items:center;justify-content:center;'
+      +     'font-size:1.4rem;box-shadow:0 0 22px rgba(124,58,237,.25);">🎛️</div>'
+      /* copy */
+      +   '<p style="font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(167,139,250,.6);margin:0 0 .4rem;font-weight:700;">AutoMaster</p>'
+      +   '<h2 style="font-size:1.28rem;font-weight:800;color:#f0ecff;margin:0 0 .45rem;letter-spacing:.02em;">Continue sua masterização</h2>'
+      +   '<p style="font-size:.8rem;color:#6060a0;margin:0 0 1.75rem;line-height:1.55;">Crie sua conta em segundos e libere<br>todo o potencial do seu som.</p>'
+      /* google */
+      +   '<div id="homeMasterLoginContent">'
+      +     '<button class="hm-google-btn" onclick="__hmLoginGoogle()">'
+      +       '<svg width="18" height="18" viewBox="0 0 18 18" fill="none">'
+      +         '<path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.251 17.64 11.946 17.64 9.2z" fill="#4285F4"/>'
+      +         '<path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>'
+      +         '<path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>'
+      +         '<path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>'
+      +       '</svg>'
+      +       'Entrar com Google'
+      +     '</button>'
+      +     '<button class="hm-email-btn" onclick="__hmLoginEmailForm()">Entrar com Email</button>'
+      +     '<div id="homeMasterLoginMsg" style="margin-top:.75rem;font-size:.78rem;color:rgba(248,113,113,.85);min-height:1.2em;"></div>'
+      +   '</div>'
+      + '</div>';
 
     document.body.appendChild(overlay);
-
-    // Fecha ao clicar no overlay (fora da box)
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) overlay.remove();
-    });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
   };
 
   /** Exibe formulário de email/senha dentro do modal de login */
