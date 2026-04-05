@@ -1873,7 +1873,8 @@
     masterMode:       null,   // 'LOW'|'MEDIUM'|'HIGH'|'EXTREME'|'STREAMING'
     masterJobId:      null,
     creditConsumed:   false,  // Fase 3: impede duplo consumo de crédito
-    _masterPollTimer: null    // Fase 3: referência global ao setInterval do polling
+    _masterPollTimer: null,   // Fase 3: referência global ao setInterval do polling
+    pendingAction:    false   // Fase 3.1: intenção confirmada pelo usuário antes do login
   };
 
   var HUB_PANEL_IDS = ['idle', 'uploading', 'uploaded', 'analyzing'];
@@ -2018,6 +2019,7 @@
     _state.masterMode       = null;
     _state.masterJobId      = null;
     _state.creditConsumed   = false;
+    _state.pendingAction    = false;
 
     // Update uploading panel filename display
     var fnEl = document.getElementById('hubUploadFileName');
@@ -2347,6 +2349,7 @@
     _state.masterMode      = null;
     _state.masterJobId     = null;
     _state.creditConsumed  = false;
+    _state.pendingAction   = false;
 
     renderModeSelection();
   };
@@ -2434,6 +2437,7 @@
     _state.masterMode     = null;
     _state.masterJobId    = null;
     _state.creditConsumed = false;
+    _state.pendingAction  = false;
     var container = document.getElementById('uploadHub');
     if (container && container.__originalHTML__) {
       container.innerHTML = container.__originalHTML__;
@@ -2508,6 +2512,15 @@
 
     _state._masterPollTimer = setInterval(async function () {
       attempt++;
+
+      // Hardening: se o container foi removido do DOM, cancela polling
+      if (!document.getElementById('uploadHub')) {
+        clearInterval(_state._masterPollTimer);
+        _state._masterPollTimer = null;
+        console.warn('[HOME-POLL] #uploadHub não encontrado no DOM — polling cancelado.');
+        return;
+      }
+
       if (attempt > MAX) {
         clearInterval(_state._masterPollTimer);
         _state._masterPollTimer = null;
@@ -2568,6 +2581,7 @@
             || _pollErrMsg.toLowerCase().includes('auth')) {
           clearInterval(_state._masterPollTimer);
           _state._masterPollTimer = null;
+          _state.pendingAction = true; // Etapa 3.1: intenção confirmada, job em curso
           openLoginModal();
           return;
         }
@@ -2594,6 +2608,7 @@
           || _runErrMsg.toLowerCase().includes('unauthorized')
           || _runErrMsg.toLowerCase().includes('token')
           || _runErrMsg.toLowerCase().includes('not_authenticated')) {
+        _state.pendingAction = true; // Etapa 3.1: intenção confirmada pelo usuário
         openLoginModal();
         return;
       }
@@ -2606,11 +2621,21 @@
    * @param {string} url  URL pre-assinada do arquivo masterizado
    */
   window.downloadMaster = function downloadMaster(url) {
+    // Guard 1: flag em memória (protege dentro da sessão)
     if (_state.creditConsumed) {
-      console.warn('[HOME-MASTER] Download já realizado para este job. Bloqueado.');
+      console.warn('[HOME-MASTER] Download já realizado para este job (creditConsumed). Bloqueado.');
+      return;
+    }
+    // Guard 2: localStorage (protege contra refresh da página com mesmo jobId)
+    var lastJob = localStorage.getItem('lastDownloadJob');
+    if (_state.masterJobId && lastJob === String(_state.masterJobId)) {
+      console.warn('[HOME-MASTER] Download bloqueado por localStorage. jobId:', _state.masterJobId);
       return;
     }
     _state.creditConsumed = true;
+    if (_state.masterJobId) {
+      localStorage.setItem('lastDownloadJob', String(_state.masterJobId));
+    }
     window.open(url, '_blank');
   };
 
@@ -2622,11 +2647,13 @@
    * NOTA: funções de handler usam prefixo __hm para não conflitar com auth.js
    */
   window.openLoginModal = function openLoginModal() {
-    // Evita abrir dois modais
+    // Evita abrir dois modais (verifica pelo id e pela classe de segurança)
     if (document.getElementById('homeMasterLoginModal')) return;
+    if (document.querySelector('.hm-login-modal-overlay')) return;
 
     var overlay = document.createElement('div');
     overlay.id = 'homeMasterLoginModal';
+    overlay.className = 'hm-login-modal-overlay';
     overlay.style.cssText = [
       'position:fixed;inset:0;z-index:9999;',
       'background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);',
@@ -2714,14 +2741,19 @@
     if (el) el.textContent = msg || '';
   }
 
-  /** Helper: ação após login bem-sucedido — fecha modal e retoma master */
+  /** Helper: ação após login bem-sucedido — fecha modal */
   function _onLoginSuccess() {
     var modal = document.getElementById('homeMasterLoginModal');
     if (modal) modal.remove();
-    var pendingMode = _state.masterMode;
-    if (pendingMode) {
-      console.log('[HOME-MASTER] Login concluído. Retomando master com modo:', pendingMode);
-      window.runMasterInHome(pendingMode);
+    // Só retoma o master se o usuário explicitamente optou por isso
+    // (pendingAction = true significa que o usuário clicou num modo antes do login)
+    if (_state.pendingAction && _state.masterMode) {
+      _state.pendingAction = false;
+      console.log('[HOME-MASTER] Login concluído. Retomando master com modo:', _state.masterMode);
+      window.runMasterInHome(_state.masterMode);
+    } else {
+      _state.pendingAction = false;
+      console.log('[HOME-MASTER] Login concluído. Nenhuma ação pendente — aguardando interação do usuário.');
     }
   }
 
