@@ -1703,9 +1703,9 @@
       <div id="final-score-display"></div>
 
       <!-- 3. CTA MASTERIZAR -->
-      <a id="btnMasterizar" class="action-btn primary" href="master.html" style="display:none;">
+      <button id="btnMasterizar" type="button" class="action-btn primary" onclick="startMasterFlow()" style="display:none;">
         ⚡ Masterizar Agora
-      </a>
+      </button>
 
       <!-- 4. IDENTIFICAÇÃO DA FAIXA (reposicionado: abaixo do score/CTA, acima do diagnóstico) -->
       <div id="musicIdentificationBlock" class="music-identification-container"></div>
@@ -2144,16 +2144,7 @@
 
   // ── MASTER DIRECT ─────────────────────────────────────────
   function masterDirect() {
-    if (!_state.fileKey) {
-      showError('Nenhum arquivo encontrado. Por favor, envie uma faixa primeiro.');
-      return;
-    }
-    var url = 'master.html'
-      + '?fileKey='  + encodeURIComponent(_state.fileKey)
-      + '&fileName=' + encodeURIComponent(_state.fileName || '');
-    window.open(url, '_blank', 'noopener,noreferrer');
-    // Reset hub after opening master page
-    setState('idle');
+    window.startMasterFlow();
   }
 
   // ── AUTO MASTER — FASE 2 (embutido no home) ─────────────────────────────
@@ -2337,6 +2328,7 @@
    * Chamado pelo botão "Masterizar" inline (fase 2+).
    */
   window.startMasterFlow = function startMasterFlow() {
+    console.log('FLOW: usando AutoMaster embutido');
     var fileKey = resolveFileKey();
 
     if (!fileKey) {
@@ -2821,12 +2813,6 @@
       var isVisible = resultsEl.style.display !== 'none' && resultsEl.style.display !== '';
       if (isVisible) {
         // Usar fileKey do upload original (armazenado após uploadFileOnly)
-        var fileKey  = _state.fileKey  || window.__HOME_FILE_KEY__  || '';
-        var fileName = _state.fileName || window.__HOME_FILE_NAME__ || '';
-        masterBtn.href = fileKey
-          ? 'master.html?fileKey=' + encodeURIComponent(fileKey)
-              + '&fileName=' + encodeURIComponent(fileName)
-          : 'master.html';
         masterBtn.style.display = 'inline-block';
       } else {
         masterBtn.style.display = 'none';
@@ -2918,17 +2904,12 @@
       }
     });
 
-    // ── DELEGAÇÃO: #btnMasterizar — garante href atualizado mesmo após re-render
+    // ── DELEGAÇÃO: #btnMasterizar — inicia fluxo embutido
     document.addEventListener('click', function (e) {
       var btn = e.target.closest('#btnMasterizar');
       if (!btn) return;
-      var fk = window.__HOME_FILE_KEY__  || '';
-      var fn = window.__HOME_FILE_NAME__ || '';
-      if (fk) {
-        btn.href = 'master.html?fileKey=' + encodeURIComponent(fk)
-                 + '&fileName='          + encodeURIComponent(fn);
-      }
-      // navegação natural do <a> prossegue
+      e.preventDefault();
+      window.startMasterFlow();
     });
   });
 
