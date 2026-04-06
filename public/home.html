@@ -3107,7 +3107,7 @@ function renderModeSelection() {
       + '</div>';
   }
 
-  // ── LOGIN MODAL PREMIUM (PARTE 4) ──────────────────────────────────────
+  // ── LOGIN / CADASTRO MODAL PREMIUM ────────────────────────────────────
   window.openLoginModal = function openLoginModal() {
     if (document.getElementById('homeMasterLoginModal')) return;
     if (document.querySelector('.hm-login-modal-overlay')) return;
@@ -3116,114 +3116,137 @@ function renderModeSelection() {
     overlay.id = 'homeMasterLoginModal';
     overlay.className = 'hm-login-modal-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;'
-      + 'background:rgba(0,0,0,.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);'
+      + 'background:rgba(0,0,0,.88);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);'
       + 'display:flex;align-items:center;justify-content:center;padding:1.25rem;'
-      + 'animation:hm-fade-in .2s ease;';
+      + 'animation:hm-fade-in .22s ease;';
+
+    var googleSvg = '<svg width="18" height="18" viewBox="0 0 18 18" fill="none">'
+      + '<path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.251 17.64 11.946 17.64 9.2z" fill="#4285F4"/>'
+      + '<path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>'
+      + '<path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>'
+      + '<path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>'
+      + '</svg>';
 
     overlay.innerHTML = '<style>'
-      + '@keyframes hm-fade-in{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}'
-      + '@keyframes hm-slide-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}'
-      + '.hm-box{background:linear-gradient(160deg,#0a0818 0%,#0d0b22 100%);'
-      +   'border:1px solid rgba(124,58,237,.3);border-radius:22px;'
-      +   'padding:2.25rem 2rem;width:100%;max-width:380px;text-align:center;position:relative;'
-      +   'box-shadow:0 0 50px rgba(124,58,237,.12),0 0 120px rgba(124,58,237,.06),0 24px 80px rgba(0,0,0,.6);'
-      +   'animation:hm-slide-in .25s ease;}'
+      + '@keyframes hm-fade-in{from{opacity:0}to{opacity:1}}'
+      + '@keyframes hm-slide-in{from{opacity:0;transform:translateY(20px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}'
+      + '.hm-box{background:linear-gradient(160deg,#080614 0%,#0d0b22 100%);'
+      +   'border:1px solid rgba(124,58,237,.28);border-radius:24px;'
+      +   'padding:2.5rem 2rem 2rem;width:100%;max-width:390px;text-align:center;position:relative;'
+      +   'box-shadow:0 0 0 1px rgba(124,58,237,.06),0 0 60px rgba(124,58,237,.14),'
+      +     '0 32px 100px rgba(0,0,0,.72);animation:hm-slide-in .28s cubic-bezier(.22,1,.36,1);}'
       + '.hm-close-btn{position:absolute;top:14px;right:16px;background:none;border:none;'
-      +   'color:#4a4a7a;font-size:1.1rem;cursor:pointer;transition:color .15s;}'
-      + '.hm-close-btn:hover{color:#9090c0;}'
-      + '.hm-google-btn{width:100%;padding:.7rem 1rem;border-radius:12px;margin-bottom:.65rem;'
+      +   'color:#4a4a7a;font-size:1.1rem;cursor:pointer;line-height:1;padding:5px 7px;'
+      +   'border-radius:7px;transition:color .15s,background .15s;}'
+      + '.hm-close-btn:hover{color:#c4b5fd;background:rgba(124,58,237,.12);}'
+      + '.hm-tabs{display:flex;background:rgba(255,255,255,.04);border-radius:13px;'
+      +   'padding:4px;margin-bottom:1.6rem;gap:4px;}'
+      + '.hm-tab{flex:1;padding:.55rem .9rem;border-radius:10px;border:none;background:none;'
+      +   'color:#555580;font-size:.82rem;font-weight:600;cursor:pointer;letter-spacing:.02em;'
+      +   'transition:all .2s;}'
+      + '.hm-tab.active{background:rgba(124,58,237,.22);color:#c4b5fd;'
+      +   'box-shadow:0 2px 12px rgba(124,58,237,.22);}'
+      + '.hm-panel{display:none;}'
+      + '.hm-panel.visible{display:block;}'
+      + '.hm-google-btn{width:100%;padding:.72rem 1rem;border-radius:13px;margin-bottom:.6rem;'
       +   'background:#fff;border:none;color:#111;font-weight:600;font-size:.875rem;'
       +   'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.55rem;'
       +   'transition:box-shadow .15s,transform .12s;}'
-      + '.hm-google-btn:hover{box-shadow:0 4px 20px rgba(255,255,255,.18);transform:translateY(-1px);}'
-      + '.hm-email-btn{width:100%;padding:.65rem 1rem;border-radius:12px;'
-      +   'background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);'
-      +   'color:#a78bfa;font-size:.875rem;font-weight:600;cursor:pointer;'
-      +   'transition:background .15s,border-color .15s;}'
-      + '.hm-email-btn:hover{background:rgba(124,58,237,.18);border-color:rgba(167,139,250,.5);}'
-      + '.hm-input{width:100%;padding:.62rem .85rem;border-radius:10px;margin-bottom:.5rem;'
-      +   'background:rgba(255,255,255,.04);border:1px solid rgba(124,58,237,.2);color:#f0ecff;'
-      +   'font-size:.875rem;box-sizing:border-box;outline:none;transition:border-color .15s;}'
-      + '.hm-input:focus{border-color:rgba(167,139,250,.55);}'
-      + '.hm-submit-btn{width:100%;padding:.68rem 1rem;border-radius:12px;margin-bottom:.5rem;'
-      +   'background:linear-gradient(135deg,#5b21b6,#7c3aed);border:none;color:#fff;'
-      +   'font-weight:700;font-size:.875rem;cursor:pointer;letter-spacing:.03em;'
-      +   'transition:box-shadow .15s,transform .12s;box-shadow:0 4px 20px rgba(124,58,237,.35);}'
-      + '.hm-submit-btn:hover{box-shadow:0 6px 28px rgba(124,58,237,.55);transform:translateY(-1px);}'
+      + '.hm-google-btn:hover{box-shadow:0 4px 22px rgba(255,255,255,.2);transform:translateY(-1px);}'
+      + '.hm-divider{display:flex;align-items:center;gap:.55rem;'
+      +   'margin:.75rem 0;color:#353555;font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}'
+      + '.hm-divider::before,.hm-divider::after{content:"";flex:1;height:1px;background:rgba(124,58,237,.15);}'
+      + '.hm-input{width:100%;padding:.66rem .9rem;border-radius:11px;margin-bottom:.5rem;'
+      +   'background:rgba(255,255,255,.045);border:1px solid rgba(124,58,237,.2);color:#f0ecff;'
+      +   'font-size:.875rem;box-sizing:border-box;outline:none;'
+      +   'transition:border-color .15s,background .15s;}'
+      + '.hm-input:focus{border-color:rgba(167,139,250,.55);background:rgba(255,255,255,.07);}'
+      + '.hm-input::placeholder{color:#404060;}'
+      + '.hm-submit-btn{width:100%;padding:.72rem 1rem;border-radius:13px;margin-top:.25rem;'
+      +   'background:linear-gradient(135deg,#5b21b6 0%,#7c3aed 55%,#a855f7 100%);'
+      +   'border:none;color:#fff;font-weight:700;font-size:.875rem;cursor:pointer;'
+      +   'letter-spacing:.04em;text-transform:uppercase;'
+      +   'box-shadow:0 4px 22px rgba(124,58,237,.4);'
+      +   'transition:box-shadow .15s,transform .12s,opacity .15s;}'
+      + '.hm-submit-btn:hover:not(:disabled){box-shadow:0 6px 30px rgba(124,58,237,.6);transform:translateY(-1px);}'
+      + '.hm-submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;}'
+      + '#homeMasterLoginMsg{margin-top:.85rem;font-size:.78rem;min-height:1.3em;line-height:1.5;'
+      +   'color:rgba(248,113,113,.9);}'
+      + '#homeMasterLoginMsg.success{color:rgba(52,211,153,.9);}'
       + '</style>'
       + '<div class="hm-box">'
-      /* close */
-      +   '<button class="hm-close-btn" onclick="document.getElementById(\'homeMasterLoginModal\').remove()">&#10005;</button>'
-      /* icon decoration */
-      +   '<div style="width:52px;height:52px;border-radius:50%;margin:0 auto 1.1rem;'
-      +     'background:radial-gradient(circle at 38% 38%,rgba(167,139,250,.3),rgba(124,58,237,.08));'
+      +   '<button class="hm-close-btn" onclick="document.getElementById(\'homeMasterLoginModal\').remove()" aria-label="Fechar">&#10005;</button>'
+      +   '<div style="width:54px;height:54px;border-radius:50%;margin:0 auto 1rem;'
+      +     'background:radial-gradient(circle at 38% 38%,rgba(167,139,250,.25),rgba(124,58,237,.05));'
       +     'border:1.5px solid rgba(124,58,237,.35);display:flex;align-items:center;justify-content:center;'
-      +     'font-size:1.4rem;box-shadow:0 0 22px rgba(124,58,237,.25);">🎛️</div>'
-      /* copy */
-      +   '<p style="font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(167,139,250,.6);margin:0 0 .4rem;font-weight:700;">AutoMaster</p>'
-      +   '<h2 style="font-size:1.28rem;font-weight:800;color:#f0ecff;margin:0 0 .45rem;letter-spacing:.02em;">Continue sua masterização</h2>'
-      +   '<p style="font-size:.8rem;color:#6060a0;margin:0 0 1.75rem;line-height:1.55;">Crie sua conta em segundos e libere<br>todo o potencial do seu som.</p>'
-      /* google */
-      +   '<div id="homeMasterLoginContent">'
-      +     '<button class="hm-google-btn" onclick="__hmLoginGoogle()">'
-      +       '<svg width="18" height="18" viewBox="0 0 18 18" fill="none">'
-      +         '<path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.251 17.64 11.946 17.64 9.2z" fill="#4285F4"/>'
-      +         '<path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>'
-      +         '<path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>'
-      +         '<path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>'
-      +       '</svg>'
-      +       'Entrar com Google'
-      +     '</button>'
-      +     '<button class="hm-email-btn" onclick="__hmLoginEmailForm()">Entrar com Email</button>'
-      +     '<div id="homeMasterLoginMsg" style="margin-top:.75rem;font-size:.78rem;color:rgba(248,113,113,.85);min-height:1.2em;"></div>'
+      +     'font-size:1.5rem;box-shadow:0 0 26px rgba(124,58,237,.26);">🎛️</div>'
+      +   '<p style="font-size:.62rem;letter-spacing:.22em;text-transform:uppercase;'
+      +     'color:rgba(167,139,250,.5);margin:0 0 .4rem;font-weight:700;">AutoMaster</p>'
+      +   '<h2 style="font-size:1.2rem;font-weight:800;color:#f0ecff;margin:0 0 .4rem;'
+      +     'letter-spacing:.02em;line-height:1.35;">Crie sua conta e masterize gratuitamente</h2>'
+      +   '<p style="font-size:.78rem;color:#505070;margin:0 0 1.5rem;line-height:1.55;">'
+      +     'Sem cadastro não é possível gerar sua master</p>'
+      /* tabs */
+      +   '<div class="hm-tabs">'
+      +     '<button class="hm-tab active" id="hmTabBtnLogin" onclick="__hmShowTab(\'login\')">Entrar</button>'
+      +     '<button class="hm-tab" id="hmTabBtnReg" onclick="__hmShowTab(\'register\')">Criar conta</button>'
       +   '</div>'
+      /* LOGIN PANEL */
+      +   '<div class="hm-panel visible" id="hmPanelLogin">'
+      +     '<button class="hm-google-btn" onclick="__hmLoginGoogle()">' + googleSvg + 'Entrar com Google</button>'
+      +     '<div class="hm-divider">ou</div>'
+      +     '<input class="hm-input" id="hmLoginEmail" type="email" placeholder="Seu e-mail" autocomplete="email">'
+      +     '<input class="hm-input" id="hmLoginPass" type="password" placeholder="Senha" autocomplete="current-password">'
+      +     '<button class="hm-submit-btn" id="hmLoginSubmitBtn" onclick="__hmLoginEmail()">Entrar</button>'
+      +   '</div>'
+      /* REGISTER PANEL */
+      +   '<div class="hm-panel" id="hmPanelReg">'
+      +     '<button class="hm-google-btn" onclick="__hmLoginGoogle()">' + googleSvg + 'Continuar com Google</button>'
+      +     '<div class="hm-divider">ou</div>'
+      +     '<input class="hm-input" id="hmRegEmail" type="email" placeholder="Seu e-mail" autocomplete="email">'
+      +     '<input class="hm-input" id="hmRegPass" type="password" placeholder="Senha (mín. 6 caracteres)" autocomplete="new-password">'
+      +     '<button class="hm-submit-btn" id="hmRegSubmitBtn" onclick="__hmRegisterEmail()">Criar conta</button>'
+      +   '</div>'
+      /* error message */
+      +   '<div id="homeMasterLoginMsg"></div>'
       + '</div>';
 
     document.body.appendChild(overlay);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
   };
 
-  /** Exibe formulário de email/senha dentro do modal de login */
-  window.__hmLoginEmailForm = function __hmLoginEmailForm() {
-    var content = document.getElementById('homeMasterLoginContent');
-    if (!content) return;
-    content.innerHTML = [
-      '<input id="hmLoginEmail" type="email" placeholder="Seu e-mail" style="',
-        'width:100%;padding:0.6rem 0.75rem;border-radius:8px;margin-bottom:0.5rem;',
-        'background:#1a1a2e;border:1px solid rgba(79,142,247,0.3);color:#f0f0ff;',
-        'font-size:0.88rem;box-sizing:border-box;outline:none;',
-      '">',
-      '<input id="hmLoginPass" type="password" placeholder="Senha" style="',
-        'width:100%;padding:0.6rem 0.75rem;border-radius:8px;margin-bottom:0.75rem;',
-        'background:#1a1a2e;border:1px solid rgba(79,142,247,0.3);color:#f0f0ff;',
-        'font-size:0.88rem;box-sizing:border-box;outline:none;',
-      '">',
-      '<button onclick="__hmLoginEmail()" style="',
-        'width:100%;padding:0.65rem 1rem;border-radius:10px;margin-bottom:0.5rem;',
-        'background:var(--primary,#4f8ef7);border:none;color:#fff;',
-        'font-weight:600;font-size:0.88rem;cursor:pointer;',
-      '">Entrar</button>',
-      '<button onclick="__hmLoginGoogle()" style="',
-        'width:100%;padding:0.55rem 1rem;border-radius:10px;',
-        'background:none;border:1px solid rgba(79,142,247,0.3);',
-        'color:#8888aa;font-size:0.85rem;cursor:pointer;',
-      '">← Entrar com Google</button>',
-      '<div id="homeMasterLoginMsg" style="margin-top:0.75rem;font-size:0.8rem;color:rgba(248,113,113,0.85);min-height:1.2em;"></div>'
-    ].join('');
+  /** Alterna entre abas Login / Cadastro */
+  window.__hmShowTab = function __hmShowTab(tab) {
+    var loginPanel  = document.getElementById('hmPanelLogin');
+    var regPanel    = document.getElementById('hmPanelReg');
+    var loginBtn    = document.getElementById('hmTabBtnLogin');
+    var regBtn      = document.getElementById('hmTabBtnReg');
+    _loginModalError('');
+    if (tab === 'login') {
+      if (loginPanel) loginPanel.classList.add('visible');
+      if (regPanel)   regPanel.classList.remove('visible');
+      if (loginBtn)   loginBtn.classList.add('active');
+      if (regBtn)     regBtn.classList.remove('active');
+    } else {
+      if (regPanel)   regPanel.classList.add('visible');
+      if (loginPanel) loginPanel.classList.remove('visible');
+      if (regBtn)     regBtn.classList.add('active');
+      if (loginBtn)   loginBtn.classList.remove('active');
+    }
   };
 
   /** Helper: exibe mensagem de erro dentro do modal */
   function _loginModalError(msg) {
     var el = document.getElementById('homeMasterLoginMsg');
-    if (el) el.textContent = msg || '';
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = msg ? '' : '';
   }
 
-  /** Helper: ação após login bem-sucedido — fecha modal */
+  /** Helper: ação após login/cadastro — fecha modal e retoma master */
   function _onLoginSuccess() {
     var modal = document.getElementById('homeMasterLoginModal');
     if (modal) modal.remove();
-    // Só retoma o master se o usuário explicitamente optou por isso
-    // (pendingAction = true significa que o usuário clicou num modo antes do login)
     if (_state.pendingAction && _state.masterMode) {
       _state.pendingAction = false;
       console.log('[HOME-MASTER] Login concluído. Retomando master com modo:', _state.masterMode);
@@ -3254,7 +3277,7 @@ function renderModeSelection() {
     }
   };
 
-  /** Login com email+senha — prefixado __hm para não conflitar com auth.js */
+  /** Login com email+senha */
   window.__hmLoginEmail = async function __hmLoginEmail() {
     _loginModalError('');
     var emailEl = document.getElementById('hmLoginEmail');
@@ -3266,10 +3289,13 @@ function renderModeSelection() {
       _loginModalError('Módulo de autenticação não carregado. Recarregue a página.');
       return;
     }
+    var btn = document.getElementById('hmLoginSubmitBtn');
+    if (btn) { btn.textContent = 'Entrando…'; btn.disabled = true; }
     try {
       await window.__homeLoginWithEmail(email, pass);
       _onLoginSuccess();
     } catch (err) {
+      if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; }
       var code = err.code || '';
       if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
         _loginModalError('Senha incorreta ou conta não encontrada.');
@@ -3277,8 +3303,45 @@ function renderModeSelection() {
         _loginModalError('Nenhuma conta encontrada com este e-mail.');
       } else if (code === 'auth/invalid-email') {
         _loginModalError('E-mail inválido.');
+      } else if (code === 'auth/too-many-requests') {
+        _loginModalError('Muitas tentativas. Aguarde alguns minutos.');
       } else {
         _loginModalError(err.message || 'Erro ao entrar.');
+      }
+    }
+  };
+
+  /** Cadastro com email+senha via Firebase */
+  window.__hmRegisterEmail = async function __hmRegisterEmail() {
+    _loginModalError('');
+    var emailEl = document.getElementById('hmRegEmail');
+    var passEl  = document.getElementById('hmRegPass');
+    var email   = (emailEl ? emailEl.value : '').trim();
+    var pass    = passEl ? passEl.value : '';
+    if (!email || !pass) { _loginModalError('Preencha e-mail e senha.'); return; }
+    if (pass.length < 6) { _loginModalError('A senha deve ter pelo menos 6 caracteres.'); return; }
+    if (typeof window.__homeRegisterWithEmail !== 'function') {
+      _loginModalError('Módulo de autenticação não carregado. Recarregue a página.');
+      return;
+    }
+    var btn = document.getElementById('hmRegSubmitBtn');
+    if (btn) { btn.textContent = 'Criando conta…'; btn.disabled = true; }
+    try {
+      await window.__homeRegisterWithEmail(email, pass);
+      _onLoginSuccess();
+    } catch (err) {
+      if (btn) { btn.textContent = 'Criar conta'; btn.disabled = false; }
+      var code = err.code || '';
+      if (code === 'auth/email-already-in-use') {
+        _loginModalError('Este e-mail já tem conta. Use a aba "Entrar".');
+      } else if (code === 'auth/invalid-email') {
+        _loginModalError('E-mail inválido.');
+      } else if (code === 'auth/weak-password') {
+        _loginModalError('Senha fraca. Use pelo menos 6 caracteres.');
+      } else if (code === 'auth/too-many-requests') {
+        _loginModalError('Muitas tentativas. Aguarde alguns minutos.');
+      } else {
+        _loginModalError(err.message || 'Erro ao criar conta.');
       }
     }
   };
@@ -3452,14 +3515,15 @@ function renderModeSelection() {
   document.querySelectorAll('.dt-expand-body:not([hidden])').forEach(addSectionTitles);
 })();
 </script>
-<!-- Firebase Auth — expõe window.__firebaseAuth + helpers de login inline (Fase 2/3) -->
+<!-- Firebase Auth — expõe window.__firebaseAuth + helpers de login/cadastro inline -->
 <script type="module">
 import { auth } from './firebase.js';
 import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
 } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
 
 window.__firebaseAuth = auth;
@@ -3476,6 +3540,11 @@ window.__homeLoginWithGoogle = async function () {
 /** Login com email/senha — resolve com UserCredential */
 window.__homeLoginWithEmail = async function (email, password) {
   return await signInWithEmailAndPassword(auth, email, password);
+};
+
+/** Cadastro com email/senha — loga automaticamente após criação */
+window.__homeRegisterWithEmail = async function (email, password) {
+  return await createUserWithEmailAndPassword(auth, email, password);
 };
 </script>
 
