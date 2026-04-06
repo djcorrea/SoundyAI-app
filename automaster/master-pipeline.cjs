@@ -807,6 +807,8 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
         input: resolvedInput,
         output: resolvedOutput,
         processing_ms: Date.now() - startTime,
+        aptitude_check: aptitudeCheck,
+        precheck_initial: precheckInitial,
         problems,
         classifiers,
         attempts: [primaryAttempt],
@@ -827,6 +829,8 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
       input: resolvedInput,
       output: resolvedOutput,
       processing_ms: Date.now() - startTime,
+      aptitude_check: aptitudeCheck,
+      precheck_initial: precheckInitial,
       attempts: [primaryAttempt],
       final_decision: 'COMPLETED_WITH_WARNING'
     };
@@ -933,6 +937,8 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
         input: resolvedInput,
         output: resolvedOutput,
         processing_ms: Date.now() - startTime,
+        aptitude_check: aptitudeCheck,
+        precheck_initial: precheckInitial,
         problems,
         classifiers,
         attempts: [primaryAttempt, fallbackAttempt],
@@ -953,6 +959,8 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
       input: resolvedInput,
       output: resolvedOutput,
       processing_ms: Date.now() - startTime,
+      aptitude_check: aptitudeCheck,
+      precheck_initial: precheckInitial,
       attempts: [primaryAttempt, fallbackAttempt],
       final_decision: 'COMPLETED_WITH_WARNING_AFTER_CLEAN'
     };
