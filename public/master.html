@@ -1813,8 +1813,22 @@ async function downloadMaster() {
 /**
  * Download via blob — sem nova aba, sem redirecionamento.
  */
+/**
+ * Gera nome padronizado para download: master-soundyai_{nome-original}.wav
+ */
+function generateDownloadFilename(originalName) {
+  const base = (originalName || 'audio')
+    .replace(/\.[^.]+$/, '')         // remove extensão
+    .toLowerCase()                    // minúsculas
+    .replace(/\s+/g, '_')            // espaços → _
+    .replace(/[^a-z0-9_\-]/g, '_')  // remove caracteres inválidos
+    .replace(/_+/g, '_')             // múltiplos _ → um só
+    .replace(/^_|_$/g, '');          // trim _ nas bordas
+  return 'master-soundyai_' + (base || 'audio') + '.wav';
+}
+
 async function triggerBlobDownload(url) {
-  const name = `master_${(automasterState.fileName || 'audio').replace(/\.[^.]+$/, '')}.wav`;
+  const name = generateDownloadFilename(automasterState.fileName || 'audio');
   try {
     let hdrs = {};
     try {

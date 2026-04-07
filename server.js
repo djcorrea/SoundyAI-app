@@ -979,8 +979,15 @@ app.get('/api/automaster/download/:jobId', async (req, res) => {
     }
 
     const buffer = await storageServiceModule.downloadFile(job.output_key);
-    const rawName = job.original_filename || job.file_name || `master_${jobId}`;
-    const safeName = rawName.replace(/[^a-zA-Z0-9._\-]/g, '_').replace(/\.[^.]+$/, '') + '.wav';
+    const rawName = job.original_filename || job.file_name || 'audio';
+    const safeName = 'master-soundyai_' + (rawName
+      .replace(/\.[^.]+$/, '')         // remove extensão
+      .toLowerCase()                    // minúsculas
+      .replace(/\s+/g, '_')            // espaços → _
+      .replace(/[^a-z0-9_\-]/g, '_')  // remove caracteres inválidos
+      .replace(/_+/g, '_')             // múltiplos _ → um só
+      .replace(/^_|_$/g, '')           // trim _ nas bordas
+      || 'audio') + '.wav';
 
     res.setHeader('Content-Type', 'audio/wav');
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
