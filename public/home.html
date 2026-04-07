@@ -3290,46 +3290,25 @@ function renderModeSelection() {
       localStorage.setItem('lastDownloadJob', String(_state.masterJobId));
     }
 
-    // ── DOWNLOAD VIA PROXY BACKEND (sem abrir nova aba, sem expor URL do storage) ─
-    // Usa /api/automaster/download/:jobId que serve o arquivo com Content-Disposition:attachment
-    // e nunca expõe a URL original do S3/Firebase Storage ao cliente.
+    // ── DOWNLOAD VIA LINK DIRETO (sem fetch — evita interceptores de demo/entitlements) ─
+    // O endpoint /api/automaster/download/:jobId retorna Content-Disposition:attachment,
+    // portanto o browser baixa automaticamente sem abrir nova aba.
+    // Usar <a> direto evita bloqueios dos wrappers de window.fetch (entitlements/demo-core).
     var baseName = (_state.fileName || 'master').replace(/\.[^.]+$/, '');
     var downloadName = 'soundyai-master-' + baseName + '.wav';
-    var proxyUrl = _state.masterJobId
+
+    // Preferir proxy backend (mesma origem, sem CORS, arquivo renomeado)
+    var downloadHref = _state.masterJobId
       ? '/api/automaster/download/' + encodeURIComponent(_state.masterJobId)
-      : url; // fallback para URL direta apenas se jobId não disponível
-    try {
-      var token = null;
-      try { token = await getValidIdToken(); } catch (_) {}
-      var hdrs = token ? { 'Authorization': 'Bearer ' + token } : {};
-      var res = await fetch(proxyUrl, { headers: hdrs });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      var blob = await res.blob();
-      var objUrl = window.URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = objUrl;
-      a.download = downloadName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(function () { window.URL.revokeObjectURL(objUrl); }, 10000);
-    } catch (e) {
-      console.warn('[HOME-MASTER] Proxy download falhou, tentando URL direta:', e.message);
-      // Fallback: URL direta com blob
-      try {
-        var res2 = await fetch(url);
-        if (!res2.ok) throw new Error('HTTP ' + res2.status);
-        var blob2 = await res2.blob();
-        var objUrl2 = window.URL.createObjectURL(blob2);
-        var a2 = document.createElement('a');
-        a2.href = objUrl2; a2.download = downloadName;
-        document.body.appendChild(a2); a2.click(); a2.remove();
-        setTimeout(function () { window.URL.revokeObjectURL(objUrl2); }, 10000);
-      } catch (e2) {
-        console.warn('[HOME-MASTER] Fallback direto também falhou:', e2.message);
-        alert('Erro ao baixar a master. Tente novamente.');
-      }
-    }
+      : url;
+
+    var a = document.createElement('a');
+    a.href = downloadHref;
+    a.download = downloadName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   // ── LOGIN INLINE (Fase 3) ───────────────────────────────────────────────
