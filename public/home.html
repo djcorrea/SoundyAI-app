@@ -2526,8 +2526,12 @@
     if (data.previewBefore && data.previewAfter) {
       playerHtml = '<div class="am-player-section">'
         + '<div class="am-player-section-label">COMPARAÇÃO A / B</div>'
-        + '<audio id="amAudioBefore" src="' + data.previewBefore + '" preload="auto"></audio>'
-        + '<audio id="amAudioAfter"  src="' + data.previewAfter  + '" preload="auto"></audio>'
+        // crossorigin="anonymous" DEVE vir antes de src no HTML para que o browser
+        // faça o fetch com cabeçalhos CORS desde o início. Se crossorigin vier depois
+        // de src (ou estiver ausente), o elemento fica "tainted" e MediaElementSource
+        // outputará zeros — mesmo que o servidor suporte CORS.
+        + '<audio id="amAudioBefore" crossorigin="anonymous" src="' + data.previewBefore + '" preload="auto"></audio>'
+        + '<audio id="amAudioAfter"  crossorigin="anonymous" src="' + data.previewAfter  + '" preload="auto"></audio>'
         + '<div class="am-ab-controls">'
         +   '<button class="am-ab-btn" type="button" id="amBtnBefore" onclick="__amPlayAB(\'before\')">ANTES</button>'
         +   '<button class="am-play-btn" type="button" id="amAbPlayBtn" onclick="__amToggleAB()" title="Play / Pause">&#9654;</button>'
@@ -2593,33 +2597,64 @@
      * Inicializa o AudioContext e conecta os dois MediaElementSources.
      * Chamado uma única vez na primeira interação do usuário (política autoplay).
      * Retorna true se Web Audio API está disponível e configurado com sucesso.
+     *
+     * CORS: MediaElementAudioSource requer que o elemento <audio> tenha sido
+     * carregado com cabeçalhos CORS (crossOrigin="anonymous" no HTML ANTES do src).
+     * Sem isso, o browser marca o elemento como "tainted" e a saída é forçada a zero.
+     * Se por algum motivo o atributo estiver ausente, este método faz recovery:
+     * força crossOrigin e recarrega o src antes de criar o MediaElementSource.
      */
     function _amInitCtx() {
       if (_abCtx) return true; // singleton: já inicializado, reutiliza
       var AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return false; // navegador sem suporte → usa fallback
+      if (!AudioCtx) {
+        console.warn('[AM-AB] Web Audio API indisponível — usando fallback de volume.');
+        return false;
+      }
       try {
-        _abCtx = new AudioCtx();
         var elB = document.getElementById('amAudioBefore');
         var elA = document.getElementById('amAudioAfter');
-        if (!elB || !elA) { _abCtx = null; return false; }
+        if (!elB || !elA) {
+          console.error('[AM-AB] Elementos <audio> não encontrados no DOM.');
+          return false;
+        }
 
-        // MediaElementSource: conecta cada <audio> ao grafo de áudio
+        // ── Guarda de CORS: garante crossOrigin antes de criar MediaElementSource ──
+        // Se o atributo estiver ausente (não deveria, mas como safety net), força
+        // um reload com crossOrigin para evitar o erro "outputs zeros".
+        [elB, elA].forEach(function (el) {
+          if (el.crossOrigin !== 'anonymous') {
+            console.warn('[AM-AB] crossOrigin ausente em', el.id, '— forçando reload com CORS.');
+            el.crossOrigin = 'anonymous';
+            var s = el.src; el.src = ''; el.src = s; // re-dispara fetch com CORS
+          }
+        });
+
+        console.log('[AM-AB] Inicializando AudioContext…');
+        _abCtx = new AudioCtx();
+        console.log('[AM-AB] AudioContext state:', _abCtx.state);
+
+        // MediaElementSource: conecta cada <audio> ao grafo de áudio.
+        // IMPORTANTE: cada elemento só pode ter UM MediaElementSource vinculado.
+        // Chamar createMediaElementSource() duas vezes no mesmo elemento lança erro.
         var srcB = _abCtx.createMediaElementSource(elB);
         var srcA = _abCtx.createMediaElementSource(elA);
+        console.log('[AM-AB] MediaElementSources criados:', elB.src, elA.src);
 
         _abGainBefore = _abCtx.createGain();
         _abGainAfter  = _abCtx.createGain();
 
-        // Estado inicial: "after" (masterizado) é o padrão ao primeiro play
-        _abGainBefore.gain.value = 0; // before: silenciado
-        _abGainAfter.gain.value  = 1; // after:  audível
+        // Estado inicial: "after" (masterizado) audível; "before" silenciado.
+        _abGainBefore.gain.value = 0;
+        _abGainAfter.gain.value  = 1;
+        console.log('[AM-AB] Gains iniciais → before:', _abGainBefore.gain.value, '| after:', _abGainAfter.gain.value);
 
         srcB.connect(_abGainBefore); _abGainBefore.connect(_abCtx.destination);
         srcA.connect(_abGainAfter);  _abGainAfter.connect(_abCtx.destination);
+        console.log('[AM-AB] Grafo de áudio montado. Crossfade ativo.');
         return true;
       } catch (e) {
-        console.warn('[AM-AB] AudioContext init falhou:', e);
+        console.error('[AM-AB] AudioContext init falhou:', e.name, e.message);
         _abCtx = null;
         return false;
       }
