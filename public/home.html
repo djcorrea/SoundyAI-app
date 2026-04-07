@@ -2266,6 +2266,7 @@
     _state.masterJobId      = null;
     _state.creditConsumed   = false;
     _state.pendingAction    = false;
+    _state.downloadUrl      = '';
 
     // Update uploading panel filename display
     var fnEl = document.getElementById('hubUploadFileName');
@@ -2557,6 +2558,9 @@
       comparisonHtml = '';
     }
 
+    // Armazena URL no estado — downloadMaster() usa _state.downloadUrl (sem injeção via href)
+    _state.downloadUrl = data.downloadUrl || '';
+
     container.innerHTML = '<div class="am-wrapper am-result-wrapper">'
       + '<div class="am-result-header">'
       +   '<div class="am-success-icon">✓</div>'
@@ -2567,9 +2571,9 @@
       + comparisonHtml
       + playerHtml
       + '<div class="am-result-actions">'
-      +   '<a class="am-download-btn" href="' + data.downloadUrl + '" onclick="event.preventDefault();downloadMaster(this.href)">'
+      +   '<button class="am-download-btn" type="button" onclick="downloadMaster()">'
       +     '⬇ BAIXAR FAIXA MASTERIZADA'
-      +   '</a>'
+      +   '</button>'
       +   '<button class="am-secondary-btn" type="button" onclick="resetMasterFlow()">Masterizar outra faixa</button>'
       + '</div>'
       + '</div>';
@@ -2918,6 +2922,7 @@
     _state.masterJobId     = null;
     _state.creditConsumed  = false;
     _state.pendingAction   = false;
+    _state.downloadUrl     = '';
 
     renderModeSelection();
   };
@@ -2997,6 +3002,7 @@ function renderModeSelection() {
     _state.masterJobId    = null;
     _state.creditConsumed = false;
     _state.pendingAction  = false;
+    _state.downloadUrl    = '';
     var container = document.getElementById('uploadHub');
     if (container && container.__originalHTML__) {
       container.innerHTML = container.__originalHTML__;
@@ -3201,26 +3207,129 @@ function renderModeSelection() {
   }
 
   /**
-   * Baixa a faixa masterizada, garantindo execução única (sem duplo consumo).
-   * @param {string} url  URL pre-assinada do arquivo masterizado
+   * Verifica acesso do usuário ao download da master.
+   * Prioridade: studio > plus/pro/dj > free_trial_not_used > credits > job_em_sessão
+   * @returns {Promise<{allowed:boolean, reason:string}>}
    */
-  window.downloadMaster = function downloadMaster(url) {
-    // Guard 1: flag em memória (protege dentro da sessão)
+  async function checkMasterDownloadAccess() {
+    var auth = window.__firebaseAuth || null;
+    var user = auth ? auth.currentUser : null;
+    if (!user) return { allowed: false, reason: 'NOT_AUTHENTICATED' };
+    try { await getValidIdToken(); } catch (_) { return { allowed: false, reason: 'NOT_AUTHENTICATED' }; }
+
+    // Verificação via Firestore (plano/créditos reais)
+    try {
+      var db = window.__firebaseDb || null;
+      if (db) {
+        var _fs = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+        var snap = await _fs.getDoc(_fs.doc(db, 'usuarios', user.uid));
+        if (snap.exists()) {
+          var data = snap.data();
+          var plan      = data.plan || 'free';
+          var freeUsed  = data.automasterFreeUsed ?? false;
+          var credits   = typeof data.automasterCredits === 'number' ? data.automasterCredits : 0;
+          if (plan === 'studio')                       return { allowed: true, reason: 'studio_unlimited' };
+          if (['plus','pro','dj'].includes(plan))      return { allowed: true, reason: 'paid_plan' };
+          if (!freeUsed)                               return { allowed: true, reason: 'free_trial' };
+          if (credits > 0)                             return { allowed: true, reason: 'paid_credits' };
+          // Usuário free que já usou trial E não tem créditos —
+          // mas possui job desta sessão (crédito foi consumido pelo backend para este job).
+          if (_state.masterJobId)                      return { allowed: true, reason: 'session_job' };
+          return { allowed: false, reason: 'NO_CREDITS' };
+        }
+      }
+    } catch (e) {
+      console.warn('[HOME-MASTER] Firestore check falhou, usando fallback de sessão:', e.message);
+    }
+    // Fallback: se há job na sessão, o backend já verificou o acesso
+    if (_state.masterJobId) return { allowed: true, reason: 'session_job_fallback' };
+    return { allowed: false, reason: 'NO_CREDITS' };
+  }
+
+  /**
+   * Baixa a faixa masterizada forçando download binário (sem abrir nova aba).
+   * Verifica autenticação e plano/créditos antes de iniciar o download.
+   * URL lida de _state.downloadUrl (nunca de atributo HTML — segurança).
+   */
+  window.downloadMaster = async function downloadMaster() {
+    var url = _state.downloadUrl || '';
+    if (!url) {
+      console.error('[HOME-MASTER] URL de download ausente em _state.downloadUrl.');
+      return;
+    }
+
+    // Guard 1: flag em memória (anti-duplo-clique na sessão)
     if (_state.creditConsumed) {
       console.warn('[HOME-MASTER] Download já realizado para este job (creditConsumed). Bloqueado.');
       return;
     }
-    // Guard 2: localStorage (protege contra refresh da página com mesmo jobId)
+    // Guard 2: localStorage (anti-replay após refresh de página com mesmo jobId)
     var lastJob = localStorage.getItem('lastDownloadJob');
     if (_state.masterJobId && lastJob === String(_state.masterJobId)) {
       console.warn('[HOME-MASTER] Download bloqueado por localStorage. jobId:', _state.masterJobId);
       return;
     }
+
+    // ── CONTROLE DE ACESSO ─────────────────────────────────────────────────────
+    var access = await checkMasterDownloadAccess();
+    console.log('[HOME-MASTER] Acesso ao download:', access);
+    if (!access.allowed) {
+      if (access.reason === 'NOT_AUTHENTICATED') {
+        _state.pendingAction = true;
+        openLoginModal();
+      } else {
+        // NO_CREDITS ou acesso inválido → modal de upgrade
+        renderUpgradeModal();
+      }
+      return;
+    }
+
+    // Marcar como consumido (anti-duplo-clique)
     _state.creditConsumed = true;
     if (_state.masterJobId) {
       localStorage.setItem('lastDownloadJob', String(_state.masterJobId));
     }
-    window.open(url, '_blank');
+
+    // ── DOWNLOAD VIA PROXY BACKEND (sem abrir nova aba, sem expor URL do storage) ─
+    // Usa /api/automaster/download/:jobId que serve o arquivo com Content-Disposition:attachment
+    // e nunca expõe a URL original do S3/Firebase Storage ao cliente.
+    var baseName = (_state.fileName || 'master').replace(/\.[^.]+$/, '');
+    var downloadName = 'soundyai-master-' + baseName + '.wav';
+    var proxyUrl = _state.masterJobId
+      ? '/api/automaster/download/' + encodeURIComponent(_state.masterJobId)
+      : url; // fallback para URL direta apenas se jobId não disponível
+    try {
+      var token = null;
+      try { token = await getValidIdToken(); } catch (_) {}
+      var hdrs = token ? { 'Authorization': 'Bearer ' + token } : {};
+      var res = await fetch(proxyUrl, { headers: hdrs });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var blob = await res.blob();
+      var objUrl = window.URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = objUrl;
+      a.download = downloadName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { window.URL.revokeObjectURL(objUrl); }, 10000);
+    } catch (e) {
+      console.warn('[HOME-MASTER] Proxy download falhou, tentando URL direta:', e.message);
+      // Fallback: URL direta com blob
+      try {
+        var res2 = await fetch(url);
+        if (!res2.ok) throw new Error('HTTP ' + res2.status);
+        var blob2 = await res2.blob();
+        var objUrl2 = window.URL.createObjectURL(blob2);
+        var a2 = document.createElement('a');
+        a2.href = objUrl2; a2.download = downloadName;
+        document.body.appendChild(a2); a2.click(); a2.remove();
+        setTimeout(function () { window.URL.revokeObjectURL(objUrl2); }, 10000);
+      } catch (e2) {
+        console.warn('[HOME-MASTER] Fallback direto também falhou:', e2.message);
+        alert('Erro ao baixar a master. Tente novamente.');
+      }
+    }
   };
 
   // ── LOGIN INLINE (Fase 3) ───────────────────────────────────────────────
@@ -3697,9 +3806,9 @@ function renderModeSelection() {
   document.querySelectorAll('.dt-expand-body:not([hidden])').forEach(addSectionTitles);
 })();
 </script>
-<!-- Firebase Auth — expõe window.__firebaseAuth + helpers de login/cadastro inline -->
+<!-- Firebase Auth — expõe window.__firebaseAuth, window.__firebaseDb + helpers de login/cadastro inline -->
 <script type="module">
-import { auth } from './firebase.js';
+import { auth, db } from './firebase.js';
 import {
   onAuthStateChanged,
   GoogleAuthProvider,
@@ -3709,6 +3818,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
 
 window.__firebaseAuth = auth;
+window.__firebaseDb = db;
 window.__firebaseAuthReady = window.__firebaseAuthReady || new Promise(function (resolve) {
   var unsub = onAuthStateChanged(auth, function (user) { unsub(); resolve(user); });
 });

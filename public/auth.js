@@ -526,103 +526,11 @@ log('🚀 Carregando auth.js...');
         log('   Email:', user.email);
         
         // ═══════════════════════════════════════════════════════════════════
-        // PASSO 2: Criar documento Firestore imediatamente
+        // PASSO 2: Criar documento Firestore via função centralizada
         // ═══════════════════════════════════════════════════════════════════
         log('💾 Criando documento Firestore...');
-        
-        const displayName = user.email?.split('@')[0] || 'User';
-        
-        // Obter dados de tracking
-        const visitorId = localStorage.getItem('soundy_visitor_id') || null;
-        const referralCode = localStorage.getItem('soundy_referral_code') || null;
-        const utm_source = localStorage.getItem('soundy_utm_source') || null;
-        const utm_medium = localStorage.getItem('soundy_utm_medium') || null;
-        const utm_campaign = localStorage.getItem('soundy_utm_campaign') || null;
-        const gclid = localStorage.getItem('soundy_gclid') || null;
-        const anon_id = localStorage.getItem('soundy_anon_id') || null;
-        
-        // Obter deviceId
-        let deviceId = 'email_signup_' + Date.now();
-        try {
-          if (window.SoundyFingerprint) {
-            const fpData = await window.SoundyFingerprint.get();
-            deviceId = fpData.fingerprint_hash;
-          }
-        } catch (e) {
-          log('⚠️ Fingerprint não disponível, usando fallback');
-        }
-        
-        const newUserDoc = {
-          // Identificação
-          uid: user.uid,
-          email: user.email,
-          displayName: displayName,
-          phoneNumber: null,
-          deviceId: deviceId,
-          authType: 'email',
-          
-          // ✅ Verificação (sempre true para email/senha)
-          verified: true,
-          verifiedAt: serverTimestamp(),
-          bypassSMS: true,
-          
-          // Plano
-          plan: 'free',
-          freeAnalysesRemaining: 1,
-          reducedMode: false,
-          
-          // Limites
-          messagesToday: 0,
-          analysesToday: 0,
-          messagesMonth: 0,
-          analysesMonth: 0,
-          imagesMonth: 0,
-          billingMonth: new Date().toISOString().slice(0, 7),
-          lastResetAt: new Date().toISOString().slice(0, 10),
-          
-          // Status
-          onboardingCompleted: false,
-          
-          // Afiliados
-          visitorId: visitorId,
-          referralCode: referralCode,
-          referralTimestamp: localStorage.getItem('soundy_referral_timestamp') || null,
-          convertedAt: null,
-          firstPaidPlan: null,
-          
-          // Assinaturas
-          plusExpiresAt: null,
-          proExpiresAt: null,
-          studioExpiresAt: null,
-          
-          // Attribution
-          anon_id: anon_id,
-          utm_source: utm_source,
-          utm_medium: utm_medium,
-          utm_campaign: utm_campaign,
-          utm_term: localStorage.getItem('soundy_utm_term') || null,
-          utm_content: localStorage.getItem('soundy_utm_content') || null,
-          gclid: gclid,
-          first_seen_attribution: localStorage.getItem('soundy_first_seen') ? {
-            timestamp: localStorage.getItem('soundy_first_seen'),
-            landing_page: localStorage.getItem('soundy_landing_page'),
-            referrer: localStorage.getItem('soundy_referrer')
-          } : null,
-          
-          // Metadata
-          origin: 'email_signup',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          lastLoginAt: serverTimestamp()
-        };
-        
-        // Criar documento
-        const userRef = doc(db, 'usuarios', user.uid);
-        await setDoc(userRef, newUserDoc);
-        
+        await ensureUserDocument(user, { provider: 'email' });
         log('✅ Documento Firestore criado com sucesso');
-        log('   Plan: free');
-        log('   Verified: true');
         
         // ═══════════════════════════════════════════════════════════════════
         // PASSO 3: Salvar tokens e inicializar sessão
@@ -1445,8 +1353,8 @@ log('🚀 Carregando auth.js...');
      * @param {string} options.referralCode - Código de afiliado (opcional)
      * @returns {Promise<{created: boolean, updated: boolean}>}
      */
-    // ── LOCK: previne execução paralela de ensureUserDocument para o mesmo UID ──
-    const _ensureUserLocks = new Set();
+    // ── LOCK: previne execução paralela de ensureUserDocument ──
+    let _isEnsuringUser = false;
 
     async function ensureUserDocument(user, options = {}) {
       if (!user || !user.uid) {
@@ -1454,12 +1362,12 @@ log('🚀 Carregando auth.js...');
         return { created: false, updated: false };
       }
 
-      // ── DEDUPLICAÇÃO: se já há execução em andamento para este UID, ignorar ──
-      if (_ensureUserLocks.has(user.uid)) {
-        log('🔒 [ENSURE-USER] Execução em andamento para UID:', user.uid, '— chamada duplicada ignorada');
+      // ── DEDUPLICAÇÃO: se já há execução em andamento, ignorar silenciosamente ──
+      if (_isEnsuringUser) {
+        log('🔒 [ENSURE-USER] Execução em andamento — chamada duplicada ignorada');
         return { created: false, updated: false };
       }
-      _ensureUserLocks.add(user.uid);
+      _isEnsuringUser = true;
 
       const {
         provider = 'unknown',
@@ -1682,12 +1590,7 @@ log('🚀 Carregando auth.js...');
           }
         }
         
-        // 🔍 AUDITORIA: ESCRITA NO FIRESTORE (CRIAÇÃO)
-        console.log('[FIRESTORE-WRITE usuarios] auth.js ensureUserDocument() linha ~1659');
-        console.log('[FIRESTORE-WRITE usuarios] Operação: setDoc (criação nova)');
-        console.log('[FIRESTORE-WRITE usuarios] Payload completo:', validatedDoc);
-        console.warn('[POSSIBLE OVERWRITE usuarios] setDoc criação de documento novo', new Error().stack);
-        
+        log('[ENSURE-USER] Criando documento novo no Firestore para UID:', user.uid);
         await setDoc(userRef, validatedDoc);
         
         log('✅ [ENSURE-USER] Documento criado com sucesso!');
@@ -1709,12 +1612,9 @@ log('🚀 Carregando auth.js...');
         return { created: true, updated: false };
         
       } catch (err) {
-        error('❌ [ENSURE-USER] Erro ao garantir documento:', err);
-        error('   UID:', user.uid);
-        error('   Stack:', err.stack);
-        throw err;
+        error('❌ [ENSURE-USER] Erro ao garantir documento:', err.message || err);
       } finally {
-        _ensureUserLocks.delete(user.uid);
+        _isEnsuringUser = false;
       }
     }
 
