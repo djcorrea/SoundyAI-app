@@ -136,7 +136,14 @@
                 
                 oscillator.start(0);
                 
+                let _audioFingerprintDone = false;
+                let _audioFingerprintTimer = null;
+
                 scriptProcessor.onaudioprocess = function(event) {
+                    if (_audioFingerprintDone) return;
+                    _audioFingerprintDone = true;
+                    if (_audioFingerprintTimer) clearTimeout(_audioFingerprintTimer);
+
                     const data = new Float32Array(analyser.fftSize);
                     analyser.getFloatFrequencyData(data);
                     
@@ -148,16 +155,18 @@
                     oscillator.disconnect();
                     scriptProcessor.disconnect();
                     gainNode.disconnect();
-                    context.close();
+                    if (context.state !== 'closed') context.close();
                     
                     resolve(fingerprint.join(','));
                 };
                 
                 // Timeout de segurança
-                setTimeout(() => {
+                _audioFingerprintTimer = setTimeout(() => {
+                    if (_audioFingerprintDone) return;
+                    _audioFingerprintDone = true;
                     try {
                         oscillator.disconnect();
-                        context.close();
+                        if (context.state !== 'closed') context.close();
                     } catch (e) {}
                     resolve('audio_timeout');
                 }, 500);

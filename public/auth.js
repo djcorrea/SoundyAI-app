@@ -1445,11 +1445,21 @@ log('🚀 Carregando auth.js...');
      * @param {string} options.referralCode - Código de afiliado (opcional)
      * @returns {Promise<{created: boolean, updated: boolean}>}
      */
+    // ── LOCK: previne execução paralela de ensureUserDocument para o mesmo UID ──
+    const _ensureUserLocks = new Set();
+
     async function ensureUserDocument(user, options = {}) {
       if (!user || !user.uid) {
         error('❌ [ENSURE-USER] user ou user.uid é inválido');
         return { created: false, updated: false };
       }
+
+      // ── DEDUPLICAÇÃO: se já há execução em andamento para este UID, ignorar ──
+      if (_ensureUserLocks.has(user.uid)) {
+        log('🔒 [ENSURE-USER] Execução em andamento para UID:', user.uid, '— chamada duplicada ignorada');
+        return { created: false, updated: false };
+      }
+      _ensureUserLocks.add(user.uid);
 
       const {
         provider = 'unknown',
@@ -1703,6 +1713,8 @@ log('🚀 Carregando auth.js...');
         error('   UID:', user.uid);
         error('   Stack:', err.stack);
         throw err;
+      } finally {
+        _ensureUserLocks.delete(user.uid);
       }
     }
 
