@@ -792,6 +792,10 @@ app.get('/api/automaster/status/:jobId', verifyFirebaseToken, async (req, res) =
         truePeakBefore: job.true_peak_before  ? parseFloat(job.true_peak_before)  : null,
         lufsAfter:      job.lufs_after        ? parseFloat(job.lufs_after)        : null,
         truePeakAfter:  job.true_peak_after   ? parseFloat(job.true_peak_after)   : null,
+        drBefore:       job.dr_before         ? parseFloat(job.dr_before)         : null,
+        drAfter:        job.dr_after          ? parseFloat(job.dr_after)          : null,
+        headroomBefore: job.headroom_before   ? parseFloat(job.headroom_before)   : null,
+        headroomAfter:  job.headroom_after    ? parseFloat(job.headroom_after)    : null,
       };
 
       response.message = 'Masterização concluída com sucesso';

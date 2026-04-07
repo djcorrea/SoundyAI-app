@@ -2480,6 +2480,8 @@
 
     // ── PARTE 5: Validação de métricas ──────────────────────────────
     var m = data.metrics || {};
+    console.log('[AUTOMASTER] BEFORE METRICS:', JSON.stringify({ lufs: m.lufsBefore, truePeak: m.truePeakBefore, dr: m.drBefore, headroom: m.headroomBefore }));
+    console.log('[AUTOMASTER] AFTER METRICS:', JSON.stringify({ lufs: m.lufsAfter, truePeak: m.truePeakAfter, dr: m.drAfter, headroom: m.headroomAfter }));
     var hasMetrics = (m.lufsAfter !== undefined && m.lufsAfter !== null)
                   || (m.lufsBefore !== undefined && m.lufsBefore !== null);
     if (!hasMetrics) {

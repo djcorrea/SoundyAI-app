@@ -505,13 +505,26 @@ async function processJob(job) {
     }
 
     // 8c. Extrair métricas para exibição no preview
+    console.log('[MASTER-METRICS] Extraindo métricas. Pipeline status:', pipelineResult.status);
     const _lastAttempt = pipelineResult.attempts && pipelineResult.attempts.length
       ? pipelineResult.attempts[pipelineResult.attempts.length - 1]
       : null;
-    const _lufsBefore     = pipelineResult.aptitude_check?.measured?.lufs_i ?? null;
-    const _tpBefore       = pipelineResult.aptitude_check?.measured?.true_peak_db ?? null;
+    // BEFORE: aptitude_check.measured tem prioridade; fallback: precheck_initial.metrics
+    const _lufsBefore     = pipelineResult.aptitude_check?.measured?.lufs_i
+                         ?? pipelineResult.precheck_initial?.metrics?.integrated_lufs
+                         ?? null;
+    const _tpBefore       = pipelineResult.aptitude_check?.measured?.true_peak_db
+                         ?? pipelineResult.precheck_initial?.metrics?.true_peak_db
+                         ?? null;
+    const _drBefore       = pipelineResult.precheck_initial?.metrics?.estimated_dr ?? null;
+    const _headroomBefore = (_tpBefore != null) ? parseFloat((0 - _tpBefore).toFixed(1)) : null;
+    // AFTER: postcheck.metrics do último attempt
     const _lufsAfter      = _lastAttempt?.postcheck?.metrics?.lufs_i ?? null;
     const _tpAfter        = _lastAttempt?.postcheck?.metrics?.true_peak_dbtp ?? null;
+    const _drAfter        = _lastAttempt?.postcheck?.metrics?.dr ?? null;
+    const _headroomAfter  = (_tpAfter != null) ? parseFloat((0 - _tpAfter).toFixed(1)) : null;
+    console.log('[MASTER-METRICS] BEFORE:', { lufs: _lufsBefore, tp: _tpBefore, dr: _drBefore, headroom: _headroomBefore });
+    console.log('[MASTER-METRICS] AFTER:', { lufs: _lufsAfter, tp: _tpAfter, dr: _drAfter, headroom: _headroomAfter });
 
     // 9. Cleanup (95%)
     await job.updateProgress(95);
@@ -538,10 +551,14 @@ async function processJob(job) {
       warning_message: (completedWithWarning || completedSafe) ? (pipelineResult.message || '').substring(0, 500) : '',
       delivery_mode: deliveryMode,
       preview_after_key:  previewAfterKey  || '',
-      lufs_before:        _lufsBefore  != null ? String(_lufsBefore)  : '',
-      true_peak_before:   _tpBefore    != null ? String(_tpBefore)    : '',
-      lufs_after:         _lufsAfter   != null ? String(_lufsAfter)   : '',
-      true_peak_after:    _tpAfter     != null ? String(_tpAfter)     : ''
+      lufs_before:        _lufsBefore     != null ? String(_lufsBefore)     : '',
+      true_peak_before:   _tpBefore       != null ? String(_tpBefore)       : '',
+      lufs_after:         _lufsAfter      != null ? String(_lufsAfter)      : '',
+      true_peak_after:    _tpAfter        != null ? String(_tpAfter)        : '',
+      dr_before:          _drBefore       != null ? String(_drBefore)       : '',
+      dr_after:           _drAfter        != null ? String(_drAfter)        : '',
+      headroom_before:    _headroomBefore != null ? String(_headroomBefore) : '',
+      headroom_after:     _headroomAfter  != null ? String(_headroomAfter)  : ''
     });
 
     // 11b. Sincronizar com PostgreSQL (permite /api/jobs/:id retornar status correto)
