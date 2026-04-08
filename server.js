@@ -893,7 +893,7 @@ app.get('/api/automaster/status/:jobId', verifyFirebaseToken, async (req, res) =
 });
 
 // 🔄 CONFIRMAR MASTERIZAÇÃO SEGURA: Re-enfileira job com safeMode=true após confirmação do usuário
-app.post('/api/automaster/confirm/:jobId', async (req, res) => {
+app.post('/api/automaster/confirm/:jobId', verifyFirebaseToken, async (req, res) => {
   try {
     const { jobId } = req.params;
 
@@ -907,6 +907,10 @@ app.post('/api/automaster/confirm/:jobId', async (req, res) => {
 
     if (!job) {
       return res.status(404).json({ error: 'Job não encontrado', jobId });
+    }
+
+    if (job.user_id && job.user_id !== 'anonymous' && job.user_id !== req.user.uid) {
+      return res.status(403).json({ error: 'Acesso negado' });
     }
 
     if (job.status !== 'needs_confirmation') {
@@ -964,7 +968,7 @@ app.post('/api/automaster/confirm/:jobId', async (req, res) => {
 });
 
 // 📥 PROXY DOWNLOAD: Faz download do arquivo final pelo servidor (evita CORS com URLs assinadas)
-app.get('/api/automaster/download/:jobId', async (req, res) => {
+app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res) => {
   try {
     const { jobId } = req.params;
 
@@ -976,6 +980,10 @@ app.get('/api/automaster/download/:jobId', async (req, res) => {
 
     if (!job || job.status !== 'completed' || !job.output_key) {
       return res.status(404).json({ error: 'Download não disponível' });
+    }
+
+    if (job.user_id && job.user_id !== 'anonymous' && job.user_id !== req.user.uid) {
+      return res.status(403).json({ error: 'Acesso negado' });
     }
 
     const buffer = await storageServiceModule.downloadFile(job.output_key);
@@ -1053,12 +1061,10 @@ app.get("/api/config", (req, res) => {
   
   // Nunca expor a chave completa, apenas confirmar que existe
   if (openaiApiKey && openaiApiKey !== 'your_openai_api_key_here') {
-    // Retornar apenas os primeiros 10 caracteres + hash para validação
     const masked = openaiApiKey.substring(0, 10) + '...';
     console.log('🔑 [CONFIG-API] API Key disponível:', masked);
     
     res.json({
-      openaiApiKey: openaiApiKey, // 🚨 FRONTEND PRECISA DA CHAVE COMPLETA PARA CHAMAR OPENAI
       aiModel: process.env.AI_MODEL || 'gpt-3.5-turbo',
       configured: true
     });

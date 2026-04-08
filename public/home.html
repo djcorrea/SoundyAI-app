@@ -2273,9 +2273,11 @@
     _state.pendingAction    = false;
     _state.downloadUrl      = '';
 
-    // Salvar nome original imediatamente (sem aguardar upload)
-    _state.fileName = file.name;
+    // Salvar nome ORIGINAL imediatamente — nunca será sobrescrito pelo servidor
+    _state.originalFileName   = file.name;
+    _state.fileName           = file.name;
     window.__HOME_FILE_NAME__ = file.name;
+    window.lastUploadedFileName = file.name;
 
     // Update uploading panel filename display
     var fnEl = document.getElementById('hubUploadFileName');
@@ -2308,11 +2310,14 @@
       window.uploadFileOnly(file)
         .then(function (result) {
           _state.fileKey  = result.fileKey;
-          _state.fileName = result.fileName;
-
-          // Persist for external access
+          // Preservar nome original do artista — NÃO sobrescrever com nome do servidor
+          // _state.originalFileName já foi setado com file.name antes do upload
+          if (result.fileName && result.fileName !== 'audio') {
+            _state.fileName = result.fileName;
+          }
+          // window.__HOME_FILE_NAME__ sempre preserva o nome real do arquivo do usuário
           window.__HOME_FILE_KEY__  = result.fileKey;
-          window.__HOME_FILE_NAME__ = result.fileName;
+          // NÃO sobrescrever __HOME_FILE_NAME__ com nome do servidor
 
           hideProgress();
 
@@ -2922,13 +2927,33 @@
   function resolveFileKey() {
     return _state.fileKey || _state.analysisFileKey || window.__HOME_FILE_KEY__ || null;
   }
+  /**
+   * Resolve o nome ORIGINAL da faixa enviada pelo usuário.
+   * Garante que o nome real nunca seja substituído por fallbacks genéricos do servidor.
+   */
+  function resolveOriginalTrackName() {
+    var candidates = [
+      _state.originalFileName,
+      window.lastUploadedFileName,
+      _state.fileName,
+      _state.analysisFileName,
+      window.__HOME_FILE_NAME__,
+      window.__PENDING_FILE_NAME__,
+      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('pendingFileName')),
+      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('originalFileName'))
+    ];
+    for (var i = 0; i < candidates.length; i++) {
+      var v = candidates[i];
+      if (typeof v === 'string' && v.trim() && v.trim() !== 'audio') {
+        return v.trim();
+      }
+    }
+    return null;
+  }
+
+  // Mantida para compatibilidade com outros usos no arquivo
   function resolveFileName() {
-    return _state.fileName
-        || _state.analysisFileName
-        || window.__HOME_FILE_NAME__
-        || window.__PENDING_FILE_NAME__
-        || (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('pendingFileName'))
-        || '';
+    return resolveOriginalTrackName() || '';
   }
 
   /**
@@ -3049,11 +3074,15 @@ function renderModeSelection() {
     }
     if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
     if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
-    _state.masterMode     = null;
-    _state.masterJobId    = null;
-    _state.creditConsumed = false;
-    _state.pendingAction  = false;
-    _state.downloadUrl    = '';
+    _state.masterMode        = null;
+    _state.masterJobId       = null;
+    _state.creditConsumed    = false;
+    _state.pendingAction     = false;
+    _state.downloadUrl       = '';
+    _state.originalFileName  = null;
+    _state.fileName          = null;
+    window.lastUploadedFileName = null;
+    window.__HOME_FILE_NAME__   = null;
     var container = document.getElementById('uploadHub');
     if (container && container.__originalHTML__) {
       container.innerHTML = container.__originalHTML__;
@@ -3268,15 +3297,35 @@ function renderModeSelection() {
    * @param {string} originalName  Nome do arquivo original (com ou sem extensão)
    * @returns {string}  Ex: "master-soundyai_minha_musica.wav"
    */
+  function splitFileName(fileName) {
+    if (!fileName || typeof fileName !== 'string') return { base: 'audio', ext: 'wav' };
+    var trimmed = fileName.trim();
+    var lastDot = trimmed.lastIndexOf('.');
+    if (lastDot <= 0 || lastDot === trimmed.length - 1) return { base: trimmed, ext: 'wav' };
+    return { base: trimmed.slice(0, lastDot), ext: trimmed.slice(lastDot + 1).toLowerCase() };
+  }
+
+  function sanitizeBaseName(name) {
+    return (name || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')  // remove acentos
+      .replace(/[\/\\:*?"<>|]+/g, '')   // remove chars inválidos em nomes de arquivo
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toLowerCase();
+  }
+
+  function buildMasterDownloadName(originalFileName) {
+    var parts = splitFileName(originalFileName || 'audio.wav');
+    var sanitizedBase = sanitizeBaseName(parts.base) || 'audio';
+    var safeExt = parts.ext || 'wav';
+    return 'master-soundyai_' + sanitizedBase + '.' + safeExt;
+  }
+
+  // Mantida para compatibilidade com usos legados no código
   function generateDownloadFilename(originalName) {
-    var base = (originalName || 'audio')
-      .replace(/\.[^.]+$/, '')   // remove extensão
-      .toLowerCase()              // minúsculas
-      .replace(/\s+/g, '_')      // espaços → _
-      .replace(/[^a-z0-9_\-]/g, '_') // remove caracteres inválidos
-      .replace(/_+/g, '_')       // múltiplos _ → um só
-      .replace(/^_|_$/g, '');    // trim _ nas bordas
-    return 'master-soundyai_' + (base || 'audio') + '.wav';
+    return buildMasterDownloadName(originalName);
   }
 
   /**
@@ -3363,29 +3412,52 @@ function renderModeSelection() {
       localStorage.setItem('lastDownloadJob', String(_state.masterJobId));
     }
 
-    // ── DOWNLOAD VIA LINK DIRETO (sem fetch — evita interceptores de demo/entitlements) ─
-    // O endpoint /api/automaster/download/:jobId retorna Content-Disposition:attachment,
-    // portanto o browser baixa automaticamente sem abrir nova aba.
-    // Usar <a> direto evita bloqueios dos wrappers de window.fetch (entitlements/demo-core).
-    var resolvedName = resolveFileName();
-    console.log('[HOME-MASTER] resolveFileName:', resolvedName, '| _state.fileName:', _state.fileName,
-      '| analysisFileName:', _state.analysisFileName, '| __HOME_FILE_NAME__:', window.__HOME_FILE_NAME__,
-      '| __PENDING_FILE_NAME__:', window.__PENDING_FILE_NAME__,
-      '| sessionStorage.pendingFileName:', (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('pendingFileName')));
-    var downloadName = generateDownloadFilename(resolvedName || 'audio');
+    // ── RESOLVE NOME ORIGINAL E MONTA NOME DO DOWNLOAD ───────────────────────
+    var resolvedOriginalName = resolveOriginalTrackName();
+    var downloadName = buildMasterDownloadName(resolvedOriginalName);
+    console.log('[DOWNLOAD] originalFileName=' + resolvedOriginalName +
+      ' | finalDownloadName=' + downloadName +
+      ' | sources: originalFileName=' + _state.originalFileName +
+      ', lastUploaded=' + window.lastUploadedFileName +
+      ', fileName=' + _state.fileName +
+      ', analysisFileName=' + _state.analysisFileName +
+      ', __HOME_FILE_NAME__=' + window.__HOME_FILE_NAME__);
 
     // Preferir proxy backend (mesma origem, sem CORS, arquivo renomeado)
     var downloadHref = _state.masterJobId
       ? '/api/automaster/download/' + encodeURIComponent(_state.masterJobId)
       : url;
 
-    var a = document.createElement('a');
-    a.href = downloadHref;
-    a.download = downloadName;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // Usar XHR nativo para evitar os wrappers de window.fetch (entitlements/demo interceptors)
+    try {
+      var dlToken = null;
+      try { dlToken = await getValidIdToken(); } catch (_) {}
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', downloadHref, true);
+      if (dlToken) xhr.setRequestHeader('Authorization', 'Bearer ' + dlToken);
+      xhr.responseType = 'blob';
+      xhr.onload = function () {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          var dlObjUrl = URL.createObjectURL(xhr.response);
+          var a = document.createElement('a');
+          a.href = dlObjUrl;
+          a.download = downloadName;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function () { URL.revokeObjectURL(dlObjUrl); }, 10000);
+        } else {
+          console.warn('[HOME-MASTER] Erro no download: HTTP ' + xhr.status);
+        }
+      };
+      xhr.onerror = function () {
+        console.warn('[HOME-MASTER] Erro no download: falha de rede (XHR)');
+      };
+      xhr.send();
+    } catch (dlErr) {
+      console.warn('[HOME-MASTER] Erro no download:', dlErr.message);
+    }
   };
 
   // ── LOGIN INLINE (Fase 3) ───────────────────────────────────────────────
