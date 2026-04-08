@@ -2123,7 +2123,6 @@
     creditConsumed:   false,  // Fase 3: impede duplo consumo de crédito
     _masterPollTimer: null,   // Fase 3: referência global ao setInterval do polling
     pendingAction:    false,  // Fase 3.1: intenção confirmada pelo usuário antes do login
-    pendingAnalysis:  false,  // login pendente antes de iniciar análise
     _progressTimer:   null,   // Fase 4: fake progress bar timer
     _textTimer:       null    // Fase 4: cycling text timer
   };
@@ -2273,6 +2272,10 @@
     _state.pendingAction    = false;
     _state.downloadUrl      = '';
 
+    // Salvar nome original imediatamente (sem aguardar upload)
+    _state.fileName = file.name;
+    window.__HOME_FILE_NAME__ = file.name;
+
     // Update uploading panel filename display
     var fnEl = document.getElementById('hubUploadFileName');
     if (fnEl) fnEl.textContent = file.name;
@@ -2368,19 +2371,6 @@
       showError('Nenhum arquivo encontrado. Por favor, envie uma faixa primeiro.');
       return;
     }
-
-    // ── VERIFICAÇÃO DE LOGIN (antes do spinner) ──────────────
-    var _authObj  = window.__firebaseAuth || null;
-    var _currUser = _authObj ? _authObj.currentUser : null;
-    if (!_currUser) {
-      _state.pendingAnalysis = true;
-      openLoginModal({
-        title:    'Crie sua conta para analisar e masterizar sua música',
-        subtitle: 'Sem cadastro não é possível iniciar a análise'
-      });
-      return;
-    }
-
     if (typeof window.runAnalysisFromFileKey !== 'function') {
       showError('Motor não pronto. Por favor, aguarde um momento e tente novamente.');
       return;
@@ -2918,7 +2908,12 @@
     return _state.fileKey || _state.analysisFileKey || window.__HOME_FILE_KEY__ || null;
   }
   function resolveFileName() {
-    return _state.fileName || _state.analysisFileName || window.__HOME_FILE_NAME__ || '';
+    return _state.fileName
+        || _state.analysisFileName
+        || window.__HOME_FILE_NAME__
+        || window.__PENDING_FILE_NAME__
+        || (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('pendingFileName'))
+        || '';
   }
 
   /**
@@ -2955,17 +2950,23 @@
     }
     _state.analysisOpen = false;
 
-    // Aguarda 1 frame para garantir que o modal foi removido do fluxo de pintura
-    // antes de renderizar a interface de seleção de intensidade.
-    requestAnimationFrame(function () {
-      renderModeSelection();
-    });
+    // Executa sincronamente — tudo no mesmo tick JS, antes de qualquer paint.
+    // Garante que o container não seja calculado com a altura do estado anterior
+    // (idle/uploaded) entre o fechamento do modal e a injeção do am-wrapper.
+    renderModeSelection();
   };
 
 function renderModeSelection() {
     var container = document.getElementById('uploadHub');
     if (!container) { console.error('[HOME-MASTER] #uploadHub não encontrado'); return; }
     container.__originalHTML__ = container.innerHTML;
+    // Salva e limpa classe de estado para garantir renderização consistente
+    // independente de qual fluxo (direto ou pós-análise) acionou o master.
+    container.__originalStateClass__ = ['is-idle','is-uploading','is-uploaded','is-analyzing']
+      .find(function (c) { return container.classList.contains(c); }) || '';
+    ['is-idle', 'is-uploading', 'is-uploaded', 'is-analyzing'].forEach(function (c) {
+      container.classList.remove(c);
+    });
 
     var modes = [
       { key: 'LOW',     icon: '🌿', name: 'SUAVE',       lufs: '~ −14 LUFS', tagline: 'Dinâmica preservada, som natural'         },
@@ -3041,7 +3042,12 @@ function renderModeSelection() {
     var container = document.getElementById('uploadHub');
     if (container && container.__originalHTML__) {
       container.innerHTML = container.__originalHTML__;
+      // Restaura a classe de estado salva antes do master flow
+      if (container.__originalStateClass__) {
+        container.classList.add(container.__originalStateClass__);
+      }
       container.__originalHTML__ = null;
+      container.__originalStateClass__ = null;
       // Re-attach event listeners que existiam no HTML do hub
       // (os inline onclick são preservados no HTML restaurado)
       // Mas precisamos re-inicializar os event listeners do DOMContentLoaded
@@ -3346,7 +3352,12 @@ function renderModeSelection() {
     // O endpoint /api/automaster/download/:jobId retorna Content-Disposition:attachment,
     // portanto o browser baixa automaticamente sem abrir nova aba.
     // Usar <a> direto evita bloqueios dos wrappers de window.fetch (entitlements/demo-core).
-    var downloadName = generateDownloadFilename(resolveFileName() || 'audio');
+    var resolvedName = resolveFileName();
+    console.log('[HOME-MASTER] resolveFileName:', resolvedName, '| _state.fileName:', _state.fileName,
+      '| analysisFileName:', _state.analysisFileName, '| __HOME_FILE_NAME__:', window.__HOME_FILE_NAME__,
+      '| __PENDING_FILE_NAME__:', window.__PENDING_FILE_NAME__,
+      '| sessionStorage.pendingFileName:', (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('pendingFileName')));
+    var downloadName = generateDownloadFilename(resolvedName || 'audio');
 
     // Preferir proxy backend (mesma origem, sem CORS, arquivo renomeado)
     var downloadHref = _state.masterJobId
@@ -3429,10 +3440,7 @@ function renderModeSelection() {
   }
 
   // ── LOGIN / CADASTRO MODAL PREMIUM ────────────────────────────────────
-  // opts: { title, subtitle } — strings opcionais para personalizar o modal por contexto
-  window.openLoginModal = function openLoginModal(opts) {
-    var _modalTitle    = (opts && opts.title)    || 'Crie sua conta e masterize gratuitamente';
-    var _modalSubtitle = (opts && opts.subtitle) || 'Sem cadastro não é possível gerar sua master';
+  window.openLoginModal = function openLoginModal() {
     if (document.getElementById('homeMasterLoginModal')) return;
     if (document.querySelector('.hm-login-modal-overlay')) return;
 
@@ -3507,9 +3515,9 @@ function renderModeSelection() {
       +   '<p style="font-size:.62rem;letter-spacing:.22em;text-transform:uppercase;'
       +     'color:rgba(167,139,250,.5);margin:0 0 .4rem;font-weight:700;">AutoMaster</p>'
       +   '<h2 style="font-size:1.2rem;font-weight:800;color:#f0ecff;margin:0 0 .4rem;'
-      +     'letter-spacing:.02em;line-height:1.35;">' + _modalTitle + '</h2>'
+      +     'letter-spacing:.02em;line-height:1.35;">Crie sua conta e masterize gratuitamente</h2>'
       +   '<p style="font-size:.78rem;color:#505070;margin:0 0 1.5rem;line-height:1.55;">'
-      +     _modalSubtitle + '</p>'
+      +     'Sem cadastro não é possível gerar sua master</p>'
       /* tabs */
       +   '<div class="hm-tabs">'
       +     '<button class="hm-tab active" id="hmTabBtnLogin" onclick="__hmShowTab(\'login\')">Entrar</button>'
@@ -3567,20 +3575,10 @@ function renderModeSelection() {
     el.className = msg ? '' : '';
   }
 
-  /** Helper: ação após login/cadastro — fecha modal e retoma fluxo pendente */
+  /** Helper: ação após login/cadastro — fecha modal e retoma master */
   function _onLoginSuccess() {
     var modal = document.getElementById('homeMasterLoginModal');
     if (modal) modal.remove();
-
-    // Prioridade 1: análise pendente
-    if (_state.pendingAnalysis) {
-      _state.pendingAnalysis = false;
-      console.log('[HOME-ANALYSIS] Login concluído. Retomando análise.');
-      runAnalysis();
-      return;
-    }
-
-    // Prioridade 2: master pendente
     if (_state.pendingAction && _state.masterMode) {
       _state.pendingAction = false;
       console.log('[HOME-MASTER] Login concluído. Retomando master com modo:', _state.masterMode);
