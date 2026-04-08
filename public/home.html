@@ -2123,6 +2123,7 @@
     creditConsumed:   false,  // Fase 3: impede duplo consumo de crédito
     _masterPollTimer: null,   // Fase 3: referência global ao setInterval do polling
     pendingAction:    false,  // Fase 3.1: intenção confirmada pelo usuário antes do login
+    pendingAnalysis:  false,  // login pendente antes de iniciar análise
     _progressTimer:   null,   // Fase 4: fake progress bar timer
     _textTimer:       null    // Fase 4: cycling text timer
   };
@@ -2367,6 +2368,19 @@
       showError('Nenhum arquivo encontrado. Por favor, envie uma faixa primeiro.');
       return;
     }
+
+    // ── VERIFICAÇÃO DE LOGIN (antes do spinner) ──────────────
+    var _authObj  = window.__firebaseAuth || null;
+    var _currUser = _authObj ? _authObj.currentUser : null;
+    if (!_currUser) {
+      _state.pendingAnalysis = true;
+      openLoginModal({
+        title:    'Crie sua conta para analisar e masterizar sua música',
+        subtitle: 'Sem cadastro não é possível iniciar a análise'
+      });
+      return;
+    }
+
     if (typeof window.runAnalysisFromFileKey !== 'function') {
       showError('Motor não pronto. Por favor, aguarde um momento e tente novamente.');
       return;
@@ -3332,7 +3346,7 @@ function renderModeSelection() {
     // O endpoint /api/automaster/download/:jobId retorna Content-Disposition:attachment,
     // portanto o browser baixa automaticamente sem abrir nova aba.
     // Usar <a> direto evita bloqueios dos wrappers de window.fetch (entitlements/demo-core).
-    var downloadName = generateDownloadFilename(_state.fileName || 'master');
+    var downloadName = generateDownloadFilename(resolveFileName() || 'audio');
 
     // Preferir proxy backend (mesma origem, sem CORS, arquivo renomeado)
     var downloadHref = _state.masterJobId
@@ -3415,7 +3429,10 @@ function renderModeSelection() {
   }
 
   // ── LOGIN / CADASTRO MODAL PREMIUM ────────────────────────────────────
-  window.openLoginModal = function openLoginModal() {
+  // opts: { title, subtitle } — strings opcionais para personalizar o modal por contexto
+  window.openLoginModal = function openLoginModal(opts) {
+    var _modalTitle    = (opts && opts.title)    || 'Crie sua conta e masterize gratuitamente';
+    var _modalSubtitle = (opts && opts.subtitle) || 'Sem cadastro não é possível gerar sua master';
     if (document.getElementById('homeMasterLoginModal')) return;
     if (document.querySelector('.hm-login-modal-overlay')) return;
 
@@ -3490,9 +3507,9 @@ function renderModeSelection() {
       +   '<p style="font-size:.62rem;letter-spacing:.22em;text-transform:uppercase;'
       +     'color:rgba(167,139,250,.5);margin:0 0 .4rem;font-weight:700;">AutoMaster</p>'
       +   '<h2 style="font-size:1.2rem;font-weight:800;color:#f0ecff;margin:0 0 .4rem;'
-      +     'letter-spacing:.02em;line-height:1.35;">Crie sua conta e masterize gratuitamente</h2>'
+      +     'letter-spacing:.02em;line-height:1.35;">' + _modalTitle + '</h2>'
       +   '<p style="font-size:.78rem;color:#505070;margin:0 0 1.5rem;line-height:1.55;">'
-      +     'Sem cadastro não é possível gerar sua master</p>'
+      +     _modalSubtitle + '</p>'
       /* tabs */
       +   '<div class="hm-tabs">'
       +     '<button class="hm-tab active" id="hmTabBtnLogin" onclick="__hmShowTab(\'login\')">Entrar</button>'
@@ -3550,10 +3567,20 @@ function renderModeSelection() {
     el.className = msg ? '' : '';
   }
 
-  /** Helper: ação após login/cadastro — fecha modal e retoma master */
+  /** Helper: ação após login/cadastro — fecha modal e retoma fluxo pendente */
   function _onLoginSuccess() {
     var modal = document.getElementById('homeMasterLoginModal');
     if (modal) modal.remove();
+
+    // Prioridade 1: análise pendente
+    if (_state.pendingAnalysis) {
+      _state.pendingAnalysis = false;
+      console.log('[HOME-ANALYSIS] Login concluído. Retomando análise.');
+      runAnalysis();
+      return;
+    }
+
+    // Prioridade 2: master pendente
     if (_state.pendingAction && _state.masterMode) {
       _state.pendingAction = false;
       console.log('[HOME-MASTER] Login concluído. Retomando master com modo:', _state.masterMode);
