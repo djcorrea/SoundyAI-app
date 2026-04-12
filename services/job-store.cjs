@@ -36,7 +36,8 @@ async function createJob(jobId, data) {
     processing_ms: null,
     error_code: null,
     error_message: null,
-    progress: 0
+    progress: 0,
+    original_filename: data.original_filename || null
   };
 
   await redis.hset(jobKey, jobData);

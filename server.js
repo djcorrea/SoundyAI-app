@@ -657,7 +657,8 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
     await jobStore.createJob(jobId, {
       inputKey: inputKey,
       mode: resolvedMode,
-      userId: req.user?.uid || 'anonymous'
+      userId: req.user?.uid || 'anonymous',
+      original_filename: fileLabel || null
     });
 
     // 6. Adicionar job à fila BullMQ
@@ -777,15 +778,12 @@ app.get('/api/automaster/status/:jobId', verifyFirebaseToken, async (req, res) =
       // Filename passado para forçar Content-Disposition: attachment no B2 —
       // sem isso, browser tenta reproduzir o WAV inline ao usar <a href> diretamente.
       if (job.output_key) {
-        const rawDlName = job.original_filename || job.file_name || 'audio';
-        const safeDlName = 'master-soundyai_' + (rawDlName
-          .replace(/\.[^.]+$/, '')
-          .toLowerCase()
-          .replace(/\s+/g, '_')
-          .replace(/[^a-z0-9_\-]/g, '_')
-          .replace(/_+/g, '_')
-          .replace(/^_|_$/g, '') || 'audio') + '.wav';
-        response.downloadUrl = await storageServiceModule.generateSignedUrl(job.output_key, 1800, safeDlName);
+        const originalName = job.original_filename || jobId;
+        const safeName = originalName
+          .replace(/\.[^/.]+$/, '')            // remove extensão
+          .replace(/[^a-zA-Z0-9\-]/g, '_');   // chars inválidos → _
+        const dlFilename = `Master SoundyAI_${safeName}.wav`;
+        response.downloadUrl = await storageServiceModule.generateSignedUrl(job.output_key, 1800, dlFilename);
       }
 
       // Preview URLs: antes = input original, depois = preview 60s gerado no worker
@@ -1000,15 +998,11 @@ app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res)
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
-    const rawName = job.original_filename || job.file_name || 'audio';
-    const safeName = 'master-soundyai_' + (rawName
-      .replace(/\.[^.]+$/, '')         // remove extensão
-      .toLowerCase()                    // minúsculas
-      .replace(/\s+/g, '_')            // espaços → _
-      .replace(/[^a-z0-9_\-]/g, '_')  // remove caracteres inválidos
-      .replace(/_+/g, '_')             // múltiplos _ → um só
-      .replace(/^_|_$/g, '')           // trim _ nas bordas
-      || 'audio') + '.wav';
+    const originalName = job.original_filename || jobId;
+    const safeName = originalName
+      .replace(/\.[^/.]+$/, '')            // remove extensão
+      .replace(/[^a-zA-Z0-9\-]/g, '_');   // chars inválidos → _
+    const dlFilename = `Master SoundyAI_${safeName}.wav`;
 
     // Abrir stream do B2 — sem bufferizar em memória
     const { stream, contentLength } = await storageServiceModule.getFileStream(job.output_key);
@@ -1024,7 +1018,7 @@ app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res)
     }));
 
     res.setHeader('Content-Type', 'audio/wav');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${dlFilename}"`);
     res.setHeader('Cache-Control', 'no-store');
     // Content-Length removido: era a causa do download_client_abort imediato.
     // Valor incorreto ou divergente do stream real fazia o proxy/browser abortar em ~300ms.
