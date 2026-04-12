@@ -1015,9 +1015,10 @@ app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res)
 
     res.setHeader('Content-Type', 'audio/wav');
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
-    // Content-Length vindo do B2 metadata — evita chunked encoding e garante barra de progresso
-    if (contentLength) res.setHeader('Content-Length', contentLength);
     res.setHeader('Cache-Control', 'no-store');
+    // Content-Length removido: era a causa do download_client_abort imediato.
+    // Valor incorreto ou divergente do stream real fazia o proxy/browser abortar em ~300ms.
+    // Node gerencia Transfer-Encoding: chunked automaticamente sem Content-Length.
 
     // Pipe: dados do B2 → browser em tempo real, sem buffer intermediário
     stream.pipe(res);
