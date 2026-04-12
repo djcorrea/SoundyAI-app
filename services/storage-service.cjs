@@ -116,6 +116,31 @@ async function downloadFile(key) {
 }
 
 /**
+ * Abre stream de leitura direto do B2 sem bufferizar em memória.
+ * Use para proxy de download — elimina o problema de timeout em arquivos grandes.
+ *
+ * @param {string} key - Chave do objeto
+ * @returns {Promise<{ stream: import('stream').Readable, contentLength: number|null }>}
+ */
+async function getFileStream(key) {
+  try {
+    const command = new GetObjectCommand({
+      Bucket: B2_BUCKET_NAME,
+      Key: key
+    });
+    const response = await client.send(command);
+    logger.info({ key, contentLength: response.ContentLength }, 'File stream opened');
+    return {
+      stream: response.Body,            // Node.js Readable — suporta .pipe()
+      contentLength: response.ContentLength || null,
+    };
+  } catch (error) {
+    logger.error({ key, error: error.message }, 'Stream open failed');
+    throw new Error(`B2 stream failed: ${error.message}`);
+  }
+}
+
+/**
  * Gera URL assinada para download
  * 
  * @param {string} key - Chave do objeto
@@ -232,6 +257,7 @@ module.exports = {
   // API nova (B2 nativo)
   uploadFile,
   downloadFile,
+  getFileStream,
   generateSignedUrl,
   deleteFile,
   

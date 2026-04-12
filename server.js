@@ -968,10 +968,14 @@ app.post('/api/automaster/confirm/:jobId', verifyFirebaseToken, async (req, res)
 });
 
 // 📥 PROXY DOWNLOAD: Faz download do arquivo final pelo servidor (evita CORS com URLs assinadas)
+//
+// SOLUÇÃO PARA net::ERR_FAILED 200 (OK):
+//   Causa: buffer completo (50-100 MB) → timeout do proxy antes de terminar de enviar.
+//   Fix:   pipe stream direto do B2 para o browser — dados fluem em paralelo,
+//          sem esperar download completo, sem guardar arquivo inteiro em RAM.
 app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res) => {
+  const { jobId } = req.params;
   try {
-    const { jobId } = req.params;
-
     if (!jobId || !/^[a-zA-Z0-9_-]+$/.test(jobId)) {
       return res.status(400).json({ error: 'jobId inválido' });
     }
@@ -986,7 +990,6 @@ app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res)
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
-    const buffer = await storageServiceModule.downloadFile(job.output_key);
     const rawName = job.original_filename || job.file_name || 'audio';
     const safeName = 'master-soundyai_' + (rawName
       .replace(/\.[^.]+$/, '')         // remove extensão
@@ -997,15 +1000,35 @@ app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res)
       .replace(/^_|_$/g, '')           // trim _ nas bordas
       || 'audio') + '.wav';
 
+    // Abrir stream do B2 — sem bufferizar em memória
+    const { stream, contentLength } = await storageServiceModule.getFileStream(job.output_key);
+
+    console.log('[PROXY-DOWNLOAD] jobId:', jobId, '| contentLength:', contentLength);
+
     res.setHeader('Content-Type', 'audio/wav');
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
-    res.setHeader('Content-Length', buffer.length);
+    // Content-Length vindo do B2 metadata — evita chunked encoding e garante barra de progresso
+    if (contentLength) res.setHeader('Content-Length', contentLength);
     res.setHeader('Cache-Control', 'no-store');
-    return res.send(buffer);
+
+    // Pipe: dados do B2 → browser em tempo real, sem buffer intermediário
+    stream.pipe(res);
+
+    // Erro no stream APÓS headers enviados — envia fim da conexão, não 500
+    stream.on('error', (streamErr) => {
+      console.error('❌ [PROXY-DOWNLOAD] Stream error:', streamErr.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Falha no download', details: streamErr.message });
+      } else {
+        res.end();
+      }
+    });
 
   } catch (error) {
     console.error('❌ [PROXY-DOWNLOAD] Erro:', error.message);
-    return res.status(500).json({ error: 'Falha no download', details: error.message });
+    if (!res.headersSent) {
+      return res.status(500).json({ error: 'Falha no download', details: error.message });
+    }
   }
 });
 
