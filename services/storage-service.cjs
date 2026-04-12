@@ -142,20 +142,32 @@ async function getFileStream(key) {
 
 /**
  * Gera URL assinada para download
- * 
- * @param {string} key - Chave do objeto
+ *
+ * @param {string} key             - Chave do objeto
  * @param {number} expiresInSeconds - Tempo de expiração em segundos (padrão 300 = 5min)
+ * @param {string|null} filename    - Se informado, inclui ResponseContentDisposition:attachment
+ *                                    no pré-signed URL para forçar download no browser.
+ *                                    Não usar para URLs de preview (previewBefore/After).
  * @returns {Promise<string>} URL assinada
  */
-async function generateSignedUrl(key, expiresInSeconds = 300) {
+async function generateSignedUrl(key, expiresInSeconds = 300, filename = null) {
   try {
-    const command = new GetObjectCommand({
+    const commandParams = {
       Bucket: B2_BUCKET_NAME,
-      Key: key
-    });
+      Key: key,
+    };
 
+    // Quando filename é fornecido, o B2 retorna Content-Disposition: attachment
+    // no response — o browser baixa o arquivo em vez de reproduzir inline.
+    if (filename) {
+      // Sanitizar: apenas caracteres seguros para header HTTP
+      const safe = filename.replace(/[^\w.\-]/g, '_');
+      commandParams.ResponseContentDisposition = `attachment; filename="${safe}"`;
+    }
+
+    const command = new GetObjectCommand(commandParams);
     const url = await getSignedUrl(client, command, { expiresIn: expiresInSeconds });
-    logger.info({ key, expiresIn: expiresInSeconds }, 'Signed URL generated');
+    logger.info({ key, expiresIn: expiresInSeconds, hasFilename: !!filename }, 'Signed URL generated');
     return url;
   } catch (error) {
     logger.error({ key, error: error.message }, 'Signed URL generation failed');

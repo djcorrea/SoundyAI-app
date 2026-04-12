@@ -774,8 +774,18 @@ app.get('/api/automaster/status/:jobId', verifyFirebaseToken, async (req, res) =
       response.outputKey = job.output_key;
       
       // Gerar URL assinada para download (30 minutos — tempo suficiente para download)
+      // Filename passado para forçar Content-Disposition: attachment no B2 —
+      // sem isso, browser tenta reproduzir o WAV inline ao usar <a href> diretamente.
       if (job.output_key) {
-        response.downloadUrl = await storageServiceModule.generateSignedUrl(job.output_key, 1800);
+        const rawDlName = job.original_filename || job.file_name || 'audio';
+        const safeDlName = 'master-soundyai_' + (rawDlName
+          .replace(/\.[^.]+$/, '')
+          .toLowerCase()
+          .replace(/\s+/g, '_')
+          .replace(/[^a-z0-9_\-]/g, '_')
+          .replace(/_+/g, '_')
+          .replace(/^_|_$/g, '') || 'audio') + '.wav';
+        response.downloadUrl = await storageServiceModule.generateSignedUrl(job.output_key, 1800, safeDlName);
       }
 
       // Preview URLs: antes = input original, depois = preview 60s gerado no worker

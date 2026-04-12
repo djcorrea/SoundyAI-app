@@ -3423,41 +3423,16 @@ function renderModeSelection() {
       ', analysisFileName=' + _state.analysisFileName +
       ', __HOME_FILE_NAME__=' + window.__HOME_FILE_NAME__);
 
-    // Preferir proxy backend (mesma origem, sem CORS, arquivo renomeado)
-    var downloadHref = _state.masterJobId
-      ? '/api/automaster/download/' + encodeURIComponent(_state.masterJobId)
-      : url;
-
-    // Usar XHR nativo para evitar os wrappers de window.fetch (entitlements/demo interceptors)
-    try {
-      var dlToken = null;
-      try { dlToken = await getValidIdToken(); } catch (_) {}
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', downloadHref, true);
-      if (dlToken) xhr.setRequestHeader('Authorization', 'Bearer ' + dlToken);
-      xhr.responseType = 'blob';
-      xhr.onload = function () {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          var dlObjUrl = URL.createObjectURL(xhr.response);
-          var a = document.createElement('a');
-          a.href = dlObjUrl;
-          a.download = downloadName;
-          a.style.display = 'none';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(function () { URL.revokeObjectURL(dlObjUrl); }, 10000);
-        } else {
-          console.warn('[HOME-MASTER] Erro no download: HTTP ' + xhr.status);
-        }
-      };
-      xhr.onerror = function () {
-        console.warn('[HOME-MASTER] Erro no download: falha de rede (XHR)');
-      };
-      xhr.send();
-    } catch (dlErr) {
-      console.warn('[HOME-MASTER] Erro no download:', dlErr.message);
-    }
+    // Usar URL assinada do B2 diretamente (é a URL já presente em _state.downloadUrl).
+    // A URL inclui ResponseContentDisposition: attachment — o B2 força o download.
+    // Sem XHR/blob: arquivo é baixado nativamente pelo browser, sem bufferizar em memória.
+    var a = document.createElement('a');
+    a.href = url;           // URL assinada do B2 (válida por 30 min, sem auth header)
+    a.download = downloadName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   // ── LOGIN INLINE (Fase 3) ───────────────────────────────────────────────
