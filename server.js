@@ -1003,7 +1003,15 @@ app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res)
     // Abrir stream do B2 — sem bufferizar em memória
     const { stream, contentLength } = await storageServiceModule.getFileStream(job.output_key);
 
-    console.log('[PROXY-DOWNLOAD] jobId:', jobId, '| contentLength:', contentLength);
+    // ── DIAGNÓSTICO: logar início, tamanho e eventos do stream ────────────────
+    const dlStart = Date.now();
+    console.log(JSON.stringify({
+      event: 'download_start',
+      jobId,
+      outputKey: job.output_key,
+      contentLength,        // null = B2 não retornou tamanho (possível problema)
+      timestamp: new Date().toISOString(),
+    }));
 
     res.setHeader('Content-Type', 'audio/wav');
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
@@ -1014,13 +1022,44 @@ app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res)
     // Pipe: dados do B2 → browser em tempo real, sem buffer intermediário
     stream.pipe(res);
 
-    // Erro no stream APÓS headers enviados — envia fim da conexão, não 500
+    // ── DIAGNÓSTICO: stream concluiu com sucesso ───────────────────────────────
+    stream.on('end', () => {
+      console.log(JSON.stringify({
+        event: 'download_stream_end',
+        jobId,
+        durationMs: Date.now() - dlStart,
+        timestamp: new Date().toISOString(),
+      }));
+    });
+
+    // ── DIAGNÓSTICO: stream falhou (ex: B2 fechou conexão) ────────────────────
     stream.on('error', (streamErr) => {
-      console.error('❌ [PROXY-DOWNLOAD] Stream error:', streamErr.message);
+      console.error(JSON.stringify({
+        event: 'download_stream_error',
+        jobId,
+        error: streamErr.message,
+        durationMs: Date.now() - dlStart,
+        timestamp: new Date().toISOString(),
+      }));
       if (!res.headersSent) {
         res.status(500).json({ error: 'Falha no download', details: streamErr.message });
       } else {
         res.end();
+      }
+    });
+
+    // ── DIAGNÓSTICO: cliente fechou a conexão antes do fim ────────────────────
+    // Causas: usuário cancelou, proxy timeout, aba fechada
+    res.on('close', () => {
+      const finished = res.writableEnded;
+      if (!finished) {
+        console.warn(JSON.stringify({
+          event: 'download_client_abort',
+          jobId,
+          durationMs: Date.now() - dlStart,
+          note: 'Conexão fechada pelo cliente/proxy ANTES do fim — possível timeout ou cancelamento',
+          timestamp: new Date().toISOString(),
+        }));
       }
     });
 
