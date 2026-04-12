@@ -90,15 +90,14 @@ async function uploadFile(key, buffer, contentType = 'audio/wav') {
  * @param {string} key - Chave do objeto
  * @returns {Promise<Buffer>} Conteúdo do arquivo
  */
-async function downloadFile(key, { signal } = {}) {
+async function downloadFile(key) {
   try {
     const command = new GetObjectCommand({
       Bucket: B2_BUCKET_NAME,
       Key: key
     });
 
-    // signal permite AbortController externo (ex: timeout de 10s no endpoint de download)
-    const response = await client.send(command, signal ? { abortSignal: signal } : {});
+    const response = await client.send(command);
     const stream = response.Body;
     
     // Converter stream para buffer
