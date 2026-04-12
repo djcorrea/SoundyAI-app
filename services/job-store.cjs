@@ -28,6 +28,7 @@ async function createJob(jobId, data) {
     input_key: data.inputKey,
     output_key: null,
     mode: data.mode,
+    original_filename: data.original_filename || null,
     attempt: 1,
     max_attempts: data.maxAttempts || 3,
     created_at: Date.now(),

@@ -1,0 +1,12 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "masters",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

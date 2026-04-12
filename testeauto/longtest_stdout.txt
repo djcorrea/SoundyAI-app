@@ -1,1 +1,0 @@
-{"success":true,"mode":"HIGH","strategy_used":null,"target_lufs":-9,"target_tp":-0.5,"final_lufs":-12.66,"final_tp":-1.08,"duration_ms":434533,"output_path":"C:\\Users\\DJ Correa\\Desktop\\Programacao\\SoundyAI\\testeauto\\out_longtest.wav","output_size_kb":32115.99,"fallback_used":true,"impact_aborted":true,"abort_reason":"CREST_COLLAPSE","mode_result":"IMPACT-LIMITED"}

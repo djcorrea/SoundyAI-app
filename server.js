@@ -21,6 +21,7 @@ import storageServiceModule from './services/storage-service.cjs';
 import jobStoreModule from './services/job-store.cjs';
 import { v4 as uuidv4 } from 'uuid';
 import { ensureAutomasterSchema } from './db/ensure-automaster-schema.js';
+import userMastersRouter, { saveMasterToHistory } from './api/user-masters.js';
 
 import pkg from "pg";
 const { Pool } = pkg;
@@ -173,7 +174,10 @@ app.use(cors({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// 👉 ROTA RAIZ PRIMEIRO: abre a landing
+// � User Masters History (sidebar)
+app.use(userMastersRouter);
+
+// �👉 ROTA RAIZ PRIMEIRO: abre a landing
 app.get("/", (req, res) => {
   res.sendFile(path.join(publicPath, "landing.html"));
 });
@@ -657,7 +661,8 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
     await jobStore.createJob(jobId, {
       inputKey: inputKey,
       mode: resolvedMode,
-      userId: req.user?.uid || 'anonymous'
+      userId: req.user?.uid || 'anonymous',
+      original_filename: fileLabel || 'audio'
     });
 
     // 6. Adicionar job à fila BullMQ
@@ -822,6 +827,7 @@ app.get('/api/automaster/status/:jobId', verifyFirebaseToken, async (req, res) =
       consumeJobCredit(req.user.uid, jobId).catch(err =>
         console.error('⚠️ [AUTOMASTER-STATUS] consumeJobCredit error (não fatal):', err.message)
       );
+      // Histórico salvo no /api/automaster/download/:jobId — não aqui.
     } else if (job.status === 'needs_confirmation') {
       // Problemas técnicos detectados — aguardando confirmação do usuário para masterização segura
       response.status = 'needs_confirmation';
@@ -968,44 +974,133 @@ app.post('/api/automaster/confirm/:jobId', verifyFirebaseToken, async (req, res)
 });
 
 // 📥 PROXY DOWNLOAD: Faz download do arquivo final pelo servidor (evita CORS com URLs assinadas)
+//
+// ORDEM DE EXECUÇÃO:
+//   1. Validar jobId (regex)
+//   2. Buscar job no Redis (jobStore)
+//   3. Validar ownership (user_id === req.user.uid)
+//   4. Baixar do B2 (AbortController 10s) + ler downloadCount do Firestore em paralelo
+//   5. [ABUSO] console.warn se downloadCount >= 10 — NÃO bloqueia, apenas loga
+//   6. [LOG] event: 'master_download' com downloadCount estimado
+//   7. [HEADER] X-Download-Count — debug apenas, não afeta o fluxo
+//   8. res.send(buffer) → resposta HTTP finalizada aqui
+//   9. saveMasterToHistory() → roda em background, não bloqueia o cliente
+//
+// POR QUE NÃO BLOQUEIA:
+//   B2 download e Firestore read correm em paralelo (Promise.all). AbortController
+//   garante que o B2 não trave indefinidamente (10s). res.send() é chamado ANTES
+//   de qualquer operação de banco. O histórico é disparado via .catch() sem await.
 app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res) => {
-  try {
-    const { jobId } = req.params;
+  const { jobId } = req.params;
+  const uid = req.user.uid;
 
+  try {
+    // 1. Validar ID
     if (!jobId || !/^[a-zA-Z0-9_-]+$/.test(jobId)) {
       return res.status(400).json({ error: 'jobId inválido' });
     }
 
+    // 2. Buscar job
     const job = await jobStoreModule.getJob(jobId);
 
     if (!job || job.status !== 'completed' || !job.output_key) {
       return res.status(404).json({ error: 'Download não disponível' });
     }
 
-    if (job.user_id && job.user_id !== 'anonymous' && job.user_id !== req.user.uid) {
+    // 3. Validar ownership — storageKey nunca exposto ao frontend
+    if (job.user_id && job.user_id !== 'anonymous' && job.user_id !== uid) {
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
-    const buffer = await storageServiceModule.downloadFile(job.output_key);
-    const rawName = job.original_filename || job.file_name || 'audio';
-    const safeName = 'master-soundyai_' + (rawName
-      .replace(/\.[^.]+$/, '')         // remove extensão
-      .toLowerCase()                    // minúsculas
-      .replace(/\s+/g, '_')            // espaços → _
-      .replace(/[^a-z0-9_\-]/g, '_')  // remove caracteres inválidos
-      .replace(/_+/g, '_')             // múltiplos _ → um só
-      .replace(/^_|_$/g, '')           // trim _ nas bordas
-      || 'audio') + '.wav';
+    // 4. Download do B2 e leitura do Firestore em paralelo — latência = max(B2, Firestore) ≈ B2.
+    //    AbortController: se o B2 demorar > 10s, aborta e lança erro (nunca trava o servidor).
+    const db = getFirestore();
+    const docRef = db.collection('users').doc(uid).collection('masters').doc(jobId);
 
+    const ac = new AbortController();
+    const downloadTimeoutId = setTimeout(() => ac.abort(), 10_000);
+
+    const [buffer, masterSnap] = await Promise.all([
+      // finally garante que o timeout é limpo ao concluir (sucesso ou erro)
+      storageServiceModule.downloadFile(job.output_key, { signal: ac.signal })
+        .finally(() => clearTimeout(downloadTimeoutId)),
+      // erro silenciado — falha no Firestore não deve bloquear o download
+      docRef.get().catch(() => null),
+    ]);
+
+    // downloadCount: nº de downloads ANTERIORES (saveMasterToHistory incrementará depois)
+    const downloadCount = masterSnap?.exists ? (masterSnap.data()?.downloadCount ?? 0) : 0;
+
+    // Nome original: prioriza original_filename; se ausente usa jobId (nunca string genérica)
+    const rawBase = (job.original_filename || job.file_name || '')
+      .replace(/\.[^.]+$/, '')
+      .trim();
+    const displayName = rawBase || jobId;
+    const safeName = 'master-soundyai_' + displayName
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_\-]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '') + '.wav';
+
+    // 5. Detecção de abuso — APENAS loga, NUNCA bloqueia nem retorna erro.
+    //    Para monitorar: grep logs por event='suspicious_download_pattern'.
+    if (downloadCount >= 10) {
+      console.warn(JSON.stringify({
+        event: 'suspicious_download_pattern',
+        userId: uid,
+        jobId,
+        downloadCount,
+        timestamp: new Date().toISOString(),
+      }));
+    }
+
+    // 6. Log estruturado pré-envio — downloadCount+1 é o valor esperado após saveMasterToHistory
+    console.log(JSON.stringify({
+      event: 'master_download',
+      userId: uid,
+      jobId,
+      downloadCount: downloadCount + 1,
+      mode: job.mode || null,
+      timestamp: new Date().toISOString(),
+    }));
+
+    // 7. Header de debug — apenas informativo, não afeta o fluxo de download
+    res.setHeader('X-Download-Count', downloadCount + 1);
+
+    // 8. ENVIAR resposta — a partir daqui o cliente recebe o arquivo
     res.setHeader('Content-Type', 'audio/wav');
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
     res.setHeader('Content-Length', buffer.length);
     res.setHeader('Cache-Control', 'no-store');
-    return res.send(buffer);
+    res.send(buffer);
+    // ↑ res.send() finaliza a conexão HTTP. Não bloquear nada após este ponto.
 
   } catch (error) {
-    console.error('❌ [PROXY-DOWNLOAD] Erro:', error.message);
-    return res.status(500).json({ error: 'Falha no download', details: error.message });
+    // Log estruturado de erro — inclui userId e jobId para diagnóstico
+    console.error(JSON.stringify({
+      event: 'download_error',
+      userId: uid,
+      jobId,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    }));
+    // Guarda: só escreve na resposta se ainda não foi enviada
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Falha no download', details: error.message });
+    }
+    return;
+  }
+
+  // 9. Histórico em background — FORA do try/catch principal.
+  //    Erros aqui não podem alcançar o catch acima nem interferir na resposta.
+  //    Não há await: o event loop seguinte cuida do Firestore enquanto o cliente
+  //    já está recebendo o arquivo.
+  const _job = await jobStoreModule.getJob(jobId).catch(() => null);
+  if (_job) {
+    saveMasterToHistory(uid, jobId, _job).catch(err =>
+      console.error('⚠️ [PROXY-DOWNLOAD] saveMasterToHistory error (não fatal):', err.message)
+    );
   }
 });
 

@@ -537,9 +537,130 @@ body .neon-accent-br{
 
 @keyframes fadeInUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
 .anim-fadein{animation:fadeInUp 0.4s ease both;}
+/* ============================================================
+   SIDEBAR STYLES
+============================================================ */
+.sidebar-toggle-btn{
+  position:fixed;top:18px;left:18px;z-index:1000001;
+  width:44px;height:44px;border-radius:12px;
+  background:rgba(13,13,28,0.85);border:1px solid var(--border-dim);
+  color:var(--text-1);font-size:1.3rem;cursor:pointer;
+  display:none;align-items:center;justify-content:center;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  transition:border-color 0.2s,box-shadow 0.2s,background 0.2s;
+}
+.sidebar-toggle-btn:hover{border-color:var(--border-glow);box-shadow:0 0 16px var(--glow-blue);}
+.sidebar-toggle-btn.visible{display:flex;}
+
+.sidebar-overlay{
+  position:fixed;inset:0;z-index:1000002;
+  background:rgba(3,3,11,0.6);opacity:0;visibility:hidden;
+  transition:opacity 0.3s,visibility 0.3s;
+}
+.sidebar-overlay.open{opacity:1;visibility:visible;}
+
+.sidebar-panel{
+  position:fixed;top:0;left:0;bottom:0;z-index:1000003;
+  width:320px;max-width:85vw;
+  background:linear-gradient(180deg,rgba(13,13,28,0.98) 0%,rgba(9,9,22,0.98) 100%);
+  border-right:1px solid var(--border-dim);
+  box-shadow:4px 0 40px rgba(0,0,0,0.6),0 0 60px var(--glow-blue);
+  transform:translateX(-100%);transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.sidebar-panel.open{transform:translateX(0);}
+
+.sidebar-header{
+  padding:24px 20px 16px;border-bottom:1px solid var(--border-dim);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.sidebar-header h3{font-family:var(--orbitron);font-size:0.85rem;color:var(--primary);letter-spacing:0.08em;}
+.sidebar-close{background:none;border:none;color:var(--text-2);font-size:1.4rem;cursor:pointer;padding:4px 8px;border-radius:8px;transition:color 0.2s;}
+.sidebar-close:hover{color:var(--text-1);}
+
+.sidebar-user-info{
+  padding:16px 20px;border-bottom:1px solid rgba(79,142,247,0.08);
+  font-size:0.8rem;color:var(--text-2);
+}
+.sidebar-user-info .user-email{color:var(--text-1);font-weight:500;word-break:break-all;}
+
+.sidebar-nav{padding:12px 0;border-bottom:1px solid rgba(79,142,247,0.08);}
+.sidebar-nav-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 20px;font-size:0.85rem;color:var(--text-2);
+  cursor:pointer;transition:background 0.15s,color 0.15s;text-decoration:none;
+}
+.sidebar-nav-item:hover{background:rgba(79,142,247,0.06);color:var(--text-1);}
+.sidebar-nav-item .nav-icon{font-size:1.1rem;width:24px;text-align:center;}
+
+.sidebar-history{
+  flex:1;overflow-y:auto;padding:16px 20px;
+}
+.sidebar-history-title{font-size:0.75rem;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;}
+
+.sidebar-history-empty{
+  text-align:center;color:var(--text-3);font-size:0.8rem;padding:32px 0;
+}
+
+.history-item{
+  padding:12px 14px;border-radius:12px;
+  background:rgba(79,142,247,0.04);border:1px solid rgba(79,142,247,0.08);
+  margin-bottom:10px;transition:border-color 0.2s;
+}
+.history-item:hover{border-color:rgba(79,142,247,0.2);}
+.history-item-name{font-size:0.82rem;font-weight:500;color:var(--text-1);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.history-item-meta{font-size:0.7rem;color:var(--text-3);margin-bottom:8px;display:flex;gap:10px;align-items:center;}
+.history-item-meta .meta-mode{color:var(--primary);font-weight:600;}
+.history-item-actions{display:flex;gap:8px;}
+.history-item-actions button{
+  flex:1;padding:6px 0;border-radius:8px;border:1px solid var(--border-dim);
+  background:rgba(79,142,247,0.06);color:var(--text-2);font-size:0.72rem;
+  cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.history-item-actions button:hover{border-color:var(--border-glow);color:var(--text-1);background:rgba(79,142,247,0.12);}
+
+.sidebar-history::-webkit-scrollbar{width:4px;}
+.sidebar-history::-webkit-scrollbar-track{background:transparent;}
+.sidebar-history::-webkit-scrollbar-thumb{background:var(--border-dim);border-radius:2px;}
+
+.sidebar-footer{
+  padding:12px 20px;border-top:1px solid var(--border-dim);
+  font-size:0.65rem;color:var(--text-3);text-align:center;
+}
   </style>
 </head>
 <body>
+<!-- SIDEBAR TOGGLE BUTTON (visible only when logged in) -->
+<button class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+
+<!-- SIDEBAR OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR PANEL -->
+<div class="sidebar-panel" id="sidebarPanel">
+  <div class="sidebar-header">
+    <h3>SOUNDY AI</h3>
+    <button class="sidebar-close" onclick="closeSidebar()" aria-label="Fechar">×</button>
+  </div>
+  <div class="sidebar-user-info" id="sidebarUserInfo">
+    <div class="user-email" id="sidebarUserEmail">—</div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="sidebar-nav-item" href="/gerenciar.html">
+      <span class="nav-icon">⚙️</span> Gerenciar Conta
+    </a>
+    <div class="sidebar-nav-item" onclick="sidebarLogout()">
+      <span class="nav-icon">🚪</span> Sair
+    </div>
+  </nav>
+  <div class="sidebar-history" id="sidebarHistory">
+    <div class="sidebar-history-title">Histórico de Masters</div>
+    <div class="sidebar-history-empty" id="sidebarHistoryEmpty">Nenhuma masterização ainda.</div>
+    <div id="sidebarHistoryList"></div>
+  </div>
+  <div class="sidebar-footer">SoundyAI AutoMaster V1</div>
+</div>
+
 <div class="neon-accent-br" aria-hidden="true"></div>
 
 <!-- ================================================================
@@ -1939,9 +2060,174 @@ window.__firebaseAuthReady = new Promise((resolve) => {
   const unsub = onAuthStateChanged(auth, (user) => {
     unsub(); // escuta apenas o estado inicial
     window.__firebaseUser = user;
+
+    // Sidebar: mostrar botão se logado + preencher email
+    const toggleBtn = document.getElementById('sidebarToggleBtn');
+    const emailEl   = document.getElementById('sidebarUserEmail');
+    if (user) {
+      if (toggleBtn) toggleBtn.classList.add('visible');
+      if (emailEl) emailEl.textContent = user.email || user.uid;
+    } else {
+      if (toggleBtn) toggleBtn.classList.remove('visible');
+    }
+
     resolve(user);
   });
 });
+</script>
+
+<!-- Sidebar logic (isolated module) -->
+<script type="module">
+import { signOut } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
+import { auth } from './firebase.js';
+
+// ─── Sidebar toggle ───
+window.toggleSidebar = function() {
+  document.getElementById('sidebarPanel').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+  // Load history when opening
+  if (document.getElementById('sidebarPanel').classList.contains('open')) {
+    loadMasterHistory();
+  }
+};
+window.closeSidebar = function() {
+  document.getElementById('sidebarPanel').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+};
+
+// ─── Logout ───
+window.sidebarLogout = async function() {
+  try {
+    await signOut(auth);
+    window.location.href = '/login.html';
+  } catch (e) {
+    console.error('[SIDEBAR] Logout error:', e);
+    window.location.href = '/login.html';
+  }
+};
+
+// ─── History loading ───
+let historyLoaded = false;
+
+async function loadMasterHistory() {
+  const listEl  = document.getElementById('sidebarHistoryList');
+  const emptyEl = document.getElementById('sidebarHistoryEmpty');
+  if (!listEl) return;
+
+  // Show loading state
+  if (!historyLoaded) {
+    emptyEl.textContent = 'Carregando...';
+  }
+
+  try {
+    const user = auth.currentUser;
+    if (!user) { emptyEl.textContent = 'Faça login para ver histórico.'; return; }
+
+    const token = await user.getIdToken(true);
+    const res = await fetch('/api/user/masters', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if (!data.masters || data.masters.length === 0) {
+      emptyEl.style.display = '';
+      listEl.innerHTML = '';
+      emptyEl.textContent = 'Nenhuma masterização ainda.';
+      historyLoaded = true;
+      return;
+    }
+
+    emptyEl.style.display = 'none';
+    listEl.innerHTML = data.masters.map(m => {
+      const date = m.createdAt ? new Date(m.createdAt).toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+      const name = m.originalName || m.fileName || 'Master';
+      const mode = m.mode || '—';
+      const expDate = m.expiresAt ? new Date(m.expiresAt).toLocaleDateString('pt-BR', { day:'2-digit', month:'short' }) : '';
+      const expired = m.expiresAt && new Date(m.expiresAt) < new Date();
+      return `
+        <div class="history-item${expired ? ' expired' : ''}">
+          <div class="history-item-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+          <div class="history-item-meta">
+            <span>${date}</span>
+            <span class="meta-mode">${escapeHtml(mode)}</span>
+            ${expDate ? `<span>exp: ${expDate}</span>` : ''}
+          </div>
+          ${expired ? '<div style="font-size:0.7rem;color:var(--danger);margin-bottom:4px;">Expirado</div>' : `
+          <div class="history-item-actions">
+            <button onclick="playHistoryMaster('${escapeHtml(m.id)}')">▶ Ouvir</button>
+            <button onclick="downloadHistoryMaster('${escapeHtml(m.id)}')">⬇ Download</button>
+          </div>`}
+        </div>`;
+    }).join('');
+
+    historyLoaded = true;
+  } catch (err) {
+    console.error('[SIDEBAR] History load error:', err);
+    emptyEl.style.display = '';
+    emptyEl.textContent = 'Erro ao carregar histórico.';
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ─── Play / Download from history ───
+let historyAudioEl = null;
+
+window.playHistoryMaster = async function(masterId) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+    const token = await user.getIdToken(true);
+    const res = await fetch(`/api/user/masters/${encodeURIComponent(masterId)}/stream`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    if (historyAudioEl) { historyAudioEl.pause(); URL.revokeObjectURL(historyAudioEl.src); }
+    historyAudioEl = new Audio(url);
+    historyAudioEl.play();
+  } catch (e) {
+    console.error('[SIDEBAR] Play error:', e);
+    alert('Erro ao reproduzir. O arquivo pode ter expirado.');
+  }
+};
+
+window.downloadHistoryMaster = async function(masterId) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+    const token = await user.getIdToken(true);
+    const res = await fetch(`/api/user/masters/${encodeURIComponent(masterId)}/download`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const cd = res.headers.get('content-disposition');
+    let filename = 'master-soundyai.wav';
+    if (cd) {
+      const match = cd.match(/filename="?([^";\n]+)"?/);
+      if (match) filename = match[1];
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  } catch (e) {
+    console.error('[SIDEBAR] Download error:', e);
+    alert('Erro ao baixar. O arquivo pode ter expirado.');
+  }
+};
 </script>
 </body>
 </html>
