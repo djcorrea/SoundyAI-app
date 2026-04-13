@@ -4278,8 +4278,7 @@ function renderModeSelection() {
     if (btnAccount) {
       btnAccount.addEventListener('click', function () {
         closeDrawer();
-        // Redireciona para página de conta quando disponível
-        window.location.href = '/conta.html';
+        window.location.href = '/gerenciar.html';
       });
     }
 
@@ -4291,7 +4290,7 @@ function renderModeSelection() {
         var auth = window.__firebaseAuth;
         if (auth) {
           auth.signOut().then(function () {
-            window.location.href = '/index.html';
+            window.location.href = '/home.html';
           }).catch(function (e) {
             console.error('[DRAWER] Erro ao fazer logout:', e.message);
           });

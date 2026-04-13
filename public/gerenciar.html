@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciar Conta - PROD.AI</title>
+    <title>Gerenciar Conta - SoundyAI</title>
     
     <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
     <script src="logger.js"></script>
@@ -42,7 +42,7 @@
             
             <button class="btn-back-simple" id="back-to-chat-simple">
                 <span class="back-icon">🔙</span>
-                Voltar ao chat
+                Voltar ao AutoMaster
             </button>
         </div>
 
@@ -359,8 +359,8 @@
                     checkEmailVerificationCode();
                 } else {
                     log('❌ Usuário não autenticado - redirecionando...');
-                    // Redirecionar usuários não autenticados
-                    window.location.href = 'login.html';
+                    // Redirecionar usuários não autenticados para home (que tem guard de auth)
+                    window.location.href = 'home.html';
                 }
             });
             
@@ -1526,10 +1526,10 @@
                 });
             }
             
-            // Botão voltar ao chat
+            // Botão voltar ao AutoMaster
             if (backToChatBtn) {
                 backToChatBtn.addEventListener('click', function() {
-                    window.location.href = 'index.html';
+                    window.location.href = 'home.html';
                 });
             }
 
