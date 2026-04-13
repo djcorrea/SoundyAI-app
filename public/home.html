@@ -1518,6 +1518,313 @@
       display: flex; align-items: center; justify-content: center;
       margin: 0 auto 1rem; box-shadow: 0 0 24px rgba(239,68,68,.2);
     }
+
+    /* ════════════════════════════════════════════════════════════════
+       MENU BUTTON (topbar topo-esquerdo)
+    ════════════════════════════════════════════════════════════════ */
+    .topbar { position: relative; }
+    #menuToggleBtn {
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(74,143,255,0.08);
+      border: 1px solid rgba(74,143,255,0.18);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      width: 38px; height: 38px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      transition: background .2s, border-color .2s, color .2s;
+      z-index: 110;
+    }
+    #menuToggleBtn:hover {
+      background: rgba(74,143,255,0.16);
+      border-color: rgba(74,143,255,0.38);
+      color: var(--text-primary);
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       DRAWER (menu lateral)
+    ════════════════════════════════════════════════════════════════ */
+    #sideDrawer {
+      position: fixed;
+      top: 0; left: 0;
+      height: 100vh;
+      width: 260px;
+      background: linear-gradient(160deg, #0a0819 0%, #0d0f24 100%);
+      border-right: 1px solid rgba(74,143,255,0.15);
+      z-index: 9999;
+      transform: translateX(-100%);
+      transition: transform .28s cubic-bezier(.4,0,.2,1);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      box-shadow: 4px 0 40px rgba(0,0,0,.55);
+    }
+    #sideDrawer.drawer-open { transform: translateX(0); }
+
+    #drawerOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(4px);
+      z-index: 9998;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .28s ease;
+    }
+    #drawerOverlay.overlay-visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px;
+      border-bottom: 1px solid rgba(74,143,255,0.1);
+    }
+    .drawer-logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      background: var(--accent-grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .drawer-close-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      transition: color .15s;
+    }
+    .drawer-close-btn:hover { color: var(--text-primary); }
+
+    .drawer-nav {
+      flex: 1;
+      padding: 12px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .drawer-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      width: 100%;
+      text-align: left;
+      color: var(--text-secondary);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      transition: background .15s, color .15s;
+    }
+    .drawer-nav-item:hover {
+      background: rgba(74,143,255,0.09);
+      color: var(--text-primary);
+    }
+    .drawer-nav-item-icon { font-size: 18px; flex-shrink: 0; }
+
+    .drawer-divider {
+      height: 1px;
+      background: rgba(74,143,255,0.1);
+      margin: 8px 10px;
+    }
+
+    .drawer-nav-item.item-danger { color: rgba(248,113,113,.7); }
+    .drawer-nav-item.item-danger:hover { background: rgba(239,68,68,.09); color: #f87171; }
+
+    /* ════════════════════════════════════════════════════════════════
+       MODAL DE HISTÓRICO
+    ════════════════════════════════════════════════════════════════ */
+    #historyModal {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      background: rgba(4,6,14,.88);
+      backdrop-filter: blur(12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    #historyModal.hist-open { display: flex; }
+
+    .hist-panel {
+      background: linear-gradient(160deg, #0a0819 0%, #0d0f24 100%);
+      border: 1px solid rgba(74,143,255,0.2);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 60px rgba(74,143,255,.12), 0 24px 80px rgba(0,0,0,.7);
+      animation: modal-in .3s cubic-bezier(.34,1.56,.64,1);
+    }
+
+    .hist-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid rgba(74,143,255,0.1);
+      flex-shrink: 0;
+    }
+    .hist-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: .04em;
+    }
+    .hist-close-btn {
+      background: rgba(74,143,255,0.08);
+      border: 1px solid rgba(74,143,255,0.18);
+      border-radius: 8px;
+      color: var(--text-muted);
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      transition: background .15s, color .15s;
+    }
+    .hist-close-btn:hover { background: rgba(248,113,113,0.12); color: var(--danger); }
+
+    .hist-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(74,143,255,.2) transparent;
+    }
+    .hist-body::-webkit-scrollbar { width: 5px; }
+    .hist-body::-webkit-scrollbar-thumb { background: rgba(74,143,255,.2); border-radius: 4px; }
+
+    .hist-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 40px 0;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+    .hist-spinner {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 3px solid rgba(74,143,255,.12);
+      border-top: 3px solid var(--accent-blue);
+      animation: spin .9s linear infinite;
+    }
+
+    .hist-empty {
+      text-align: center;
+      padding: 44px 16px;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .hist-empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+    .hist-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .hist-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(74,143,255,0.04);
+      border: 1px solid rgba(74,143,255,0.12);
+      border-radius: 12px;
+      padding: 12px 14px;
+      transition: border-color .15s, background .15s;
+    }
+    .hist-item:hover {
+      border-color: rgba(74,143,255,0.28);
+      background: rgba(74,143,255,0.08);
+    }
+
+    .hist-item-icon {
+      width: 38px; height: 38px;
+      border-radius: 9px;
+      background: rgba(124,58,237,0.14);
+      border: 1px solid rgba(124,58,237,0.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .hist-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .hist-item-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .hist-item-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 3px;
+      font-family: 'Rajdhani', sans-serif;
+      letter-spacing: .03em;
+    }
+
+    .hist-download-btn {
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.3);
+      border-radius: 8px;
+      color: #c4b5fd;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: 'Rajdhani', sans-serif;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .hist-download-btn:hover {
+      background: rgba(124,58,237,0.28);
+      border-color: rgba(124,58,237,0.55);
+      color: #ede9fe;
+    }
+    .hist-download-btn:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    .hist-error-msg {
+      text-align: center;
+      padding: 32px 16px;
+      color: rgba(248,113,113,.8);
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
@@ -1531,6 +1838,10 @@
 
   <!-- ── TOPBAR ──────────────────────────────────────────────── -->
   <header class="topbar">
+    <!-- Botão de menu topo-esquerdo -->
+    <button id="menuToggleBtn" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="sideDrawer">
+      ☰
+    </button>
     <a href="home.html" class="topbar-logo" aria-label="SoundyAI Home">
       <div class="topbar-logo-icon" aria-hidden="true">🎛️</div>
       <span class="topbar-logo-text">SoundyAI</span>
@@ -1757,6 +2068,48 @@
   </footer>
 
 </div><!-- /page-wrapper -->
+
+<!-- ════════════════════════════════════════════════════════════
+     DRAWER OVERLAY + DRAWER LATERAL
+════════════════════════════════════════════════════════════ -->
+<div id="drawerOverlay" aria-hidden="true"></div>
+
+<nav id="sideDrawer" role="dialog" aria-modal="true" aria-label="Menu lateral" aria-hidden="true">
+  <div class="drawer-header">
+    <span class="drawer-logo">SoundyAI</span>
+    <button class="drawer-close-btn" id="drawerCloseBtn" type="button" aria-label="Fechar menu">&times;</button>
+  </div>
+  <div class="drawer-nav">
+    <button class="drawer-nav-item" id="drawerBtnHistory" type="button">
+      <span class="drawer-nav-item-icon" aria-hidden="true">📜</span>
+      Histórico de Masters
+    </button>
+    <button class="drawer-nav-item" id="drawerBtnAccount" type="button">
+      <span class="drawer-nav-item-icon" aria-hidden="true">👤</span>
+      Gerenciar Conta
+    </button>
+    <div class="drawer-divider"></div>
+    <button class="drawer-nav-item item-danger" id="drawerBtnSignOut" type="button">
+      <span class="drawer-nav-item-icon" aria-hidden="true">🚪</span>
+      Sair
+    </button>
+  </div>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════════
+     MODAL DE HISTÓRICO
+════════════════════════════════════════════════════════════ -->
+<div id="historyModal" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle" aria-hidden="true">
+  <div class="hist-panel">
+    <div class="hist-header">
+      <span class="hist-title" id="historyModalTitle">📜 Histórico de Masters</span>
+      <button class="hist-close-btn" id="historyCloseBtn" type="button" aria-label="Fechar histórico">&times;</button>
+    </div>
+    <div class="hist-body" id="historyBody">
+      <!-- Preenchido dinamicamente por JS -->
+    </div>
+  </div>
+</div>
 
 <!-- ════════════════════════════════════════════════════════════
      PROCESSING MODAL — aparece durante runAnalysisFromFileKey
@@ -3433,6 +3786,22 @@ function renderModeSelection() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+
+    // ── SALVAR NO HISTÓRICO (fire-and-forget — não bloqueia o download) ──────
+    if (_state.masterJobId) {
+      getValidIdToken().then(function(token) {
+        return fetch('/api/user/masters/save', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ jobId: _state.masterJobId })
+        });
+      }).catch(function(e) {
+        console.warn('[HISTORY] Falha ao salvar histórico (não crítico):', e.message);
+      });
+    }
   };
 
   // ── LOGIN INLINE (Fase 3) ───────────────────────────────────────────────
@@ -3863,6 +4232,222 @@ function renderModeSelection() {
       window.startMasterFlow();
     });
   });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // DRAWER LATERAL + MODAL HISTÓRICO DE MASTERS
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // ── Controles do Drawer ──────────────────────────────────────────────────
+  (function initDrawer() {
+    var toggleBtn = document.getElementById('menuToggleBtn');
+    var drawer    = document.getElementById('sideDrawer');
+    var overlay   = document.getElementById('drawerOverlay');
+    var closeBtn  = document.getElementById('drawerCloseBtn');
+
+    if (!toggleBtn || !drawer || !overlay) return;
+
+    function openDrawer() {
+      drawer.classList.add('drawer-open');
+      overlay.classList.add('overlay-visible');
+      drawer.setAttribute('aria-hidden', 'false');
+      toggleBtn.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeDrawer() {
+      drawer.classList.remove('drawer-open');
+      overlay.classList.remove('overlay-visible');
+      drawer.setAttribute('aria-hidden', 'true');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', openDrawer);
+    if (closeBtn)  closeBtn.addEventListener('click', closeDrawer);
+    overlay.addEventListener('click', closeDrawer);
+
+    // ── Item: Histórico ────────────────────────────────────────────────────
+    var btnHistory = document.getElementById('drawerBtnHistory');
+    if (btnHistory) {
+      btnHistory.addEventListener('click', function () {
+        closeDrawer();
+        openHistoryModal();
+      });
+    }
+
+    // ── Item: Gerenciar Conta ──────────────────────────────────────────────
+    var btnAccount = document.getElementById('drawerBtnAccount');
+    if (btnAccount) {
+      btnAccount.addEventListener('click', function () {
+        closeDrawer();
+        // Redireciona para página de conta quando disponível
+        window.location.href = '/conta.html';
+      });
+    }
+
+    // ── Item: Sair ─────────────────────────────────────────────────────────
+    var btnSignOut = document.getElementById('drawerBtnSignOut');
+    if (btnSignOut) {
+      btnSignOut.addEventListener('click', function () {
+        closeDrawer();
+        var auth = window.__firebaseAuth;
+        if (auth) {
+          auth.signOut().then(function () {
+            window.location.href = '/index.html';
+          }).catch(function (e) {
+            console.error('[DRAWER] Erro ao fazer logout:', e.message);
+          });
+        }
+      });
+    }
+  })();
+
+  // ── Modal de Histórico ───────────────────────────────────────────────────
+  function openHistoryModal() {
+    var modal = document.getElementById('historyModal');
+    if (!modal) return;
+    modal.classList.add('hist-open');
+    modal.setAttribute('aria-hidden', 'false');
+    renderHistoryLoading();
+    loadMastersHistory();
+  }
+
+  function closeHistoryModal() {
+    var modal = document.getElementById('historyModal');
+    if (!modal) return;
+    modal.classList.remove('hist-open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var closeBtn = document.getElementById('historyCloseBtn');
+    if (closeBtn) closeBtn.addEventListener('click', closeHistoryModal);
+
+    var modal = document.getElementById('historyModal');
+    if (modal) {
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeHistoryModal();
+      });
+    }
+  });
+
+  function renderHistoryLoading() {
+    var body = document.getElementById('historyBody');
+    if (!body) return;
+    body.innerHTML =
+      '<div class="hist-loading">'
+      + '<div class="hist-spinner"></div>'
+      + '<span>Carregando histórico...</span>'
+      + '</div>';
+  }
+
+  function renderHistoryEmpty() {
+    var body = document.getElementById('historyBody');
+    if (!body) return;
+    body.innerHTML =
+      '<div class="hist-empty">'
+      + '<div class="hist-empty-icon">🎵</div>'
+      + '<p>Nenhum arquivo masterizado ainda.<br>'
+      + 'Faça seu primeiro download para ele aparecer aqui.</p>'
+      + '</div>';
+  }
+
+  function renderHistoryError(msg) {
+    var body = document.getElementById('historyBody');
+    if (!body) return;
+    body.innerHTML =
+      '<div class="hist-error-msg">'
+      + 'Erro ao carregar histórico: ' + (msg || 'tente novamente.') + '</div>';
+  }
+
+  function renderHistoryList(masters) {
+    var body = document.getElementById('historyBody');
+    if (!body) return;
+
+    var modeLabels = { LOW: 'Suave', MEDIUM: 'Balanceado', HIGH: 'Alto', EXTREME: 'Extremo' };
+
+    var items = masters.map(function (m) {
+      var date      = m.createdAt ? new Date(m.createdAt).toLocaleDateString('pt-BR') : '—';
+      var modeLabel = modeLabels[m.mode] || m.mode || '—';
+      var safeName  = String(m.fileName || m.jobId).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      var safeJobId = encodeURIComponent(m.jobId || '');
+      return '<div class="hist-item">'
+        + '<div class="hist-item-icon" aria-hidden="true">🎵</div>'
+        + '<div class="hist-item-info">'
+        +   '<div class="hist-item-name">' + safeName + '</div>'
+        +   '<div class="hist-item-meta">' + modeLabel + ' &middot; ' + date + '</div>'
+        + '</div>'
+        + '<button class="hist-download-btn" type="button"'
+        +         ' data-jobid="' + safeJobId + '"'
+        +         ' onclick="window.downloadFromHistory(this)">'
+        +   '&#8595; Baixar'
+        + '</button>'
+        + '</div>';
+    }).join('');
+
+    body.innerHTML = '<div class="hist-list">' + items + '</div>';
+  }
+
+  async function loadMastersHistory() {
+    try {
+      var token = await getValidIdToken();
+      var res   = await fetch('/api/user/masters', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      var data = await res.json();
+
+      if (!res.ok || !data.success) {
+        renderHistoryError(data.error || 'Resposta inesperada do servidor.');
+        return;
+      }
+
+      if (!Array.isArray(data.masters) || data.masters.length === 0) {
+        renderHistoryEmpty();
+        return;
+      }
+
+      renderHistoryList(data.masters);
+    } catch (err) {
+      console.error('[HISTORY] Erro ao carregar:', err.message);
+      renderHistoryError(err.message);
+    }
+  }
+
+  window.downloadFromHistory = async function downloadFromHistory(btn) {
+    var jobId = btn && btn.dataset && btn.dataset.jobid;
+    if (!jobId) return;
+
+    btn.disabled    = true;
+    btn.textContent = '...';
+
+    try {
+      var token = await getValidIdToken();
+      var res   = await fetch('/api/user/masters/' + encodeURIComponent(jobId) + '/download', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      var data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Falha ao gerar link de download.');
+      }
+
+      var a       = document.createElement('a');
+      a.href      = data.downloadUrl;
+      a.download  = data.fileName || 'master.wav';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      btn.textContent = '✓ Baixado';
+      setTimeout(function () {
+        btn.disabled    = false;
+        btn.textContent = '↓ Baixar';
+      }, 3000);
+    } catch (err) {
+      console.error('[HISTORY-DL]', err.message);
+      btn.disabled    = false;
+      btn.textContent = '↓ Baixar';
+    }
+  };
 
 })();
 </script>

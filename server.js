@@ -1116,11 +1116,172 @@ app.post('/api/automaster/consume-credit', verifyFirebaseToken, async (req, res)
   }
 });
 
+// ════════════════════════════════════════════════════════════════
+// 📜 HISTÓRICO DE MASTERS: salva e lista masterizações do usuário
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * POST /api/user/masters/save
+ * Salva uma entrada no histórico de masters do usuário.
+ * Chamado pelo frontend no momento do download (fire-and-forget).
+ * Idempotente: usa jobId como ID do documento Firestore.
+ */
+app.post('/api/user/masters/save', verifyFirebaseToken, async (req, res) => {
+  try {
+    const uid   = req.user.uid;
+    const { jobId } = req.body;
+
+    if (!jobId || !/^[a-zA-Z0-9_-]+$/.test(jobId)) {
+      return res.status(400).json({ error: 'jobId inválido' });
+    }
+
+    // Busca o job no Redis para obter metadados
+    const job = await jobStoreModule.getJob(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Job não encontrado' });
+    }
+    if (job.status !== 'completed' || !job.output_key) {
+      return res.status(400).json({ error: 'Job não está completo ou sem output' });
+    }
+    // Garante que o job pertence ao usuário autenticado
+    if (job.user_id && job.user_id !== 'anonymous' && job.user_id !== uid) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const db        = getFirestore();
+    const docRef    = db.collection('usuarios').doc(uid)
+                        .collection('masters').doc(jobId);
+    const existing  = await docRef.get();
+
+    // Idempotência: se já existe, retorna sucesso sem sobrescrever
+    if (existing.exists) {
+      return res.json({ success: true, alreadyExists: true });
+    }
+
+    const now       = new Date();
+    const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // +30 dias
+
+    await docRef.set({
+      jobId,
+      fileName:   job.original_filename || jobId,
+      storageKey: job.output_key,
+      mode:       job.mode || null,
+      createdAt:  now.toISOString(),
+      expiresAt:  expiresAt.toISOString(),
+    });
+
+    console.log(`✅ [HISTORY] Histórico salvo — uid:${uid} jobId:${jobId}`);
+    return res.json({ success: true });
+
+  } catch (err) {
+    console.error('❌ [HISTORY] Erro ao salvar histórico:', err.message);
+    return res.status(500).json({ error: 'Erro ao salvar histórico', details: err.message });
+  }
+});
+
+/**
+ * GET /api/user/masters
+ * Retorna a lista de masters do usuário autenticado, ordenada por data decrescente.
+ * Exclui entradas expiradas (>30 dias).
+ */
+app.get('/api/user/masters', verifyFirebaseToken, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const db  = getFirestore();
+
+    const snapshot = await db.collection('usuarios').doc(uid)
+                             .collection('masters')
+                             .orderBy('createdAt', 'desc')
+                             .limit(50)
+                             .get();
+
+    const now     = new Date();
+    const masters = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      // Filtra entradas expiradas
+      if (data.expiresAt && new Date(data.expiresAt) < now) return;
+      masters.push({
+        jobId:      data.jobId,
+        fileName:   data.fileName,
+        storageKey: data.storageKey,
+        mode:       data.mode,
+        createdAt:  data.createdAt,
+        expiresAt:  data.expiresAt,
+      });
+    });
+
+    return res.json({ success: true, masters });
+
+  } catch (err) {
+    console.error('❌ [HISTORY] Erro ao listar histórico:', err.message);
+    return res.status(500).json({ error: 'Erro ao listar histórico', details: err.message });
+  }
+});
+
+/**
+ * GET /api/user/masters/:jobId/download
+ * Gera URL assinada fresca (30 min) para re-download de um item do histórico.
+ * Verifica que o usuário é dono do registro antes de gerar a URL.
+ */
+app.get('/api/user/masters/:jobId/download', verifyFirebaseToken, async (req, res) => {
+  try {
+    const uid    = req.user.uid;
+    const { jobId } = req.params;
+
+    if (!jobId || !/^[a-zA-Z0-9_-]+$/.test(jobId)) {
+      return res.status(400).json({ error: 'jobId inválido' });
+    }
+
+    const db     = getFirestore();
+    const doc    = await db.collection('usuarios').doc(uid)
+                           .collection('masters').doc(jobId).get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'Item não encontrado no histórico' });
+    }
+
+    const data = doc.data();
+    const now  = new Date();
+
+    // Verifica expiração (30 dias)
+    if (data.expiresAt && new Date(data.expiresAt) < now) {
+      return res.status(410).json({ error: 'Arquivo expirado (>30 dias)' });
+    }
+
+    if (!data.storageKey) {
+      return res.status(500).json({ error: 'storageKey ausente no registro' });
+    }
+
+    // Gera nome seguro para download
+    const safeName = (data.fileName || jobId)
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9\-]/g, '_');
+    const dlFilename = `Master SoundyAI_${safeName}.wav`;
+
+    // Gera URL assinada fresca (30 minutos)
+    const signedUrl = await storageServiceModule.generateSignedUrl(
+      data.storageKey,
+      1800,
+      dlFilename
+    );
+
+    return res.json({ success: true, downloadUrl: signedUrl, fileName: data.fileName });
+
+  } catch (err) {
+    console.error('❌ [HISTORY] Erro ao gerar URL de download:', err.message);
+    return res.status(500).json({ error: 'Erro ao gerar URL de download', details: err.message });
+  }
+});
+
 console.log('🚀 [AUTOMASTER-V1] Rotas registradas:');
 console.log('   - POST /api/analyze-for-master (pré-análise)');
 console.log('   - POST /api/automaster (processamento)');
 console.log('   - POST /api/automaster/consume-credit (consumo de crédito)');
 console.log('   - GET /masters/* (arquivos masterizados)');
+console.log('   - POST /api/user/masters/save (salvar histórico)');
+console.log('   - GET /api/user/masters (listar histórico)');
+console.log('   - GET /api/user/masters/:jobId/download (re-download histórico)');
 
 // ---------- ROTA DE CONFIGURAÇÃO DA API KEY (RAILWAY) ----------
 app.get("/api/config", (req, res) => {
