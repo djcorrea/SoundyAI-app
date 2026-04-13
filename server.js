@@ -1105,10 +1105,25 @@ app.post('/api/automaster/consume-credit', verifyFirebaseToken, async (req, res)
     // Buscar saldo atual para retornar ao front
     const db   = getFirestore();
     const snap = await db.collection('usuarios').doc(req.user.uid).get();
-    const credits = snap.exists ? (snap.data().automasterCredits ?? 0) : 0;
 
-    console.log('✅ [AUTOMASTER] Download registrado — saldo atual:', credits);
-    return res.json({ success: true, message: 'Download registrado', creditsRemaining: credits });
+    if (!snap.exists) {
+      return res.json({ success: true, message: 'Download registrado', creditsRemaining: 0, creditsUsed: 0, creditsLimit: 0 });
+    }
+
+    const data         = snap.data();
+    const creditsUsed  = typeof data.creditsUsed  === 'number' ? data.creditsUsed  : 0;
+    const creditsLimit = typeof data.creditsLimit === 'number' ? data.creditsLimit : (data.automasterCredits ?? 0);
+    const remaining    = Math.max(0, creditsLimit - creditsUsed);
+
+    console.log('✅ [AUTOMASTER] Download registrado — used:', creditsUsed, '/', creditsLimit);
+    return res.json({
+      success: true,
+      message: 'Download registrado',
+      creditsRemaining: remaining,
+      creditsUsed,
+      creditsLimit,
+      plan: data.plan || 'free',
+    });
 
   } catch (err) {
     console.error('❌ [AUTOMASTER] Erro ao registrar download:', err);

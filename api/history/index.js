@@ -11,18 +11,17 @@ const router = express.Router();
 const HISTORY_COLLECTION = "analysis_history";
 const MAX_HISTORY_PER_USER = 50;
 
-// 🔐 Middleware de verificação de plano PRO/STUDIO
+// 🔐 Middleware de verificação de plano PRO
 function requirePro(req, res, next) {
     const userPlan = req.headers['x-user-plan'] || req.body?.userPlan || 'free';
     const normalizedPlan = userPlan.toLowerCase().trim();
     
-    // ✅ ATUALIZADO 2026-01-21: PRO e STUDIO têm acesso completo ao histórico
-    if (normalizedPlan !== 'pro' && normalizedPlan !== 'studio') {
+    if (normalizedPlan !== 'pro') {
         console.log(`🕐 [HISTORY-API] ⛔ Acesso negado - plano: ${userPlan}`);
         return res.status(403).json({
             success: false,
             error: 'FORBIDDEN',
-            message: 'Histórico disponível apenas para usuários PRO e STUDIO'
+            message: 'Histórico disponível apenas para usuários PRO'
         });
     }
     

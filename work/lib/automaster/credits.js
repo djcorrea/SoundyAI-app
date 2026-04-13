@@ -1,32 +1,46 @@
 // work/lib/automaster/credits.js
-// Sistema de créditos AutoMaster — verificação e consumo atômico via Firestore.
-// Todas as operações de escrita usam transactions para evitar race conditions.
+// Sistema de créditos AutoMaster — inicialização mensal e compatibilidade com webhook Stripe.
+//
+// Planos:
+//   free  → 1/mês   | plus  → 20/mês   | pro → 200/mês (ilimitado)   | dj → 200/mês (beta)
+// Studio removido.
 
 import { getFirestore } from '../../../firebase/admin.js';
 
 const USERS = 'usuarios';
 
 /**
- * Créditos AutoMaster adicionados por plano a cada renovação / primeira ativação.
- * Plano 'studio' tem acesso ilimitado e não usa créditos.
- * Plano 'free'    tem 0 créditos mensais (recebe apenas o free trial implícito em automasterFreeUsed).
+ * Limites mensais por plano.
+ * Usado pelo webhook Stripe para inicializar a estrutura mensal no Firestore.
+ *
+ * O valor indica o número de masters permitidos por mês.
+ * Pro e DJ são tratados como "ilimitados" no frontend, mas têm hardcap interno de 200.
+ *
+ * Planos com valor 0 não disparam addAutomasterCredits no webhook.
  */
 export const AUTOMASTER_CREDITS_PER_PLAN = {
-  free:   0,
-  plus:   5,
-  pro:    20,
-  dj:     20,  // DJ Beta: mesmos limites do PRO
-  studio: 0,   // Studio não usa créditos — veja lógica especial em checkAndConsumeCredit
+  free:  0,    // sem webhook — free é gerenciado automaticamente
+  plus:  20,   // 20 masters/mês
+  pro:   200,  // 200 hardcap interno (exibido como "ilimitado")
+  dj:    200,  // DJ Beta: mesmo que pro
 };
 
 /**
+ * Retorna o timestamp do primeiro dia do próximo mês (midnight UTC).
+ */
+function getNextMonthTimestamp() {
+  const d = new Date();
+  d.setUTCMonth(d.getUTCMonth() + 1);
+  d.setUTCDate(1);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/**
  * Verifica elegibilidade e consome 1 crédito AutoMaster em uma única transaction atômica.
+ * Compatibilidade: usado internamente, mas o fluxo principal usa jobs.js.
  *
- * Ordem de prioridade:
- *  1. Plano 'studio'              → acesso ilimitado, sem consumo
- *  2. automasterFreeUsed === false → concede trial grátis, marca como usado
- *  3. automasterCredits > 0       → decrementa 1 crédito
- *  4. Caso contrário              → bloqueia com { allowed: false, code: 'NO_CREDITS' }
+ * Respeita o sistema mensal: creditsUsed < creditsLimit liberado, com reset automático.
  *
  * @param {string} uid - UID Firebase do usuário autenticado
  * @returns {Promise<{ allowed: boolean, type: string, code?: string, creditsAfter: number }>}
@@ -44,44 +58,49 @@ export async function checkAndConsumeCredit(uid) {
       throw err;
     }
 
-    const data     = snap.data();
-    const plan     = data.plan || 'free';
-    const freeUsed = data.automasterFreeUsed ?? false;
-    const credits  = typeof data.automasterCredits === 'number' ? data.automasterCredits : 0;
+    const data  = snap.data();
+    const plan  = data.plan || 'free';
+    const limit = AUTOMASTER_CREDITS_PER_PLAN[plan] ?? 1;
+    const now   = Date.now();
 
-    console.log(`💳 [CREDITS] uid=${uid} plan=${plan} freeUsed=${freeUsed} credits=${credits}`);
+    // Monthly reset
+    let creditsUsed = typeof data.creditsUsed === 'number' ? data.creditsUsed : 0;
+    const resetDate = typeof data.resetDate   === 'number' ? data.resetDate   : 0;
 
-    // 1. Studio: ilimitado — não consome crédito
-    if (plan === 'studio') {
-      return { allowed: true, type: 'plan_unlimited', creditsAfter: credits };
+    if (now > resetDate) {
+      creditsUsed = 0;
+      tx.update(userRef, {
+        creditsUsed:       0,
+        creditsLimit:      limit,
+        resetDate:         getNextMonthTimestamp(),
+        automasterCredits: limit,
+      });
     }
 
-    // 2. Free trial ainda disponível
-    if (!freeUsed) {
-      tx.update(userRef, { automasterFreeUsed: true });
-      console.log(`💳 [CREDITS] Trial grátis concedido: uid=${uid}`);
-      return { allowed: true, type: 'free_trial', creditsAfter: credits };
+    console.log(`💳 [CREDITS] uid=${uid} plan=${plan} used=${creditsUsed}/${limit}`);
+
+    if (creditsUsed >= limit) {
+      console.log(`🚫 [CREDITS] Limite atingido: uid=${uid}`);
+      return { allowed: false, type: 'limit_reached', code: 'NO_CREDITS', creditsAfter: 0 };
     }
 
-    // 3. Créditos disponíveis
-    if (credits > 0) {
-      tx.update(userRef, { automasterCredits: credits - 1 });
-      console.log(`💳 [CREDITS] Crédito consumido: uid=${uid} restante=${credits - 1}`);
-      return { allowed: true, type: 'credit', creditsAfter: credits - 1 };
-    }
+    const newUsed = creditsUsed + 1;
+    tx.update(userRef, {
+      creditsUsed:       newUsed,
+      automasterCredits: Math.max(0, limit - newUsed),
+    });
 
-    // 4. Sem créditos — bloquear
-    console.log(`🚫 [CREDITS] Sem créditos: uid=${uid}`);
-    return { allowed: false, type: 'no_credits', code: 'NO_CREDITS', creditsAfter: 0 };
+    console.log(`💳 [CREDITS] Crédito consumido: uid=${uid} restante=${limit - newUsed}`);
+    return { allowed: true, type: 'plan_monthly', creditsAfter: Math.max(0, limit - newUsed) };
   });
 }
 
 /**
- * Adiciona créditos AutoMaster ao usuário de forma atômica.
- * Uso: chamado pelo webhook Stripe após pagamento/renovação confirmados.
+ * Inicializa a estrutura mensal de créditos AutoMaster para um usuário.
+ * Chamado pelo webhook Stripe após pagamento/renovação confirmados.
  *
  * @param {string} uid    - UID Firebase do usuário
- * @param {number} amount - Quantidade de créditos a adicionar
+ * @param {number} amount - Limite mensal do plano (ex: 20 para plus, 200 para pro)
  */
 export async function addAutomasterCredits(uid, amount) {
   if (!uid || typeof amount !== 'number' || amount <= 0) return;
@@ -90,12 +109,15 @@ export async function addAutomasterCredits(uid, amount) {
   const userRef = db.collection(USERS).doc(uid);
 
   await db.runTransaction(async (tx) => {
-    const snap    = await tx.get(userRef);
-    const current = snap.exists && typeof snap.data().automasterCredits === 'number'
-      ? snap.data().automasterCredits
-      : 0;
-    tx.set(userRef, { automasterCredits: current + amount }, { merge: true });
+    // Inicializar/renovar estrutura mensal para o novo período
+    tx.set(userRef, {
+      creditsLimit:      amount,
+      creditsUsed:       0,
+      resetDate:         getNextMonthTimestamp(),
+      // Legado: mantido para compat com home.html
+      automasterCredits: amount,
+    }, { merge: true });
   });
 
-  console.log(`💳 [CREDITS] Créditos adicionados: uid=${uid} +${amount}`);
+  console.log(`💳 [CREDITS] Estrutura mensal inicializada: uid=${uid} limit=${amount}`);
 }

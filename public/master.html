@@ -1831,10 +1831,27 @@ async function triggerBlobDownload(url) {
   const name = generateDownloadFilename(automasterState.fileName || 'audio');
   try {
     let hdrs = {};
+    // Tentar obter token — com retry para o caso de mobile re-inicializando Firebase
     try {
       const token = await getValidIdToken();
       if (token) hdrs = { Authorization: `Bearer ${token}` };
-    } catch (_) { /* download tenta mesmo sem token */ }
+    } catch (authErr) {
+      if (authErr.message === 'NOT_AUTHENTICATED') {
+        // Mobile: Firebase pode estar re-inicializando após retomada do app — aguardar e tentar novamente
+        await new Promise(r => setTimeout(r, 1500));
+        try {
+          const token = await getValidIdToken();
+          if (token) hdrs = { Authorization: `Bearer ${token}` };
+        } catch (_) {
+          // Fallback: se jobId disponível mas auth falhou, tentar URL assinada direta (não exige header)
+          const signedFallback = automasterState.result?.masterUrl;
+          if (signedFallback && signedFallback !== url) {
+            url = signedFallback;
+          }
+          console.warn('[AUTOMASTER] Token indisponível — usando URL de fallback');
+        }
+      }
+    }
     const res   = await fetch(url, { headers: hdrs });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const blob  = await res.blob();
