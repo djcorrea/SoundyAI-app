@@ -3469,7 +3469,9 @@ function renderModeSelection() {
     var auth = window.__firebaseAuth || null;
     var user = auth ? auth.currentUser : null;
     if (!user) throw new Error('NOT_AUTHENTICATED');
-    return await user.getIdToken(true);
+    // Usar token cacheado (válido por 1h) — sem force-refresh para evitar
+    // falhas de rede em mobile que disparariam o modal de login erroneamente.
+    return await user.getIdToken(false);
   }
 
   /**
@@ -3587,9 +3589,10 @@ function renderModeSelection() {
         // Outros status (pending, processing, queued): continua polling silenciosamente
       } catch (err) {
         var _pollErrMsg = err.message || '';
-        if (_pollErrMsg === 'NOT_AUTHENTICATED'
-            || _pollErrMsg.toLowerCase().includes('token')
-            || _pollErrMsg.toLowerCase().includes('auth')) {
+        // Apenas NOT_AUTHENTICATED (sinal explícito nosso) requer re-login.
+        // Erros do Firebase SDK (auth/network-request-failed, etc.) NÃO devem
+        // abrir o modal — são falhas de rede transitórias, o polling deve continuar.
+        if (_pollErrMsg === 'NOT_AUTHENTICATED') {
           clearInterval(_state._masterPollTimer);
           _state._masterPollTimer = null;
           _state.pendingAction = true; // Etapa 3.1: intenção confirmada, job em curso
@@ -3632,10 +3635,7 @@ function renderModeSelection() {
         renderUpgradeModal();
         return;
       }
-      if (_runErrMsg === 'NOT_AUTHENTICATED'
-          || _runErrMsg.toLowerCase().includes('unauthorized')
-          || _runErrMsg.toLowerCase().includes('token')
-          || _runErrMsg.toLowerCase().includes('not_authenticated')) {
+      if (_runErrMsg === 'NOT_AUTHENTICATED') {
         _state.pendingAction = true;
         openLoginModal();
         return;
