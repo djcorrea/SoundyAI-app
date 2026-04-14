@@ -1132,7 +1132,62 @@ app.post('/api/automaster/consume-credit', verifyFirebaseToken, async (req, res)
 });
 
 // ════════════════════════════════════════════════════════════════
-// 📜 HISTÓRICO DE MASTERS: salva e lista masterizações do usuário
+// � FEEDBACK DE MASTER: coleta avaliação 👍/👎 do usuário
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * POST /api/automaster/feedback
+ * Salva o feedback (liked: true/false) do usuário sobre uma master concluída.
+ * Idempotente por jobId: a mesma escrita sobrescreve qualquer envio anterior.
+ * Não bloqueia o usuário se falhar — tratado como fire-and-forget no frontend.
+ *
+ * Body: { jobId: string, liked: boolean }
+ * Auth: requer token Firebase válido
+ */
+app.post('/api/automaster/feedback', verifyFirebaseToken, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const { jobId, liked } = req.body;
+
+    if (typeof jobId !== 'string' || !jobId.trim()) {
+      return res.status(400).json({ error: 'jobId inválido.' });
+    }
+    if (typeof liked !== 'boolean') {
+      return res.status(400).json({ error: 'liked deve ser boolean.' });
+    }
+
+    const db = getFirestore();
+
+    // Verificar se o job pertence ao usuário antes de salvar
+    const jobSnap = await db.collection('automasterJobs').doc(jobId.trim()).get();
+    if (!jobSnap.exists || jobSnap.data().uid !== uid) {
+      return res.status(403).json({ error: 'Job não encontrado ou não pertence ao usuário.' });
+    }
+
+    // Buscar plano atual do usuário
+    const userSnap = await db.collection('usuarios').doc(uid).get();
+    const plan     = userSnap.exists ? (userSnap.data().plan || 'free') : 'free';
+
+    // Salvar feedback — idempotente por jobId (mesmo doc, sobrescreve)
+    await db.collection('automaster_feedback').doc(jobId.trim()).set({
+      userId:    uid,
+      jobId:     jobId.trim(),
+      liked,
+      plan,
+      createdAt: Date.now(),
+    });
+
+    console.log(`👍 [FEEDBACK] uid=${uid} jobId=${jobId} liked=${liked}`);
+    return res.json({ success: true });
+
+  } catch (err) {
+    console.error('❌ [FEEDBACK] Erro ao salvar feedback:', err);
+    return res.status(500).json({ error: 'Erro ao salvar feedback.' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// �📜 HISTÓRICO DE MASTERS: salva e lista masterizações do usuário
 // ════════════════════════════════════════════════════════════════
 
 /**

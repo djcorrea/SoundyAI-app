@@ -940,6 +940,26 @@ body .neon-accent-br{
     <div id="previewDownloadDone" style="display:none;margin-top:1.75rem;text-align:center;">
       <div style="font-size:2.5rem;margin-bottom:0.75rem;">✅</div>
       <div style="font-size:1rem;font-weight:700;color:var(--success);margin-bottom:1.25rem;">Download concluído!</div>
+
+      <div id="masterFeedbackBlock" style="margin-bottom:1.25rem;">
+        <p style="font-size:.85rem;color:rgba(255,255,255,.6);margin:0 0 .75rem;">Gostou do resultado?</p>
+        <div style="display:flex;gap:.75rem;justify-content:center;">
+          <button id="masterFeedbackLike"
+            onclick="submitMasterFeedback(true)"
+            style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);
+                   border-radius:12px;padding:.5rem 1.25rem;font-size:1.3rem;
+                   cursor:pointer;transition:background .2s;"
+            title="Gostei">👍</button>
+          <button id="masterFeedbackDislike"
+            onclick="submitMasterFeedback(false)"
+            style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);
+                   border-radius:12px;padding:.5rem 1.25rem;font-size:1.3rem;
+                   cursor:pointer;transition:background .2s;"
+            title="Não gostei">👎</button>
+        </div>
+        <p id="masterFeedbackMsg" style="display:none;font-size:.78rem;color:rgba(255,255,255,.45);margin:.6rem 0 0;"></p>
+      </div>
+
       <button class="btn btn-primary" style="width:100%;" onclick="resetFlow()">🎵 Masterizar outra faixa</button>
     </div>
   </div>
@@ -1869,6 +1889,52 @@ async function triggerBlobDownload(url) {
 }
 
 // ================================================================
+// FEEDBACK 👍 / 👎
+// ================================================================
+
+/**
+ * Envia feedback (liked: true/false) para o endpoint /api/automaster/feedback.
+ * Fire-and-forget no sentido do usuário: UI é atualizada imediatamente;
+ * falha de rede não bloqueia nem exibe erro crítico.
+ * @param {boolean} liked
+ */
+async function submitMasterFeedback(liked) {
+  const likeBtn    = document.getElementById('masterFeedbackLike');
+  const dislikeBtn = document.getElementById('masterFeedbackDislike');
+  const msgEl      = document.getElementById('masterFeedbackMsg');
+
+  // Desabilita botões imediatamente (1 feedback por job)
+  if (likeBtn)    { likeBtn.disabled    = true; }
+  if (dislikeBtn) { dislikeBtn.disabled = true; }
+
+  const jobId = automasterState.jobId;
+  if (!jobId) {
+    if (msgEl) { msgEl.textContent = 'Feedback enviado.'; msgEl.style.display = 'block'; }
+    return;
+  }
+
+  try {
+    const auth  = window.__firebaseAuth || null;
+    const user  = auth ? auth.currentUser : null;
+    if (!user) {
+      if (msgEl) { msgEl.textContent = 'Feedback enviado.'; msgEl.style.display = 'block'; }
+      return;
+    }
+    const token = await user.getIdToken(false);
+
+    await fetch('/api/automaster/feedback', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body:    JSON.stringify({ jobId, liked }),
+    });
+  } catch (_) {
+    // Falha silenciosa — não impacta o usuário
+  }
+
+  if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
+}
+
+// ================================================================
 // RESET
 // ================================================================
 function resetFlow() {
@@ -1883,6 +1949,13 @@ function resetFlow() {
   automasterState._recommendedMode = null; automasterState._confirmJobId = null;
   automasterState.preAnalysis = { apt:null, lufs:null, truePeak:null, headroom:null, clipping:null, tonalBalance:null, recommendedMode:null, message:null };
   automasterState.result      = { success:null, masterUrl:null, previewBefore:null, previewAfter:null, metrics:{ lufsBefore:null, truePeakBefore:null, lufsAfter:null, truePeakAfter:null } };
+  // Resetar UI de feedback para próximo uso
+  const fbLike    = document.getElementById('masterFeedbackLike');
+  const fbDislike = document.getElementById('masterFeedbackDislike');
+  const fbMsg     = document.getElementById('masterFeedbackMsg');
+  if (fbLike)    { fbLike.disabled    = false; }
+  if (fbDislike) { fbDislike.disabled = false; }
+  if (fbMsg)     { fbMsg.textContent  = ''; fbMsg.style.display = 'none'; }
   document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
   document.querySelectorAll('.mode-option-v2').forEach(o => o.classList.remove('selected','recommended'));
   document.getElementById('fileInfo').classList.remove('visible');

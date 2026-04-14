@@ -18,6 +18,7 @@
 // Campos em usuarios/{uid}: creditsUsed, creditsLimit, resetDate, lifetimeUsage
 
 import { getFirestore } from '../../../firebase/admin.js';
+import { FieldValue } from 'firebase-admin/firestore';
 
 const USERS       = 'usuarios';
 const JOBS        = 'automasterJobs';
@@ -34,6 +35,37 @@ const PLAN_MONTHLY_LIMITS = {
 
 // Planos com hardcap (tratados como "ilimitados" na mensagem ao usuário)
 const HARDCAP_PLANS = new Set(['pro', 'dj']);
+
+/**
+ * Remove campos legados do documento do usuário que não são mais lidos
+ * pelo backend. Executado fire-and-forget ao criar job — sem impacto
+ * no fluxo principal.
+ *
+ * Campos removidos:
+ *  • analysesToday  — contador diário de análises; nunca lido pelo backend
+ *  • messagesToday  — contador diário de mensagens; nunca lido pelo backend
+ *
+ * Campos MANTIDOS (ainda ativos):
+ *  • automasterCredits, automasterFreeUsed  — compat com home.html
+ *  • studioExpiresAt                        — sistema de expiração de planos
+ *  • analysesMonth, messagesMonth           — rate limiting ativo
+ *  • imagesMonth                            — rate limiting de imagens
+ *  • freeAnalysesRemaining                  — trial de análise gratuita
+ *
+ * @param {FirebaseFirestore.DocumentReference} userRef
+ */
+async function cleanupUserLegacyFields(userRef) {
+  try {
+    await userRef.update({
+      analysesToday: FieldValue.delete(),
+      messagesToday: FieldValue.delete(),
+    });
+    console.log(`✅ [AUTOMASTER-JOBS] Campos legados removidos para: ${userRef.id}`);
+  } catch (err) {
+    // Não bloqueia o fluxo principal — limpeza é melhor esforço
+    console.warn('[AUTOMASTER-JOBS] cleanupUserLegacyFields falhou (ignorado):', err.message);
+  }
+}
 
 /**
  * Retorna o timestamp do primeiro dia do próximo mês (midnight UTC).
@@ -74,7 +106,7 @@ export async function createJobWithTransaction(uid, jobId, { fileKey, mode }) {
   const jobRef  = db.collection(JOBS).doc(jobId);
   const now     = Date.now();
 
-  return await db.runTransaction(async (tx) => {
+  const result = await db.runTransaction(async (tx) => {
     const userSnap = await tx.get(userRef);
 
     if (!userSnap.exists) {
@@ -153,6 +185,11 @@ export async function createJobWithTransaction(uid, jobId, { fileKey, mode }) {
     console.log(`✅ [AUTOMASTER-JOBS] Job criado: uid=${uid} jobId=${jobId} plan=${plan} used=${creditsUsed}/${monthlyLimit} eligibility=${eligibilityType}`);
     return { eligibilityType };
   });
+
+  // Limpeza de campos legados — fire-and-forget, não bloqueia o fluxo
+  cleanupUserLegacyFields(userRef);
+
+  return result;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

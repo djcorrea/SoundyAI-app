@@ -2957,6 +2957,18 @@
       +   '</button>'
       +   '<button class="am-secondary-btn" type="button" onclick="resetMasterFlow()">Masterizar outra faixa</button>'
       + '</div>'
+      + '<div id="homeFeedbackBlock" style="margin-top:1.5rem;text-align:center;">'
+      +   '<p style="font-size:.82rem;color:rgba(255,255,255,.5);margin:0 0 .6rem;">Gostou do resultado?</p>'
+      +   '<div style="display:flex;gap:.65rem;justify-content:center;">'
+      +     '<button id="homeFeedbackLike" onclick="__homeSubmitFeedback(true)"'
+      +       ' style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);'
+      +       'border-radius:10px;padding:.45rem 1.1rem;font-size:1.25rem;cursor:pointer;" title="Gostei">👍</button>'
+      +     '<button id="homeFeedbackDislike" onclick="__homeSubmitFeedback(false)"'
+      +       ' style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);'
+      +       'border-radius:10px;padding:.45rem 1.1rem;font-size:1.25rem;cursor:pointer;" title="Não gostei">👎</button>'
+      +   '</div>'
+      +   '<p id="homeFeedbackMsg" style="display:none;font-size:.75rem;color:rgba(255,255,255,.4);margin:.5rem 0 0;"></p>'
+      + '</div>'
       + '</div>';
 
     // ── A/B Player — Web Audio API Crossfade ──────────────────────────────────
@@ -3720,6 +3732,47 @@ function renderModeSelection() {
     if (_state.masterJobId) return { allowed: true, reason: 'session_job_fallback' };
     return { allowed: false, reason: 'NO_CREDITS' };
   }
+
+  /**
+   * Baixa a faixa masterizada forçando download binário (sem abrir nova aba).
+  /**
+   * Envia feedback 👍/👎 para /api/automaster/feedback.
+   * Fire-and-forget: falha de rede não bloqueia nem exibe erro ao usuário.
+   * @param {boolean} liked
+   */
+  window.__homeSubmitFeedback = async function __homeSubmitFeedback(liked) {
+    var likeBtn    = document.getElementById('homeFeedbackLike');
+    var dislikeBtn = document.getElementById('homeFeedbackDislike');
+    var msgEl      = document.getElementById('homeFeedbackMsg');
+
+    if (likeBtn)    { likeBtn.disabled    = true; }
+    if (dislikeBtn) { dislikeBtn.disabled = true; }
+
+    var jobId = _state.masterJobId;
+    if (!jobId) {
+      if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
+      return;
+    }
+
+    try {
+      var auth  = window.__firebaseAuth || null;
+      var user  = auth ? auth.currentUser : null;
+      if (!user) {
+        if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
+        return;
+      }
+      var token = await user.getIdToken(false);
+      await fetch('/api/automaster/feedback', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body:    JSON.stringify({ jobId: jobId, liked: liked }),
+      });
+    } catch (_) {
+      // Falha silenciosa
+    }
+
+    if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
+  };
 
   /**
    * Baixa a faixa masterizada forçando download binário (sem abrir nova aba).
