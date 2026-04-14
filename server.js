@@ -261,7 +261,7 @@ import stripeWebhookRouter from "./work/api/webhook/stripe.js";
 import { verifyFirebaseToken } from './work/lib/auth/verify-token-middleware.js';
 import { checkAndConsumeCredit } from './work/lib/automaster/credits.js'; // legado — mantido p/ compat
 import { createJobWithTransaction, consumeJobCredit, releaseUserLock } from './work/lib/automaster/jobs.js';
-import { getFirestore } from './firebase/admin.js';
+import { getFirestore, getAuth } from './firebase/admin.js';
 
 // 🎓 HOTMART: Webhook para combo Curso + PLUS 1 mês
 import hotmartWebhookRouter from "./api/webhook/hotmart.js";
@@ -1164,20 +1164,59 @@ app.post('/api/automaster/feedback', verifyFirebaseToken, async (req, res) => {
       return res.status(403).json({ error: 'Job não encontrado ou não pertence ao usuário.' });
     }
 
-    // Buscar plano atual do usuário
-    const userSnap = await db.collection('usuarios').doc(uid).get();
-    const plan     = userSnap.exists ? (userSnap.data().plan || 'free') : 'free';
+    // Buscar plano e email em paralelo (Firestore + Firebase Auth)
+    const [userSnap, userRecord] = await Promise.all([
+      db.collection('usuarios').doc(uid).get(),
+      getAuth().getUser(uid).catch(() => null),
+    ]);
+
+    const plan  = userSnap.exists ? (userSnap.data().plan || 'free') : 'free';
+    const email = userRecord?.email ?? null;
+
+    // Mode vem do Firestore (gravado na criação do job)
+    const jobData = jobSnap.data();
+    const mode = jobData.mode ?? null;
+
+    // Genre, lufs_out e tp_out vêm do PostgreSQL (resultado do processamento)
+    let genre    = null;
+    let lufs_out = null;
+    let tp_out   = null;
+
+    try {
+      const pgResult = await jobsPool.query(
+        'SELECT results FROM jobs WHERE id = $1 LIMIT 1',
+        [jobId.trim()],
+      );
+      if (pgResult.rows.length > 0 && pgResult.rows[0].results) {
+        const r = typeof pgResult.rows[0].results === 'string'
+          ? JSON.parse(pgResult.rows[0].results)
+          : pgResult.rows[0].results;
+
+        // Tentar múltiplos paths onde genre pode estar gravado
+        genre    = r?.metadata?.genre ?? r?.genre ?? r?.data?.genre ?? r?.summary?.genre ?? null;
+        lufs_out = r?.technicalData?.lufsIntegrated ?? null;
+        tp_out   = r?.technicalData?.truePeakDbtp   ?? null;
+      }
+    } catch (pgErr) {
+      // Não crítico — feedback salva sem métricas
+      console.warn('[FEEDBACK] Falha ao buscar métricas do PostgreSQL (não crítico):', pgErr.message);
+    }
 
     // Salvar feedback — idempotente por userId+jobId (1 feedback por usuário por job)
     await db.collection('automaster_feedback').doc(`${uid}_${jobId.trim()}`).set({
       userId:    uid,
+      email,
       jobId:     jobId.trim(),
       liked,
       plan,
+      mode,
+      genre,
+      lufs_out,
+      tp_out,
       createdAt: Date.now(),
     });
 
-    console.log(`👍 [FEEDBACK] uid=${uid} jobId=${jobId} liked=${liked}`);
+    console.log(`👍 [FEEDBACK] uid=${uid} jobId=${jobId} liked=${liked} mode=${mode} genre=${genre} lufs=${lufs_out} tp=${tp_out}`);
     return res.json({ success: true });
 
   } catch (err) {
