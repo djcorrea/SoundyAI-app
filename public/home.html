@@ -2904,6 +2904,12 @@
 
     // ── PARTE 5: Validação de métricas ──────────────────────────────
     var m = data.metrics || {};
+    console.log('[FRONT-RAW-RESULT] status:', data.status,
+      '| metrics:', JSON.stringify(m),
+      '| mixNotApt_raw:', m.mixNotApt,
+      '| typeof:', typeof m.mixNotApt,
+      '| tp_before:', m.truePeakBefore,
+      '| lufs_before:', m.lufsBefore);
     console.log('[AUTOMASTER] BEFORE METRICS:', JSON.stringify({ lufs: m.lufsBefore, truePeak: m.truePeakBefore, dr: m.drBefore, headroom: m.headroomBefore }));
     console.log('[AUTOMASTER] AFTER METRICS:', JSON.stringify({ lufs: m.lufsAfter, truePeak: m.truePeakAfter, dr: m.drAfter, headroom: m.headroomAfter }));
     var hasMetrics = (m.lufsAfter !== undefined && m.lufsAfter !== null)
@@ -2911,6 +2917,19 @@
     if (!hasMetrics) {
       console.warn('[HOME-MASTER] metrics incompletas ou ausentes:', m);
     }
+
+    // mix_not_apt: flag do backend OU fallback por métricas brutas (defense-in-depth)
+    var _tpRaw   = (m.truePeakBefore  != null && m.truePeakBefore  !== '') ? Number(m.truePeakBefore)  : null;
+    var _lufsRaw = (m.lufsBefore      != null && m.lufsBefore      !== '') ? Number(m.lufsBefore)      : null;
+    var _mixNotAptFlag    = m.mixNotApt === true;
+    var _mixNotAptMetrics = (_tpRaw   != null && !isNaN(_tpRaw)   && _tpRaw   >= -1.0) ||
+                           (_lufsRaw != null && !isNaN(_lufsRaw) && _lufsRaw >= -10.0);
+    var _mixNotApt = _mixNotAptFlag || _mixNotAptMetrics;
+    console.log('[FRONT-MIXNOTAPT] state_flag:', _mixNotAptFlag,
+      '| tp_before:', _tpRaw,
+      '| lufs_before:', _lufsRaw,
+      '| from_metrics:', _mixNotAptMetrics,
+      '| final:', _mixNotApt);
     var fmt = function (v) { return (v !== undefined && v !== null && !isNaN(Number(v))) ? Number(v).toFixed(1) : '—'; };
 
     var metricDefs = [
@@ -2984,6 +3003,19 @@
     // Armazena URL no estado — downloadMaster() usa _state.downloadUrl (sem injeção via href)
     _state.downloadUrl = data.downloadUrl || '';
 
+    var mixNotAptBanner = '';
+    if (_mixNotApt) {
+      mixNotAptBanner = '<div style="display:flex;gap:0.875rem;padding:1rem 1.125rem;border-radius:12px;'
+        + 'background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.28);margin-bottom:1.25rem;">'
+        + '<div style="font-size:1.2rem;line-height:1.5;flex-shrink:0;">⚠️</div>'
+        + '<div style="display:flex;flex-direction:column;gap:0.3rem;">'
+        +   '<p style="font-size:0.82rem;font-weight:700;color:rgba(245,158,11,0.95);margin:0;">Sua mix já está muito alta ou clipando.</p>'
+        +   '<p style="font-size:0.775rem;color:rgba(255,255,255,0.55);margin:0;">Aplicamos uma masterização conservadora para evitar distorção.</p>'
+        +   '<p style="font-size:0.75rem;color:rgba(255,255,255,0.38);margin:0;">💡 <strong>Recomendação:</strong> Analise sua mix, reduza o ganho e corrija o headroom antes de masterizar novamente.</p>'
+        + '</div>'
+        + '</div>';
+    }
+
     container.innerHTML = '<div class="am-wrapper am-result-wrapper">'
       + '<div class="am-result-header">'
       +   '<div class="am-success-icon">✓</div>'
@@ -2993,6 +3025,7 @@
       + metricsFallbackBanner
       + comparisonHtml
       + playerHtml
+      + mixNotAptBanner
       + '<div class="am-result-actions">'
       +   '<button class="am-download-btn" type="button" onclick="downloadMaster()">'
       +     '⬇ BAIXAR FAIXA MASTERIZADA'
