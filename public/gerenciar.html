@@ -107,13 +107,6 @@
                                     <input type="email" id="new-email" placeholder="Digite seu novo e-mail">
                                 </div>
                             </div>
-                            <div class="input-group">
-                                <label for="confirm-email">Confirmar e-mail</label>
-                                <div class="input-wrapper">
-                                    <span class="input-icon">✉️</span>
-                                    <input type="email" id="confirm-email" placeholder="Confirme seu novo e-mail">
-                                </div>
-                            </div>
                         </div>
                         <div class="card-button-section">
                             <button class="btn btn-primary" id="update-email-btn">Atualizar e-mail</button>
@@ -332,7 +325,6 @@
             const updatePasswordBtn         = document.getElementById('update-password-btn');
             const currentPasswordEmailInput = document.getElementById('current-password-email');
             const newEmailInput             = document.getElementById('new-email');
-            const confirmEmailInput         = document.getElementById('confirm-email');
             const updateEmailBtn            = document.getElementById('update-email-btn');
             const backToChatBtn             = document.getElementById('back-to-chat-simple');
             const upgradeBtn                = document.getElementById('upgrade-plan-btn');
@@ -838,16 +830,10 @@
                 
                 const currentPasswordEmail = currentPasswordEmailInput ? currentPasswordEmailInput.value.trim() : '';
                 const newEmail = newEmailInput.value.trim();
-                const confirmEmail = confirmEmailInput.value.trim();
                 
                 // Validações
-                if (!currentPasswordEmail || !newEmail || !confirmEmail) {
+                if (!currentPasswordEmail || !newEmail) {
                     showMessage('Por favor, preencha todos os campos', 'error', 'email');
-                    return;
-                }
-                
-                if (newEmail !== confirmEmail) {
-                    showMessage('Os e-mails não coincidem', 'error', 'email');
                     return;
                 }
                 
@@ -892,11 +878,11 @@
                     await verifyBeforeUpdateEmail(currentUser, newEmail, actionCodeSettings);
                     
                     log('✅ E-mail de verificação enviado');
-                    showMessage('📧 E-mail de verificação enviado! Verifique sua caixa de entrada e clique no link para confirmar a alteração.', 'success', 'email');
+                    showMessage('Enviamos um link de confirmação para o novo e-mail. Verifique sua caixa de entrada.', 'success', 'email');
                     
                     // Limpar campos
+                    currentPasswordEmailInput.value = '';
                     newEmailInput.value = '';
-                    confirmEmailInput.value = '';
                     
                 } catch (err) {
                     console.error('❌ Erro ao enviar verificação de e-mail:', err);
@@ -1362,14 +1348,6 @@
             // Permitir Enter nos campos de e-mail
             if (newEmailInput) {
                 newEmailInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        changeEmail();
-                    }
-                });
-            }
-            
-            if (confirmEmailInput) {
-                confirmEmailInput.addEventListener('keypress', function(e) {
                     if (e.key === 'Enter') {
                         changeEmail();
                     }
