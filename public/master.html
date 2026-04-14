@@ -483,6 +483,15 @@ body .neon-accent-br{
 .metric-val{font-family:var(--mono);font-size:0.8rem;font-weight:700;color:var(--text-1);}
 .metrics-panel.after .metric-val{color:var(--success);}
 
+/* Mix Not Apt Warning */
+.mix-not-apt-warning{display:flex;gap:0.875rem;padding:1rem 1.125rem;border-radius:12px;
+  background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.28);margin-top:1.25rem;}
+.mix-not-apt-icon{font-size:1.2rem;line-height:1.5;flex-shrink:0;}
+.mix-not-apt-body{display:flex;flex-direction:column;gap:0.3rem;}
+.mix-not-apt-main{font-size:0.82rem;font-weight:700;color:rgba(245,158,11,0.95);margin:0;}
+.mix-not-apt-detail{font-size:0.775rem;color:var(--text-2);margin:0;}
+.mix-not-apt-tip{font-size:0.75rem;color:var(--text-3);margin:0;}
+
 /* ============================================================
    GENERIC STATUS BLOCKS
 ============================================================ */
@@ -926,6 +935,16 @@ body .neon-accent-br{
         <div class="metric-item"><span class="metric-key">LUFS</span><span class="metric-val" id="prevAfterLUFS">—</span></div>
         <div class="metric-item"><span class="metric-key">True Peak</span><span class="metric-val" id="prevAfterTP">—</span></div>
         <div class="metric-item"><span class="metric-key">Headroom</span><span class="metric-val" id="prevAfterHR">—</span></div>
+      </div>
+    </div>
+
+    <!-- Aviso Mix Não Apta: exibido quando mix de entrada está muito alta ou clippando -->
+    <div id="mixNotAptWarning" class="mix-not-apt-warning" style="display:none;">
+      <div class="mix-not-apt-icon">⚠️</div>
+      <div class="mix-not-apt-body">
+        <p class="mix-not-apt-main">Sua mix já está muito alta ou clipando.</p>
+        <p class="mix-not-apt-detail">Aplicamos uma masterização conservadora para evitar distorção.</p>
+        <p class="mix-not-apt-tip">💡 <strong>Recomendação:</strong> Analise sua mix, reduza o ganho e corrija o headroom antes de masterizar novamente.</p>
       </div>
     </div>
 
@@ -1389,6 +1408,7 @@ async function startProcessing() {
       masterUrl:      sd.downloadUrl       || null,
       previewBefore:  sd.previewBefore     || null,
       previewAfter:   sd.previewAfter      || null,
+      mixNotApt:      sd.metrics?.mixNotApt === true,
       metrics: {
         lufsBefore:     sd.metrics?.lufsBefore     ?? null,
         truePeakBefore: sd.metrics?.truePeakBefore ?? null,
@@ -1521,6 +1541,7 @@ async function confirmSafeMastering() {
     automasterState.result = {
       success: true,
       masterUrl: sd.downloadUrl || null, previewBefore: sd.previewBefore || null, previewAfter: sd.previewAfter || null,
+      mixNotApt: sd.metrics?.mixNotApt === true,
       metrics: {
         lufsBefore:     sd.metrics?.lufsBefore     ?? null,
         truePeakBefore: sd.metrics?.truePeakBefore ?? null,
@@ -1619,6 +1640,12 @@ function openPreviewModal() {
   document.getElementById('prevAfterLUFS').textContent  = fmtLufs(lufsAfterNum);
   document.getElementById('prevAfterTP').textContent    = fmtTp(tpAfterNum);
   document.getElementById('prevAfterHR').textContent    = fmtHr(hrAfter);
+
+  // Aviso de mix não apta: exibir quando backend sinalizou mix muito alta ou clippando
+  const warnEl = document.getElementById('mixNotAptWarning');
+  if (warnEl) {
+    warnEl.style.display = automasterState.result.mixNotApt === true ? 'flex' : 'none';
+  }
 
   // Destruir instâncias anteriores
   if (_prevBefore) { try { _prevBefore.pause(); } catch (_) {} _prevBefore = null; }
@@ -1960,7 +1987,7 @@ function resetFlow() {
   automasterState.jobId = null; automasterState.creditConsumed = false;
   automasterState._recommendedMode = null; automasterState._confirmJobId = null;
   automasterState.preAnalysis = { apt:null, lufs:null, truePeak:null, headroom:null, clipping:null, tonalBalance:null, recommendedMode:null, message:null };
-  automasterState.result      = { success:null, masterUrl:null, previewBefore:null, previewAfter:null, metrics:{ lufsBefore:null, truePeakBefore:null, lufsAfter:null, truePeakAfter:null } };
+  automasterState.result      = { success:null, masterUrl:null, previewBefore:null, previewAfter:null, mixNotApt:false, metrics:{ lufsBefore:null, truePeakBefore:null, lufsAfter:null, truePeakAfter:null } };
   // Resetar UI de feedback para próximo uso
   const fbLike    = document.getElementById('masterFeedbackLike');
   const fbDislike = document.getElementById('masterFeedbackDislike');

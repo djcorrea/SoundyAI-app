@@ -523,6 +523,7 @@ async function processJob(job) {
     const _tpAfter        = _lastAttempt?.postcheck?.metrics?.true_peak_dbtp ?? null;
     const _drAfter        = _lastAttempt?.postcheck?.metrics?.dr ?? null;
     const _headroomAfter  = (_tpAfter != null) ? parseFloat((0 - _tpAfter).toFixed(1)) : null;
+    const _mixNotApt      = _lastAttempt?.master_result?.mix_not_apt === true;
     console.log('[MASTER-METRICS] BEFORE:', { lufs: _lufsBefore, tp: _tpBefore, dr: _drBefore, headroom: _headroomBefore });
     console.log('[MASTER-METRICS] AFTER:', { lufs: _lufsAfter, tp: _tpAfter, dr: _drAfter, headroom: _headroomAfter });
 
@@ -558,7 +559,8 @@ async function processJob(job) {
       dr_before:          _drBefore       != null ? String(_drBefore)       : '',
       dr_after:           _drAfter        != null ? String(_drAfter)        : '',
       headroom_before:    _headroomBefore != null ? String(_headroomBefore) : '',
-      headroom_after:     _headroomAfter  != null ? String(_headroomAfter)  : ''
+      headroom_after:     _headroomAfter  != null ? String(_headroomAfter)  : '',
+      mix_not_apt:        _mixNotApt ? '1' : '0'
     });
 
     // 11b. Sincronizar com PostgreSQL (permite /api/jobs/:id retornar status correto)

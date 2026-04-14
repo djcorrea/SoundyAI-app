@@ -5522,6 +5522,28 @@ function validateFinalResult(referenceLUFS, inputCF, result) {
 }
 
 // ============================================================
+// MIX NOT APT DETECTION
+// ============================================================
+
+/**
+ * Detecta quando a mix de entrada não está apta para masterização padrão.
+ * Retorna true quando o True Peak é muito alto (headroom insuficiente) ou
+ * o LUFS já está muito elevado — indicando que a masterização será conservadora.
+ * @param {{ truePeak: number, lufs: number }} m - Métricas do input original
+ * @returns {boolean}
+ */
+function isMixNotApt(m) {
+  const tp   = typeof m.truePeak === 'number' ? m.truePeak : parseFloat(m.truePeak);
+  const lufs = typeof m.lufs     === 'number' ? m.lufs     : parseFloat(m.lufs);
+  if (isNaN(tp) || isNaN(lufs)) return false;
+  // Headroom insuficiente: True Peak >= -1.0 dBTP (menos de 1 dB de espaço)
+  if (tp >= -1.0) return true;
+  // Mix já muito alta: LUFS >= -10.0 (próximo de brickwall mastered)
+  if (lufs >= -10.0) return true;
+  return false;
+}
+
+// ============================================================
 // MAIN
 // ============================================================
 
@@ -5558,9 +5580,12 @@ async function main() {
   // 2.5 BUILD MASTERING PLAN (análise + decisão unificados)
   console.error('[MASTERING PLAN] Analisando métricas e construindo plano...');
   let metrics, masteringPlan;
+  let preProcessMetrics = { lufs: null, truePeak: null }; // métricas do input antes de qualquer correção
   try {
     // Mini analyzer: LUFS/TP/CF + 5 bandas via FFmpeg paralelo
     metrics = await analyzeWithBands(config.inputPath, execAsync);
+    // Preservar métricas do input original (antes de qualquer peak correction)
+    preProcessMetrics = { lufs: metrics.lufs, truePeak: metrics.truePeak };
     console.error('[MASTERING PLAN] Métricas obtidas:', {
       lufs: metrics.lufs, truePeak: metrics.truePeak,
       crestFactor: metrics.crestFactor, hasBands: !!metrics.bands
@@ -5913,7 +5938,8 @@ async function main() {
       impact_aborted: result.impact_aborted,
       abort_reason: result.abort_reason,
       mix_class: config.mixClass || result.mix_class,
-      
+      mix_not_apt: isMixNotApt(preProcessMetrics),
+
       // 🔒 NOVOS CAMPOS DE VALIDAÇÃO RIGOROSA
       validation_passed: validation.valid,
       validation_attempts: attempt,

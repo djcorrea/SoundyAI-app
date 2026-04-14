@@ -804,6 +804,7 @@ app.get('/api/automaster/status/:jobId', verifyFirebaseToken, async (req, res) =
         drAfter:        job.dr_after          ? parseFloat(job.dr_after)          : null,
         headroomBefore: job.headroom_before   ? parseFloat(job.headroom_before)   : null,
         headroomAfter:  job.headroom_after    ? parseFloat(job.headroom_after)    : null,
+        mixNotApt:      job.mix_not_apt === '1',
       };
 
       response.message = 'Masterização concluída com sucesso';
@@ -1147,7 +1148,7 @@ app.post('/api/automaster/consume-credit', verifyFirebaseToken, async (req, res)
 app.post('/api/automaster/feedback', verifyFirebaseToken, async (req, res) => {
   try {
     const uid = req.user.uid;
-    const { jobId, liked } = req.body;
+    const { jobId, liked, genre: bodyGenre } = req.body;
 
     if (typeof jobId !== 'string' || !jobId.trim()) {
       return res.status(400).json({ error: 'jobId inválido.' });
@@ -1177,29 +1178,22 @@ app.post('/api/automaster/feedback', verifyFirebaseToken, async (req, res) => {
     const jobData = jobSnap.data();
     const mode = jobData.mode ?? null;
 
-    // Genre, lufs_out e tp_out vêm do PostgreSQL (resultado do processamento)
-    let genre    = null;
+    // Genre vem do frontend (seletor de gênero musical da análise) — null se não enviado
+    const genre = (typeof bodyGenre === 'string' && bodyGenre.trim()) ? bodyGenre.trim() : null;
+
+    // lufs_out e tp_out vêm do Redis (job-store) — gravados pelo worker após processamento
     let lufs_out = null;
     let tp_out   = null;
 
     try {
-      const pgResult = await jobsPool.query(
-        'SELECT results FROM jobs WHERE id = $1 LIMIT 1',
-        [jobId.trim()],
-      );
-      if (pgResult.rows.length > 0 && pgResult.rows[0].results) {
-        const r = typeof pgResult.rows[0].results === 'string'
-          ? JSON.parse(pgResult.rows[0].results)
-          : pgResult.rows[0].results;
-
-        // Tentar múltiplos paths onde genre pode estar gravado
-        genre    = r?.metadata?.genre ?? r?.genre ?? r?.data?.genre ?? r?.summary?.genre ?? null;
-        lufs_out = r?.technicalData?.lufsIntegrated ?? null;
-        tp_out   = r?.technicalData?.truePeakDbtp   ?? null;
+      const redisJob = await jobStoreModule.getJob(jobId.trim());
+      if (redisJob) {
+        lufs_out = redisJob.lufs_after       ? parseFloat(redisJob.lufs_after)       : null;
+        tp_out   = redisJob.true_peak_after  ? parseFloat(redisJob.true_peak_after)  : null;
       }
-    } catch (pgErr) {
+    } catch (redisErr) {
       // Não crítico — feedback salva sem métricas
-      console.warn('[FEEDBACK] Falha ao buscar métricas do PostgreSQL (não crítico):', pgErr.message);
+      console.warn('[FEEDBACK] Falha ao buscar métricas do Redis (não crítico):', redisErr.message);
     }
 
     // Salvar feedback — idempotente por userId+jobId (1 feedback por usuário por job)

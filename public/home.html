@@ -743,6 +743,21 @@
     }
     .genre-select:focus { border-color: var(--accent-blue); }
     .genre-select option { background: #0e1422; }
+    /* Genre validation error */
+    .genre-error-msg {
+      display: none;
+      color: #ef4444;
+      font-size: 11px;
+      font-family: 'Poppins', sans-serif;
+      text-align: center;
+      margin-top: 4px;
+      animation: genre-error-fade 0.2s ease;
+    }
+    .genre-error-msg.visible { display: block; }
+    @keyframes genre-error-fade {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
     /* ════════════════════════════════════════════════════════════════
        FEATURES GRID
@@ -1921,7 +1936,7 @@
             <option value="progressive_trance">Progressive Trance</option>
             <option value="fullon">Full On</option>
           </select>
-          </div><!-- /genre-wrapper -->
+            <span class="genre-error-msg" id="genreErrorMsg" role="alert" aria-live="polite">Selecione o gênero antes de enviar sua música.</span>
         </div><!-- /genre-row -->
 
         <div
@@ -2483,6 +2498,11 @@
 
   var HUB_PANEL_IDS = ['idle', 'uploading', 'uploaded', 'analyzing'];
 
+  // ── GENRE SELECTION GUARD ────────────────────────────────
+  // Resetado em cada carregamento de página. Só vira true quando o usuário
+  // interagir manualmente com o seletor de gênero (evento 'change').
+  var genreUserSelected = false;
+
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
   // ── GENRE SYNC ────────────────────────────────────────────
@@ -2499,7 +2519,13 @@
     var homeSel = document.getElementById('homeGenreSelect');
     if (homeSel) {
       syncGenre(homeSel.value);
-      homeSel.addEventListener('change', function () { syncGenre(this.value); });
+      homeSel.addEventListener('change', function () {
+        genreUserSelected = true;
+        syncGenre(this.value);
+        // Remove a mensagem de erro assim que o usuário interagir
+        var errMsg = document.getElementById('genreErrorMsg');
+        if (errMsg) errMsg.classList.remove('visible');
+      });
     }
   });
 
@@ -2604,6 +2630,21 @@
   function processFile(file) {
     if (_currentHubState === 'uploading') return;
     if (!file) return;
+
+    // ── GENRE GUARD: bloqueia upload se o usuário nunca interagiu com o select ──
+    if (!genreUserSelected) {
+      var errMsg = document.getElementById('genreErrorMsg');
+      if (errMsg) {
+        // Reinicia a animação para garantir visibilidade mesmo em chamadas repetidas
+        errMsg.classList.remove('visible');
+        void errMsg.offsetWidth; // força reflow para reiniciar a animação
+        errMsg.classList.add('visible');
+      }
+      // Scroll suave até o seletor para guiar o usuário
+      var genreEl = document.getElementById('homeGenreSelect');
+      if (genreEl) genreEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
 
     var allowed = ['.wav', '.mp3', '.flac', '.aiff', '.aif'];
     var ext = '.' + file.name.split('.').pop().toLowerCase();
@@ -3768,11 +3809,13 @@ function renderModeSelection() {
         return;
       }
       var token = await user.getIdToken(false);
+      var genreEl = document.getElementById('homeGenreSelect');
+      var genre = (genreEl && genreEl.value) ? genreEl.value : null;
       console.log('[HOME-FEEDBACK] Enviando para /api/automaster/feedback...');
       var res = await fetch('/api/automaster/feedback', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body:    JSON.stringify({ jobId: jobId, liked: liked }),
+        body:    JSON.stringify({ jobId: jobId, liked: liked, genre: genre }),
       });
       var resData;
       try { resData = await res.json(); } catch (_) { resData = {}; }

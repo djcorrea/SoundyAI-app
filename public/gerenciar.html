@@ -58,6 +58,13 @@
                     <div class="card-body">
                         <div class="card-content-section">
                             <div class="input-group">
+                                <label for="current-password">Senha atual</label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">🔑</span>
+                                    <input type="password" id="current-password" placeholder="Digite sua senha atual">
+                                </div>
+                            </div>
+                            <div class="input-group">
                                 <label for="new-password">Nova senha</label>
                                 <div class="input-wrapper">
                                     <span class="input-icon">🔒</span>
@@ -87,6 +94,13 @@
                     <div class="card-body">
                         <div class="card-content-section">
                             <div class="input-group">
+                                <label for="current-password-email">Senha atual</label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">🔑</span>
+                                    <input type="password" id="current-password-email" placeholder="Digite sua senha atual">
+                                </div>
+                            </div>
+                            <div class="input-group">
                                 <label for="new-email">Novo e-mail</label>
                                 <div class="input-wrapper">
                                     <span class="input-icon">✉️</span>
@@ -107,26 +121,6 @@
                     </div>
                 </section>
 
-                <!-- Card: Refazer Entrevista -->
-                <section class="function-card">
-                    <div class="card-header">
-                        <span class="card-icon">♻️</span>
-                        <h3 class="card-title">Personalizar Novamente</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="card-content-section">
-                            <p class="card-description">Quer mudar suas respostas personalizadas?</p>
-                            <p class="card-description">Refaça o processo de configuração inicial.</p>
-                        </div>
-                        <div class="card-button-section">
-                            <button class="btn btn-special" id="redo-interview-btn">
-                                <span class="btn-icon">♻️</span>
-                                Personalizar novamente
-                            </button>
-                            <p class="info-text">Disponível para usuários Plus e Pro.</p>
-                        </div>
-                    </div>
-                </section>
 
                 <!-- Card: Fazer Upgrade -->
                 <section class="function-card upgrade-card" id="upgrade-card">
@@ -327,22 +321,23 @@
         // Aguardar um pouco para garantir que o Firebase carregue
         setTimeout(async () => {
             const { auth } = await import('./firebase.js');
-            const { onAuthStateChanged, updatePassword, updateEmail, verifyBeforeUpdateEmail, applyActionCode, signOut } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
+            const { onAuthStateChanged, updatePassword, updateEmail, verifyBeforeUpdateEmail, applyActionCode, signOut, EmailAuthProvider, reauthenticateWithCredential } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
             
             log('🔧 Gerenciar.js carregado');
             
             // Elementos do DOM
-            const newPasswordInput = document.getElementById('new-password');
-            const confirmPasswordInput = document.getElementById('confirm-password');
-            const updatePasswordBtn = document.getElementById('update-password-btn');
-            const newEmailInput = document.getElementById('new-email');
-            const confirmEmailInput = document.getElementById('confirm-email');
-            const updateEmailBtn = document.getElementById('update-email-btn');
-            const redoInterviewBtn = document.getElementById('redo-interview-btn');
-            const backToChatBtn = document.getElementById('back-to-chat-simple');
-            const upgradeBtn = document.getElementById('upgrade-plan-btn');
-            const cancelSubscriptionBtn = document.getElementById('cancel-subscription-btn');
-            const deleteAccountBtn = document.getElementById('delete-account-btn');
+            const currentPasswordInput      = document.getElementById('current-password');
+            const newPasswordInput          = document.getElementById('new-password');
+            const confirmPasswordInput      = document.getElementById('confirm-password');
+            const updatePasswordBtn         = document.getElementById('update-password-btn');
+            const currentPasswordEmailInput = document.getElementById('current-password-email');
+            const newEmailInput             = document.getElementById('new-email');
+            const confirmEmailInput         = document.getElementById('confirm-email');
+            const updateEmailBtn            = document.getElementById('update-email-btn');
+            const backToChatBtn             = document.getElementById('back-to-chat-simple');
+            const upgradeBtn                = document.getElementById('upgrade-plan-btn');
+            const cancelSubscriptionBtn     = document.getElementById('cancel-subscription-btn');
+            const deleteAccountBtn          = document.getElementById('delete-account-btn');
             
             // Verificar se o usuário está autenticado
             let currentUser = null;
@@ -528,8 +523,8 @@
                         }
                     }
                     
-                } catch (error) {
-                    error('❌ Erro ao buscar dados do plano:', error);
+                } catch (err) {
+                    console.error('❌ Erro ao buscar dados do plano:', err);
                     
                     // Em caso de erro, mostrar como gratuito por segurança
                     const planTypeElement = document.getElementById('plan-type');
@@ -572,8 +567,6 @@
                     targetCard = updatePasswordBtn.closest('.function-card');
                 } else if (cardSelector === 'email') {
                     targetCard = updateEmailBtn.closest('.function-card');
-                } else if (cardSelector === 'personalizar') {
-                    targetCard = redoInterviewBtn.closest('.function-card');
                 } else {
                     targetCard = document.querySelector(cardSelector);
                 }
@@ -687,14 +680,14 @@
                             updateUserInfo(currentUser);
                         }
                         
-                    } catch (error) {
-                        error('❌ Erro ao confirmar o novo e-mail:', error);
-                        error('[EMAIL VERIFY] Código do erro:', error.code);
-                        error('[EMAIL VERIFY] Mensagem:', error.message);
+                    } catch (err) {
+                        console.error('❌ Erro ao confirmar o novo e-mail:', err);
+                        console.error('[EMAIL VERIFY] Código do erro:', err.code);
+                        console.error('[EMAIL VERIFY] Mensagem:', err.message);
                         
                         let errorMessage = 'Erro ao confirmar o novo e-mail. Tente novamente.';
                         
-                        switch (error.code) {
+                        switch (err.code) {
                             case 'auth/expired-action-code':
                                 errorMessage = '⏰ Link de verificação expirado. Solicite um novo.';
                                 break;
@@ -714,7 +707,7 @@
                                 errorMessage = '🔒 Sessão expirada. Faça login novamente e repita o processo.';
                                 break;
                             default:
-                                errorMessage = `❌ Erro: ${error.message}`;
+                                errorMessage = `❌ Erro: ${err.message}`;
                         }
                         
                         showMessage(errorMessage, 'error', 'email');
@@ -738,16 +731,17 @@
                     }, 2000);
                     return;
                 }
-                
-                const newPassword = newPasswordInput.value.trim();
+
+                const currentPassword = currentPasswordInput ? currentPasswordInput.value.trim() : '';
+                const newPassword     = newPasswordInput.value.trim();
                 const confirmPassword = confirmPasswordInput.value.trim();
-                
+
                 // Validações
-                if (!newPassword || !confirmPassword) {
+                if (!currentPassword || !newPassword || !confirmPassword) {
                     showMessage('Por favor, preencha todos os campos', 'error', 'password');
                     return;
                 }
-                
+
                 if (newPassword !== confirmPassword) {
                     showMessage('As senhas não coincidem', 'error', 'password');
                     return;
@@ -764,6 +758,10 @@
                 updatePasswordBtn.textContent = 'Atualizando...';
                 
                 try {
+                    // Reautenticar antes de alterar senha (obrigatório pelo Firebase)
+                    const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+                    await reauthenticateWithCredential(currentUser, credential);
+
                     // Atualizar senha no Firebase
                     await updatePassword(currentUser, newPassword);
                     
@@ -771,9 +769,9 @@
                     
                     // Mostrar mensagem de sucesso
                     showMessage('✅ Senha atualizada com sucesso! Você será redirecionado para o login.', 'success', 'password');
-                    
+
                     // Limpar campos
-                    newPasswordInput.value = '';
+                    if (currentPasswordInput) currentPasswordInput.value = '';
                     confirmPasswordInput.value = '';
                     
                     // Aguardar um momento para que o usuário veja a mensagem
@@ -787,24 +785,25 @@
                             // Redirecionar para login
                             window.location.href = 'login.html';
                         } catch (logoutError) {
-                            error('❌ Erro ao fazer logout:', logoutError);
+                            console.error('❌ Erro ao fazer logout:', logoutError);
                             // Mesmo com erro no logout, redirecionar para login
                             window.location.href = 'login.html';
                         }
                     }, 2000); // 2 segundos para o usuário ler a mensagem
                     
-                } catch (error) {
-                    error('❌ Erro ao atualizar senha:', error);
+                } catch (err) {
+                    console.error('❌ Erro ao atualizar senha:', err);
                     
                     // Tratamento de erros específicos
                     let errorMessage = 'Erro ao atualizar senha. Tente novamente.';
                     
-                    switch (error.code) {
+                    switch (err.code) {
+                        case 'auth/wrong-password':
+                        case 'auth/invalid-credential':
+                            errorMessage = '🔑 Senha atual incorreta. Verifique e tente novamente.';
+                            break;
                         case 'auth/requires-recent-login':
-                            errorMessage = '🔒 Para alterar a senha, você precisa fazer login novamente. Redirecionando...';
-                            setTimeout(() => {
-                                window.location.href = 'login.html';
-                            }, 3000);
+                            errorMessage = '🔒 Para alterar a senha, faça login novamente.';
                             break;
                         case 'auth/weak-password':
                             errorMessage = '🔐 A senha é muito fraca. Use pelo menos 6 caracteres.';
@@ -816,7 +815,7 @@
                             errorMessage = '⏰ Muitas tentativas. Tente novamente em alguns minutos.';
                             break;
                         default:
-                            errorMessage = `❌ Erro: ${error.message}`;
+                            errorMessage = `❌ Erro: ${err.message}`;
                     }
                     
                     showMessage(errorMessage, 'error', 'password');
@@ -837,11 +836,12 @@
                     return;
                 }
                 
+                const currentPasswordEmail = currentPasswordEmailInput ? currentPasswordEmailInput.value.trim() : '';
                 const newEmail = newEmailInput.value.trim();
                 const confirmEmail = confirmEmailInput.value.trim();
                 
                 // Validações
-                if (!newEmail || !confirmEmail) {
+                if (!currentPasswordEmail || !newEmail || !confirmEmail) {
                     showMessage('Por favor, preencha todos os campos', 'error', 'email');
                     return;
                 }
@@ -868,6 +868,10 @@
                 updateEmailBtn.textContent = 'Enviando verificação...';
                 
                 try {
+                    // Reautenticar antes de alterar e-mail (obrigatório pelo Firebase)
+                    const credential = EmailAuthProvider.credential(currentUser.email, currentPasswordEmail);
+                    await reauthenticateWithCredential(currentUser, credential);
+
                     // PRIMEIRO: Salvar o novo e-mail no localStorage
                     localStorage.setItem('novoEmailTemp', newEmail);
                     log('✅ E-mail salvo no localStorage:', newEmail);
@@ -894,8 +898,8 @@
                     newEmailInput.value = '';
                     confirmEmailInput.value = '';
                     
-                } catch (error) {
-                    error('❌ Erro ao enviar verificação de e-mail:', error);
+                } catch (err) {
+                    console.error('❌ Erro ao enviar verificação de e-mail:', err);
                     
                     // Limpar localStorage em caso de erro
                     localStorage.removeItem('novoEmailTemp');
@@ -903,12 +907,13 @@
                     // Tratamento de erros específicos
                     let errorMessage = 'Erro ao enviar verificação de e-mail. Tente novamente.';
                     
-                    switch (error.code) {
+                    switch (err.code) {
+                        case 'auth/wrong-password':
+                        case 'auth/invalid-credential':
+                            errorMessage = '🔑 Senha atual incorreta. Verifique e tente novamente.';
+                            break;
                         case 'auth/requires-recent-login':
-                            errorMessage = '🔒 Para alterar o e-mail, você precisa fazer login novamente. Redirecionando...';
-                            setTimeout(() => {
-                                window.location.href = 'login.html';
-                            }, 3000);
+                            errorMessage = '🔒 Para alterar o e-mail, faça login novamente.';
                             break;
                         case 'auth/invalid-email':
                             errorMessage = '📧 E-mail inválido. Verifique o formato.';
@@ -921,7 +926,7 @@
                             break;
                         case 'auth/unauthorized-continue-uri':
                             errorMessage = '🚫 Erro de configuração do domínio. Entre em contato com o suporte.';
-                            error('[EMAIL CHANGE] Erro: Domínio não autorizado no Firebase. Verifique Authorized Domains.');
+                            console.error('[EMAIL CHANGE] Domínio não autorizado no Firebase. Verifique Authorized Domains.');
                             break;
                         case 'auth/email-already-in-use':
                             errorMessage = '📧 Este e-mail já está sendo usado por outra conta.';
@@ -930,7 +935,7 @@
                             errorMessage = '🚫 Operação não permitida. Entre em contato com o suporte.';
                             break;
                         default:
-                            errorMessage = `❌ Erro: ${error.message}`;
+                            errorMessage = `❌ Erro: ${err.message}`;
                     }
                     
                     showMessage(errorMessage, 'error', 'email');
@@ -1027,7 +1032,7 @@
                             }
                             
                             // Redirecionar para a página inicial
-                            window.location.href = 'landing.html';
+                            window.location.href = 'home.html';
                         }, 2000);
                         
                     } else {
@@ -1061,26 +1066,25 @@
                         showMessage('❌ ' + errorMessage, messageType);
                     }
                     
-                } catch (error) {
-                    error('❌ Erro completo ao excluir conta:', error);
-                    error('❌ Stack trace:', error.stack);
+                } catch (err) {
+                    console.error('❌ Erro completo ao excluir conta:', err);
                     
                     // Esconder modal
                     hideDeleteAccountConfirmationModal();
                     
                     // Mostrar mensagem de erro de rede
                     let errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
-                    if (error.message && error.message.includes('Failed to fetch')) {
+                    if (err.message && err.message.includes('Failed to fetch')) {
                         errorMessage = 'Erro de conexão com o servidor. Tente novamente.';
-                    } else if (error.message) {
-                        errorMessage = error.message;
+                    } else if (err.message) {
+                        errorMessage = err.message;
                     }
                     
                     showMessage('❌ ' + errorMessage, 'error');
                     
                 } finally {
                     // Reabilitar botões (se ainda existirem)
-                    if (confirmBtn && !confirmBtn.disabled) {
+                    if (confirmBtn && confirmBtn.disabled) {
                         confirmBtn.disabled = false;
                         confirmBtn.innerHTML = '<span class="btn-icon">🗑️</span>Sim, excluir minha conta';
                     }
@@ -1126,8 +1130,8 @@
                         message = `Sua assinatura foi cancelada com sucesso. Você continuará com acesso ao Plus até ${formattedDate}.`;
                         
                         log('📅 Data de expiração formatada:', formattedDate);
-                    } catch (error) {
-                        error('❌ Erro ao formatar data de expiração:', error);
+                    } catch (err) {
+                        console.error('❌ Erro ao formatar data de expiração:', err);
                         message = 'Sua assinatura foi cancelada com sucesso. Você continuará com acesso ao Plus até o fim do período atual.';
                     }
                 } else {
@@ -1157,155 +1161,6 @@
                     
                     log('✅ Modal de sucesso fechado');
                 }
-            }
-            
-            // Função para personalizar novamente (disponível para Plus, Pro e DJ)
-            async function redoInterview() {
-                if (!currentUser) {
-                    showMessage('Usuário não autenticado. Redirecionando para login...', 'error', 'personalizar');
-                    setTimeout(() => {
-                        window.location.href = 'login.html';
-                    }, 2000);
-                    return;
-                }
-                
-                try {
-                    log('🔄 Verificando plano do usuário...');
-                    
-                    // Importar Firestore necessário
-                    const { doc, getDoc, deleteField, updateDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
-                    const { db } = await import('./firebase.js');
-                    
-                    // Verificar plano do usuário no Firestore
-                    const userDocRef = doc(db, 'usuarios', currentUser.uid);
-                    const userDoc = await getDoc(userDocRef);
-                    
-                    if (!userDoc.exists()) {
-                        showMessage('❌ Dados do usuário não encontrados.', 'error', 'personalizar');
-                        return;
-                    }
-                    
-                    const userData = userDoc.data();
-                    const userPlan = (userData.plano || '').toLowerCase();
-                    
-                    // Verificar se é plano Free/Reduced (bloquear apenas esses)
-                    const isFreeOrReduced = userPlan === 'free' || userPlan === 'gratis' || userPlan === 'reduced';
-                    // ✅ ATUALIZADO 2026-01-06: STUDIO adicionado
-                    const isPremium = userPlan === 'plus' || userPlan === 'pro' || userPlan === 'dj' || userPlan === 'studio' || userData.isPlus === true;
-                    
-                    log('📊 Plano do usuário:', userPlan, '| Premium:', isPremium, '| Free/Reduced:', isFreeOrReduced);
-                    
-                    // Bloquear APENAS Free/Reduced
-                    if (isFreeOrReduced) {
-                        log('🔒 Plano Free/Reduced - bloqueando personalização');
-                        showPremiumOnlyMessage();
-                        return;
-                    }
-                    
-                    // Se chegou aqui, é Premium (Plus/Pro/DJ/STUDIO) ou plano válido - permitir
-                    log('✅ Plano Premium confirmado - permitindo personalização');
-                    
-                    // Usuário Premium (Plus/Pro/DJ) - prosseguir com redirecionamento e limpeza
-                    log(`✅ Usuário ${userPlan.toUpperCase()} confirmado - prosseguindo...`);
-                    
-                    // Desabilitar botão durante o processo
-                    redoInterviewBtn.disabled = true;
-                    redoInterviewBtn.innerHTML = '<span class="btn-icon">⏳</span>Apagando dados...';
-                    
-                    // Apagar dados antigos da entrevista
-                    await updateDoc(userDocRef, {
-                        perfil: deleteField(),
-                        entrevistaConcluida: false,
-                        dataUltimaEntrevista: deleteField()
-                    });
-                    
-                    log('✅ Dados da entrevista apagados com sucesso');
-                    
-                    // Mostrar mensagem de sucesso
-                    showMessage('✅ Dados apagados! Redirecionando para nova entrevista...', 'success', 'personalizar');
-                    
-                    // Redirecionar após breve pausa com parâmetro de repersonalização
-                    setTimeout(() => {
-                        window.location.href = 'entrevista.html?repersonalizando=true';
-                    }, 1500);
-                    
-                } catch (error) {
-                    error('❌ Erro ao processar personalização:', error);
-                    
-                    let errorMessage = 'Erro ao processar solicitação. Tente novamente.';
-                    
-                    switch (error.code) {
-                        case 'auth/requires-recent-login':
-                            errorMessage = '🔒 Para esta ação, você precisa fazer login novamente. Redirecionando...';
-                            setTimeout(() => {
-                                window.location.href = 'login.html';
-                            }, 3000);
-                            break;
-                        case 'auth/network-request-failed':
-                            errorMessage = '🌐 Erro de conexão. Verifique sua internet e tente novamente.';
-                            break;
-                        default:
-                            errorMessage = `❌ Erro: ${error.message}`;
-                    }
-                    
-                    showMessage(errorMessage, 'error', 'personalizar');
-                } finally {
-                    // Reabilitar botão
-                    redoInterviewBtn.disabled = false;
-                    redoInterviewBtn.innerHTML = '<span class="btn-icon">♻️</span>Personalizar novamente';
-                }
-            }
-            
-            // Função para mostrar mensagem exclusiva para usuários Premium
-            function showPremiumOnlyMessage() {
-                // Remover mensagem anterior se existir
-                const existingCard = document.querySelector('.premium-only-card');
-                if (existingCard) {
-                    existingCard.remove();
-                }
-                
-                // Criar card de bloqueio
-                const premiumCard = document.createElement('div');
-                premiumCard.className = 'premium-only-card';
-                premiumCard.innerHTML = `
-                    <div class="plus-card-content">
-                        <div class="plus-card-icon">🔒</div>
-                        <h3 class="plus-card-title">Personalização disponível para usuários Premium</h3>
-                        <p class="plus-card-description">
-                            Assine um plano Plus ou Pro para refazer sua entrevista e receber respostas 100% personalizadas com base no seu perfil.
-                        </p>
-                        <div class="plus-card-buttons">
-                            <a href="planos.html" class="btn-plus-upgrade">
-                                <span class="btn-icon">⭐</span>
-                                Ver Planos Premium
-                            </a>
-                            <button class="btn-plus-close" onclick="this.closest('.premium-only-card').remove()">
-                                Fechar
-                            </button>
-                        </div>
-                    </div>
-                `;
-                
-                // Adicionar após o card de personalizar
-                const personalizeCard = redoInterviewBtn.closest('.function-card');
-                personalizeCard.insertAdjacentElement('afterend', premiumCard);
-                
-                // Animar entrada
-                setTimeout(() => {
-                    premiumCard.classList.add('show');
-                }, 10);
-                
-                // Auto-remover após 15 segundos
-                setTimeout(() => {
-                    if (premiumCard.parentNode) {
-                        premiumCard.classList.remove('show');
-                        setTimeout(() => {
-                            if (premiumCard.parentNode) {
-                                premiumCard.remove();
-                            }
-                        }, 300);
-                    }
-                }, 15000);
             }
             
             // Função para mostrar o modal de confirmação de cancelamento
@@ -1451,19 +1306,18 @@
                         showMessage('❌ ' + errorMessage, messageType);
                     }
                     
-                } catch (error) {
-                    error('❌ Erro completo ao cancelar assinatura:', error);
-                    error('❌ Stack trace:', error.stack);
+                } catch (err) {
+                    console.error('❌ Erro completo ao cancelar assinatura:', err);
                     
                     // Esconder modal
                     hideCancelConfirmationModal();
                     
                     // Mostrar mensagem de erro de rede
                     let errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
-                    if (error.message && error.message.includes('Failed to fetch')) {
+                    if (err.message && err.message.includes('Failed to fetch')) {
                         errorMessage = 'Erro de conexão com o servidor. Tente novamente.';
-                    } else if (error.message) {
-                        errorMessage = error.message;
+                    } else if (err.message) {
+                        errorMessage = err.message;
                     }
                     
                     showMessage('❌ ' + errorMessage, 'error');
@@ -1486,10 +1340,6 @@
             
             if (updateEmailBtn) {
                 updateEmailBtn.addEventListener('click', changeEmail);
-            }
-            
-            if (redoInterviewBtn) {
-                redoInterviewBtn.addEventListener('click', redoInterview);
             }
             
             // Permitir Enter nos campos de senha
