@@ -795,16 +795,36 @@ app.get('/api/automaster/status/:jobId', verifyFirebaseToken, async (req, res) =
       }
 
       // Métricas para exibição no modal de preview
+      const _tpBeforeNum   = job.true_peak_before ? parseFloat(job.true_peak_before) : null;
+      const _lufsBeforeNum = job.lufs_before      ? parseFloat(job.lufs_before)      : null;
+
+      // mix_not_apt: usar flag salvo pelo worker OU recalcular a partir das métricas originais
+      // (defense-in-depth: se o worker não salvou o flag, o servidor detecta pelos valores brutos)
+      const _mixNotAptFlag    = job.mix_not_apt === '1';
+      const _mixNotAptMetrics = (
+        (_tpBeforeNum   != null && _tpBeforeNum   >= -1.0) ||   // True Peak original >= -1.0 dBTP
+        (_lufsBeforeNum != null && _lufsBeforeNum >= -10.0)     // LUFS original >= -10.0 (já masterizado)
+      );
+      const _mixNotApt = _mixNotAptFlag || _mixNotAptMetrics;
+
+      console.log('[API-MIXNOTAPT] job_id:', jobId,
+        '| mix_not_apt_field:', job.mix_not_apt,
+        '| flag:', _mixNotAptFlag,
+        '| from_metrics:', _mixNotAptMetrics,
+        '| final:', _mixNotApt,
+        '| tp_before:', _tpBeforeNum,
+        '| lufs_before:', _lufsBeforeNum);
+
       response.metrics = {
-        lufsBefore:     job.lufs_before      ? parseFloat(job.lufs_before)      : null,
-        truePeakBefore: job.true_peak_before  ? parseFloat(job.true_peak_before)  : null,
-        lufsAfter:      job.lufs_after        ? parseFloat(job.lufs_after)        : null,
-        truePeakAfter:  job.true_peak_after   ? parseFloat(job.true_peak_after)   : null,
-        drBefore:       job.dr_before         ? parseFloat(job.dr_before)         : null,
-        drAfter:        job.dr_after          ? parseFloat(job.dr_after)          : null,
-        headroomBefore: job.headroom_before   ? parseFloat(job.headroom_before)   : null,
-        headroomAfter:  job.headroom_after    ? parseFloat(job.headroom_after)    : null,
-        mixNotApt:      job.mix_not_apt === '1',
+        lufsBefore:     _lufsBeforeNum,
+        truePeakBefore: _tpBeforeNum,
+        lufsAfter:      job.lufs_after       ? parseFloat(job.lufs_after)       : null,
+        truePeakAfter:  job.true_peak_after  ? parseFloat(job.true_peak_after)  : null,
+        drBefore:       job.dr_before        ? parseFloat(job.dr_before)        : null,
+        drAfter:        job.dr_after         ? parseFloat(job.dr_after)         : null,
+        headroomBefore: job.headroom_before  ? parseFloat(job.headroom_before)  : null,
+        headroomAfter:  job.headroom_after   ? parseFloat(job.headroom_after)   : null,
+        mixNotApt:      _mixNotApt,
       };
 
       response.message = 'Masterização concluída com sucesso';

@@ -1643,9 +1643,13 @@ function openPreviewModal() {
 
   // Aviso de mix não apta: exibir quando backend sinalizou mix muito alta ou clippando
   const warnEl = document.getElementById('mixNotAptWarning');
-  console.log('[PREVIEW] mixNotApt flag:', automasterState.result.mixNotApt, '| metrics:', automasterState.result.metrics);
+  const _mixNotAptFront = automasterState.result.mixNotApt === true;
+  console.log('[FRONT-MIXNOTAPT] mixNotApt:', _mixNotAptFront,
+    '| tp_before:', automasterState.result.metrics?.truePeakBefore,
+    '| lufs_before:', automasterState.result.metrics?.lufsBefore,
+    '| warnEl_found:', !!warnEl);
   if (warnEl) {
-    warnEl.style.display = automasterState.result.mixNotApt === true ? 'flex' : 'none';
+    warnEl.style.display = _mixNotAptFront ? 'flex' : 'none';
   }
 
   // Destruir instâncias anteriores

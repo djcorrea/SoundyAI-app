@@ -533,7 +533,7 @@ async function processJob(job) {
       (_lufsBefore != null && _lufsBefore >= -10.0) ||   // LUFS original >= -10.0 (já em nível de masterizado)
       pipelineResult.aptitude_check?.isApt === false     // gate de aptidão já detectou não-apta (TP ou LUFS acima do limite)
     );
-    console.log('[MASTER-METRICS] mix_not_apt:', _mixNotApt, '| tp_before:', _tpBefore, '| lufs_before:', _lufsBefore, '| isApt:', pipelineResult.aptitude_check?.isApt);
+    console.log('[WORKER-MIXNOTAPT] tp_before:', _tpBefore, '| lufs_before:', _lufsBefore, '| isApt:', pipelineResult.aptitude_check?.isApt, '| saving mix_not_apt:', _mixNotApt ? '1' : '0');
     console.log('[MASTER-METRICS] BEFORE:', { lufs: _lufsBefore, tp: _tpBefore, dr: _drBefore, headroom: _headroomBefore });
     console.log('[MASTER-METRICS] AFTER:', { lufs: _lufsAfter, tp: _tpAfter, dr: _drAfter, headroom: _headroomAfter });
 
