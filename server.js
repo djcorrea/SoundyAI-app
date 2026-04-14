@@ -1168,8 +1168,8 @@ app.post('/api/automaster/feedback', verifyFirebaseToken, async (req, res) => {
     const userSnap = await db.collection('usuarios').doc(uid).get();
     const plan     = userSnap.exists ? (userSnap.data().plan || 'free') : 'free';
 
-    // Salvar feedback — idempotente por jobId (mesmo doc, sobrescreve)
-    await db.collection('automaster_feedback').doc(jobId.trim()).set({
+    // Salvar feedback — idempotente por userId+jobId (1 feedback por usuário por job)
+    await db.collection('automaster_feedback').doc(`${uid}_${jobId.trim()}`).set({
       userId:    uid,
       jobId:     jobId.trim(),
       liked,

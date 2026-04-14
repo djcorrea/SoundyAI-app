@@ -3743,6 +3743,8 @@ function renderModeSelection() {
    * @param {boolean} liked
    */
   window.__homeSubmitFeedback = async function __homeSubmitFeedback(liked) {
+    console.log('[HOME-FEEDBACK] Bot\u00e3o clicado', { liked: liked, jobId: _state.masterJobId });
+
     var likeBtn    = document.getElementById('homeFeedbackLike');
     var dislikeBtn = document.getElementById('homeFeedbackDislike');
     var msgEl      = document.getElementById('homeFeedbackMsg');
@@ -3752,6 +3754,7 @@ function renderModeSelection() {
 
     var jobId = _state.masterJobId;
     if (!jobId) {
+      console.warn('[HOME-FEEDBACK] jobId ausente \u2014 feedback n\u00e3o enviado ao servidor');
       if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
       return;
     }
@@ -3760,17 +3763,26 @@ function renderModeSelection() {
       var auth  = window.__firebaseAuth || null;
       var user  = auth ? auth.currentUser : null;
       if (!user) {
+        console.warn('[HOME-FEEDBACK] Usu\u00e1rio n\u00e3o autenticado \u2014 feedback n\u00e3o enviado');
         if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
         return;
       }
       var token = await user.getIdToken(false);
-      await fetch('/api/automaster/feedback', {
+      console.log('[HOME-FEEDBACK] Enviando para /api/automaster/feedback...');
+      var res = await fetch('/api/automaster/feedback', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body:    JSON.stringify({ jobId: jobId, liked: liked }),
       });
-    } catch (_) {
-      // Falha silenciosa
+      var resData;
+      try { resData = await res.json(); } catch (_) { resData = {}; }
+      if (!res.ok) {
+        console.error('[HOME-FEEDBACK] Servidor retornou erro', res.status, resData);
+      } else {
+        console.log('[HOME-FEEDBACK] Feedback salvo com sucesso', resData);
+      }
+    } catch (err) {
+      console.error('[HOME-FEEDBACK] Erro ao enviar feedback:', err.message);
     }
 
     if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }

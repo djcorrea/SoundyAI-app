@@ -1899,6 +1899,8 @@ async function triggerBlobDownload(url) {
  * @param {boolean} liked
  */
 async function submitMasterFeedback(liked) {
+  console.log('[MASTER-FEEDBACK] Botão clicado', { liked, jobId: automasterState.jobId });
+
   const likeBtn    = document.getElementById('masterFeedbackLike');
   const dislikeBtn = document.getElementById('masterFeedbackDislike');
   const msgEl      = document.getElementById('masterFeedbackMsg');
@@ -1909,7 +1911,8 @@ async function submitMasterFeedback(liked) {
 
   const jobId = automasterState.jobId;
   if (!jobId) {
-    if (msgEl) { msgEl.textContent = 'Feedback enviado.'; msgEl.style.display = 'block'; }
+    console.warn('[MASTER-FEEDBACK] jobId ausente — feedback não enviado ao servidor');
+    if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
     return;
   }
 
@@ -1917,18 +1920,27 @@ async function submitMasterFeedback(liked) {
     const auth  = window.__firebaseAuth || null;
     const user  = auth ? auth.currentUser : null;
     if (!user) {
-      if (msgEl) { msgEl.textContent = 'Feedback enviado.'; msgEl.style.display = 'block'; }
+      console.warn('[MASTER-FEEDBACK] Usuário não autenticado — feedback não enviado');
+      if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
       return;
     }
     const token = await user.getIdToken(false);
+    console.log('[MASTER-FEEDBACK] Enviando para /api/automaster/feedback...');
 
-    await fetch('/api/automaster/feedback', {
+    const res = await fetch('/api/automaster/feedback', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body:    JSON.stringify({ jobId, liked }),
     });
-  } catch (_) {
-    // Falha silenciosa — não impacta o usuário
+    let resData;
+    try { resData = await res.json(); } catch (_) { resData = {}; }
+    if (!res.ok) {
+      console.error('[MASTER-FEEDBACK] Servidor retornou erro', res.status, resData);
+    } else {
+      console.log('[MASTER-FEEDBACK] Feedback salvo com sucesso', resData);
+    }
+  } catch (err) {
+    console.error('[MASTER-FEEDBACK] Erro ao enviar feedback:', err.message);
   }
 
   if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
