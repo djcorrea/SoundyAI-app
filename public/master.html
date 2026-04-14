@@ -1403,6 +1403,13 @@ async function startProcessing() {
     const sd = await pollJobStatus(jobId);
     stopDspAnimation();
 
+    console.log('[FRONT-RAW-RESULT] status:', sd.status,
+      '| sd.metrics:', JSON.stringify(sd.metrics),
+      '| mixNotApt_raw:', sd.metrics?.mixNotApt,
+      '| typeof:', typeof sd.metrics?.mixNotApt,
+      '| tp_before:', sd.metrics?.truePeakBefore,
+      '| lufs_before:', sd.metrics?.lufsBefore);
+
     automasterState.result = {
       success: true,
       masterUrl:      sd.downloadUrl       || null,
@@ -1537,6 +1544,14 @@ async function confirmSafeMastering() {
     await apiRequest(`/api/automaster/confirm/${jobId}`, { method:'POST' }, 15000);
     const sd = await pollJobStatus(jobId);
     stopDspAnimation();
+
+    console.log('[FRONT-RAW-RESULT] (confirm) status:', sd.status,
+      '| sd.metrics:', JSON.stringify(sd.metrics),
+      '| mixNotApt_raw:', sd.metrics?.mixNotApt,
+      '| typeof:', typeof sd.metrics?.mixNotApt,
+      '| tp_before:', sd.metrics?.truePeakBefore,
+      '| lufs_before:', sd.metrics?.lufsBefore);
+
     automasterState.jobId  = jobId;
     automasterState.result = {
       success: true,
@@ -1641,12 +1656,18 @@ function openPreviewModal() {
   document.getElementById('prevAfterTP').textContent    = fmtTp(tpAfterNum);
   document.getElementById('prevAfterHR').textContent    = fmtHr(hrAfter);
 
-  // Aviso de mix não apta: exibir quando backend sinalizou mix muito alta ou clippando
+  // Aviso de mix não apta: flag do state OU fallback por métricas brutas (defense-in-depth)
   const warnEl = document.getElementById('mixNotAptWarning');
-  const _mixNotAptFront = automasterState.result.mixNotApt === true;
-  console.log('[FRONT-MIXNOTAPT] mixNotApt:', _mixNotAptFront,
-    '| tp_before:', automasterState.result.metrics?.truePeakBefore,
-    '| lufs_before:', automasterState.result.metrics?.lufsBefore,
+  const _tpRaw   = toNum(automasterState.result.metrics?.truePeakBefore) ?? toNum(pa.truePeak) ?? null;
+  const _lufsRaw = toNum(automasterState.result.metrics?.lufsBefore)     ?? toNum(pa.lufs)     ?? null;
+  const _mixNotAptFromMetrics = (_tpRaw   != null && _tpRaw   >= -1.0) ||
+                                (_lufsRaw != null && _lufsRaw >= -10.0);
+  const _mixNotAptFront = (automasterState.result.mixNotApt === true) || _mixNotAptFromMetrics;
+  console.log('[FRONT-MIXNOTAPT] state_flag:', automasterState.result.mixNotApt,
+    '| tp_before:', _tpRaw,
+    '| lufs_before:', _lufsRaw,
+    '| from_metrics:', _mixNotAptFromMetrics,
+    '| final:', _mixNotAptFront,
     '| warnEl_found:', !!warnEl);
   if (warnEl) {
     warnEl.style.display = _mixNotAptFront ? 'flex' : 'none';
