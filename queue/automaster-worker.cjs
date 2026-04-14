@@ -523,7 +523,17 @@ async function processJob(job) {
     const _tpAfter        = _lastAttempt?.postcheck?.metrics?.true_peak_dbtp ?? null;
     const _drAfter        = _lastAttempt?.postcheck?.metrics?.dr ?? null;
     const _headroomAfter  = (_tpAfter != null) ? parseFloat((0 - _tpAfter).toFixed(1)) : null;
-    const _mixNotApt      = _lastAttempt?.master_result?.mix_not_apt === true;
+
+    // mix_not_apt: avaliado com base nas métricas ORIGINAIS da faixa (aptitudeCheck.measured),
+    // que refletem o arquivo ANTES de qualquer rescue/fix-tp do pipeline.
+    // NÃO usar master_result.mix_not_apt: o automaster-v1.cjs executa APÓS o rescue/fix,
+    // portanto suas métricas refletem o arquivo já corrigido, não o upload original.
+    const _mixNotApt = (
+      (_tpBefore   != null && _tpBefore   >= -1.0) ||   // True Peak original >= -1.0 dBTP (clipping ou sem headroom)
+      (_lufsBefore != null && _lufsBefore >= -10.0) ||   // LUFS original >= -10.0 (já em nível de masterizado)
+      pipelineResult.aptitude_check?.isApt === false     // gate de aptidão já detectou não-apta (TP ou LUFS acima do limite)
+    );
+    console.log('[MASTER-METRICS] mix_not_apt:', _mixNotApt, '| tp_before:', _tpBefore, '| lufs_before:', _lufsBefore, '| isApt:', pipelineResult.aptitude_check?.isApt);
     console.log('[MASTER-METRICS] BEFORE:', { lufs: _lufsBefore, tp: _tpBefore, dr: _drBefore, headroom: _headroomBefore });
     console.log('[MASTER-METRICS] AFTER:', { lufs: _lufsAfter, tp: _tpAfter, dr: _drAfter, headroom: _headroomAfter });
 

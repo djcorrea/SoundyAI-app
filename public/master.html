@@ -1643,6 +1643,7 @@ function openPreviewModal() {
 
   // Aviso de mix não apta: exibir quando backend sinalizou mix muito alta ou clippando
   const warnEl = document.getElementById('mixNotAptWarning');
+  console.log('[PREVIEW] mixNotApt flag:', automasterState.result.mixNotApt, '| metrics:', automasterState.result.metrics);
   if (warnEl) {
     warnEl.style.display = automasterState.result.mixNotApt === true ? 'flex' : 'none';
   }
