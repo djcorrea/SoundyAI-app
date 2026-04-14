@@ -3712,15 +3712,17 @@ function renderModeSelection() {
         var snap = await _fs.getDoc(_fs.doc(db, 'usuarios', user.uid));
         if (snap.exists()) {
           var data = snap.data();
-          var plan      = data.plan || 'free';
-          var freeUsed  = data.automasterFreeUsed ?? false;
-          var credits   = typeof data.automasterCredits === 'number' ? data.automasterCredits : 0;
+          var plan         = data.plan || 'free';
+          var creditsUsed  = typeof data.creditsUsed  === 'number' ? data.creditsUsed  : 0;
+          var creditsLimit = typeof data.creditsLimit === 'number' ? data.creditsLimit : 0;
+          var resetDate    = typeof data.resetDate    === 'number' ? data.resetDate    : 0;
+          // Aplicar reset mensal virtual — mesma lógica do backend
+          var effectiveUsed = (resetDate > 0 && Date.now() > resetDate) ? 0 : creditsUsed;
           if (plan === 'studio')                       return { allowed: true, reason: 'studio_unlimited' };
           if (['plus','pro','dj'].includes(plan))      return { allowed: true, reason: 'paid_plan' };
-          if (!freeUsed)                               return { allowed: true, reason: 'free_trial' };
-          if (credits > 0)                             return { allowed: true, reason: 'paid_credits' };
-          // Usuário free que já usou trial E não tem créditos —
-          // mas possui job desta sessão (crédito foi consumido pelo backend para este job).
+          // FREE: permitido se ainda tem crédito disponível este mês
+          if (effectiveUsed < creditsLimit)            return { allowed: true, reason: 'free_remaining' };
+          // Sessão ativa: backend já autorizou este job, permite download
           if (_state.masterJobId)                      return { allowed: true, reason: 'session_job' };
           return { allowed: false, reason: 'NO_CREDITS' };
         }

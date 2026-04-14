@@ -70,10 +70,9 @@ export async function checkAndConsumeCredit(uid) {
     if (now > resetDate) {
       creditsUsed = 0;
       tx.update(userRef, {
-        creditsUsed:       0,
-        creditsLimit:      limit,
-        resetDate:         getNextMonthTimestamp(),
-        automasterCredits: limit,
+        creditsUsed:  0,
+        creditsLimit: limit,
+        resetDate:    getNextMonthTimestamp(),
       });
     }
 
@@ -86,8 +85,7 @@ export async function checkAndConsumeCredit(uid) {
 
     const newUsed = creditsUsed + 1;
     tx.update(userRef, {
-      creditsUsed:       newUsed,
-      automasterCredits: Math.max(0, limit - newUsed),
+      creditsUsed: newUsed,
     });
 
     console.log(`💳 [CREDITS] Crédito consumido: uid=${uid} restante=${limit - newUsed}`);
@@ -111,11 +109,9 @@ export async function addAutomasterCredits(uid, amount) {
   await db.runTransaction(async (tx) => {
     // Inicializar/renovar estrutura mensal para o novo período
     tx.set(userRef, {
-      creditsLimit:      amount,
-      creditsUsed:       0,
-      resetDate:         getNextMonthTimestamp(),
-      // Legado: mantido para compat com home.html
-      automasterCredits: amount,
+      creditsLimit: amount,
+      creditsUsed:  0,
+      resetDate:    getNextMonthTimestamp(),
     }, { merge: true });
   });
 

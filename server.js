@@ -1112,7 +1112,7 @@ app.post('/api/automaster/consume-credit', verifyFirebaseToken, async (req, res)
 
     const data         = snap.data();
     const creditsUsed  = typeof data.creditsUsed  === 'number' ? data.creditsUsed  : 0;
-    const creditsLimit = typeof data.creditsLimit === 'number' ? data.creditsLimit : (data.automasterCredits ?? 0);
+    const creditsLimit = typeof data.creditsLimit === 'number' ? data.creditsLimit : 0;
     const remaining    = Math.max(0, creditsLimit - creditsUsed);
 
     console.log('✅ [AUTOMASTER] Download registrado — used:', creditsUsed, '/', creditsLimit);

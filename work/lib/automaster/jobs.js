@@ -38,27 +38,31 @@ const HARDCAP_PLANS = new Set(['pro', 'dj']);
 
 /**
  * Remove campos legados do documento do usuário que não são mais lidos
- * pelo backend. Executado fire-and-forget ao criar job — sem impacto
+ * pelo sistema. Executado fire-and-forget ao criar job — sem impacto
  * no fluxo principal.
  *
  * Campos removidos:
- *  • analysesToday  — contador diário de análises; nunca lido pelo backend
- *  • messagesToday  — contador diário de mensagens; nunca lido pelo backend
+ *  • automasterCredits  — substituído por creditsUsed/creditsLimit (new system)
+ *  • automasterFreeUsed — substituído por creditsUsed >= creditsLimit (new system)
+ *  • analysesToday      — contador diário; nunca lido pelo backend
+ *  • messagesToday      — contador diário; nunca lido pelo backend
  *
- * Campos MANTIDOS (ainda ativos):
- *  • automasterCredits, automasterFreeUsed  — compat com home.html
- *  • studioExpiresAt                        — sistema de expiração de planos
- *  • analysesMonth, messagesMonth           — rate limiting ativo
- *  • imagesMonth                            — rate limiting de imagens
- *  • freeAnalysesRemaining                  — trial de análise gratuita
+ * Campos MANTIDOS (ativos em outros sistemas):
+ *  • studioExpiresAt     — sistema de expiração de planos (hotmart.js, expire-plans.js)
+ *  • analysesMonth       — rate limiting de análises (userPlans.js, analyze.js)
+ *  • messagesMonth       — rate limiting de chat (chat.js, userPlans.js)
+ *  • imagesMonth         — rate limiting de imagens (userPlans.js)
+ *  • freeAnalysesRemaining — trial de análise gratuita (userPlans.js)
  *
  * @param {FirebaseFirestore.DocumentReference} userRef
  */
 async function cleanupUserLegacyFields(userRef) {
   try {
     await userRef.update({
-      analysesToday: FieldValue.delete(),
-      messagesToday: FieldValue.delete(),
+      automasterCredits:  FieldValue.delete(),
+      automasterFreeUsed: FieldValue.delete(),
+      analysesToday:      FieldValue.delete(),
+      messagesToday:      FieldValue.delete(),
     });
     console.log(`✅ [AUTOMASTER-JOBS] Campos legados removidos para: ${userRef.id}`);
   } catch (err) {
@@ -143,12 +147,10 @@ export async function createJobWithTransaction(uid, jobId, { fileKey, mode }) {
     };
 
     if (now > resetDate) {
-      creditsUsed                   = 0;
-      userUpdates.creditsUsed       = 0;
-      userUpdates.creditsLimit      = monthlyLimit;
-      userUpdates.resetDate         = getNextMonthTimestamp();
-      userUpdates.automasterCredits = monthlyLimit; // compat com home.html
-      if (plan === 'free') userUpdates.automasterFreeUsed = false; // compat
+      creditsUsed              = 0;
+      userUpdates.creditsUsed  = 0;
+      userUpdates.creditsLimit = monthlyLimit;
+      userUpdates.resetDate    = getNextMonthTimestamp();
       console.log(`🔄 [AUTOMASTER-JOBS] Reset mensal aplicado: uid=${uid} plan=${plan}`);
     }
 
@@ -204,8 +206,7 @@ export async function createJobWithTransaction(uid, jobId, { fileKey, mode }) {
  *  • creditsUsed +1 (novo sistema mensal)
  *  • lifetimeUsage +1
  *  • usage.mastersMonth, usage.mastersToday, usage.lastMasterAt
- *  • automasterCredits (legado — para compat com home.html)
- *  • automasterFreeUsed: true (legado — apenas para free)
+
  *
  * Cria documento em automaster_logs/{jobId}.
  *
@@ -288,12 +289,6 @@ export async function consumeJobCredit(uid, jobId) {
     userUpdates['usage.mastersMonth'] = (user.usage?.mastersMonth ?? 0) + 1;
     userUpdates['usage.mastersToday'] = sameDay ? (user.usage?.mastersToday ?? 0) + 1 : 1;
     userUpdates['usage.lastMasterAt'] = now;
-
-    // ── Backward compat: campos legados para home.html ─────────────────────
-    if (plan === 'free') {
-      userUpdates.automasterFreeUsed = true; // sinaliza trial usado
-    }
-    userUpdates.automasterCredits = Math.max(0, monthlyLimit - newUsed);
 
     tx.update(userRef, userUpdates);
 
