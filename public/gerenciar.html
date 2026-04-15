@@ -92,30 +92,25 @@
                         <h3 class="card-title">Alterar E-mail</h3>
                     </div>
                     <div class="card-body">
-                        <form id="changeEmailForm" autocomplete="off" onsubmit="return false;">
-                            <!-- Inputs ocultos para enganar o autofill do Chrome -->
-                            <input type="text" style="display:none" aria-hidden="true" tabindex="-1">
-                            <input type="password" style="display:none" aria-hidden="true" tabindex="-1">
-                            <div class="card-content-section">
-                                <div class="input-group">
-                                    <label for="current-password-email">Senha atual</label>
-                                    <div class="input-wrapper">
-                                        <span class="input-icon">🔑</span>
-                                        <input type="password" id="current-password-email" autocomplete="current-password" name="currentPasswordForEmailChange" placeholder="Digite sua senha atual">
-                                    </div>
-                                </div>
-                                <div class="input-group">
-                                    <label for="new-email">Novo e-mail</label>
-                                    <div class="input-wrapper">
-                                        <span class="input-icon">✉️</span>
-                                        <input type="email" id="new-email" autocomplete="new-email" inputmode="email" name="newEmail" placeholder="Digite seu novo e-mail">
-                                    </div>
+                        <div class="card-content-section">
+                            <div class="input-group">
+                                <label for="current-password-email">Senha atual</label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">🔑</span>
+                                    <input type="password" id="current-password-email" autocomplete="current-password" name="currentPasswordForEmailChange" placeholder="Digite sua senha atual">
                                 </div>
                             </div>
-                            <div class="card-button-section">
-                                <button type="button" class="btn btn-primary" id="update-email-btn">Atualizar e-mail</button>
+                            <div class="input-group">
+                                <label for="new-email">Novo e-mail</label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">✉️</span>
+                                    <input type="email" id="new-email" autocomplete="off" inputmode="email" name="newEmail" placeholder="Digite seu novo e-mail">
+                                </div>
                             </div>
-                        </form>
+                        </div>
+                        <div class="card-button-section">
+                            <button class="btn btn-primary" id="update-email-btn">Atualizar e-mail</button>
+                        </div>
                     </div>
                 </section>
 

@@ -384,6 +384,18 @@ body {
     color: rgba(240, 240, 240, 0.5);
 }
 
+/* Cancela o fundo azul do autofill do Chrome em todos os inputs */
+.input-wrapper input:-webkit-autofill,
+.input-wrapper input:-webkit-autofill:hover,
+.input-wrapper input:-webkit-autofill:focus,
+.input-wrapper input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0px 1000px #1a1a2e inset !important;
+    box-shadow: 0 0 0px 1000px #1a1a2e inset !important;
+    -webkit-text-fill-color: #f0f0f0 !important;
+    caret-color: #f0f0f0 !important;
+    transition: background-color 9999s ease-in-out 0s;
+}
+
 .btn {
     width: 100%;
     padding: 1rem 2rem;
