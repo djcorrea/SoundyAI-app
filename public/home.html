@@ -3005,13 +3005,15 @@
 
     var mixNotAptBanner = '';
     if (_mixNotApt) {
-      mixNotAptBanner = '<div style="display:flex;gap:0.875rem;padding:1rem 1.125rem;border-radius:12px;'
-        + 'background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.28);margin-bottom:1.25rem;">'
-        + '<div style="font-size:1.2rem;line-height:1.5;flex-shrink:0;">⚠️</div>'
-        + '<div style="display:flex;flex-direction:column;gap:0.3rem;">'
-        +   '<p style="font-size:0.82rem;font-weight:700;color:rgba(245,158,11,0.95);margin:0;">Sua mix já está muito alta ou clipando.</p>'
-        +   '<p style="font-size:0.775rem;color:rgba(255,255,255,0.55);margin:0;">Aplicamos uma masterização conservadora para evitar distorção.</p>'
-        +   '<p style="font-size:0.75rem;color:rgba(255,255,255,0.38);margin:0;">💡 <strong>Recomendação:</strong> Analise sua mix, reduza o ganho e corrija o headroom antes de masterizar novamente.</p>'
+      mixNotAptBanner = '<div style="'
+        + 'max-width:520px;margin:16px auto 24px auto;padding:14px 18px;border-radius:12px;'
+        + 'background:rgba(255,59,59,0.08);border:1px solid rgba(255,59,59,0.25);'
+        + 'display:flex;gap:0.75rem;align-items:flex-start;">'
+        + '<div style="font-size:1.1rem;line-height:1.5;flex-shrink:0;margin-top:1px;">⚠️</div>'
+        + '<div style="display:flex;flex-direction:column;gap:0.35rem;">'
+        +   '<p style="font-size:0.83rem;font-weight:600;color:#ff4d4d;margin:0;">Sua mix já está muito alta ou clipando.</p>'
+        +   '<p style="font-size:13px;color:rgba(255,255,255,0.8);margin:0;">Aplicamos uma masterização conservadora para evitar distorção.</p>'
+        +   '<p style="font-size:12px;color:rgba(255,255,255,0.45);margin:0;">💡 Analise sua mix e corrija o headroom antes de masterizar novamente.</p>'
         + '</div>'
         + '</div>';
     }
