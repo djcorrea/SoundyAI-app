@@ -209,6 +209,7 @@ body {
     width: 100%;
     grid-auto-rows: min-content;
     justify-items: stretch;
+    align-items: start;
 }
 
 /* Cards das Funcionalidades */
@@ -270,7 +271,7 @@ body {
     gap: 0.5rem;
     text-align: center;
     flex: 1;
-    justify-content: space-between;
+    justify-content: flex-start;
 }
 
 .card-content-section {
@@ -283,7 +284,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
-    margin-top: auto;
+    margin-top: 1.5rem;
 }
 
 .card-description {
