@@ -3922,16 +3922,44 @@ function renderModeSelection() {
       ', analysisFileName=' + _state.analysisFileName +
       ', __HOME_FILE_NAME__=' + window.__HOME_FILE_NAME__);
 
-    // Usar URL assinada do B2 diretamente (é a URL já presente em _state.downloadUrl).
-    // A URL inclui ResponseContentDisposition: attachment — o B2 força o download.
-    // Sem XHR/blob: arquivo é baixado nativamente pelo browser, sem bufferizar em memória.
-    var a = document.createElement('a');
-    a.href = url;           // URL assinada do B2 (válida por 30 min, sem auth header)
-    a.download = downloadName;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // IMPORTANTE: a.download é ignorado pelo Chrome em URLs cross-origin (ex: B2 signed URLs).
+    // Solução: XHR → blob URL (always same-origin) → a.download é respeitado pelo browser.
+    // Preferir endpoint proxy próprio (/api/automaster/download/) quando jobId existe.
+    var downloadHref = _state.masterJobId
+      ? '/api/automaster/download/' + encodeURIComponent(_state.masterJobId)
+      : url;
+
+    var dlToken = null;
+    if (downloadHref.startsWith('/')) {
+      // Endpoint próprio — envia token de autenticação
+      try { dlToken = await getValidIdToken(); } catch (_e) {}
+    }
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', downloadHref, true);
+    if (dlToken) xhr.setRequestHeader('Authorization', 'Bearer ' + dlToken);
+    xhr.responseType = 'blob';
+    xhr.onload = function () {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        var blobUrl = URL.createObjectURL(xhr.response);
+        var a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = downloadName; // blob: é same-origin → a.download é SEMPRE respeitado
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 15000);
+      } else {
+        console.warn('[HOME-MASTER] Erro no download: HTTP ' + xhr.status);
+        _state.creditConsumed = false; // permite nova tentativa
+      }
+    };
+    xhr.onerror = function () {
+      console.warn('[HOME-MASTER] Erro no download: falha de rede (XHR)');
+      _state.creditConsumed = false; // permite nova tentativa
+    };
+    xhr.send();
 
     // ── SALVAR NO HISTÓRICO (fire-and-forget — não bloqueia o download) ──────
     if (_state.masterJobId) {
