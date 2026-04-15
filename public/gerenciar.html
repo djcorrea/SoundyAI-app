@@ -104,7 +104,7 @@
                                 <label for="new-email">Novo e-mail</label>
                                 <div class="input-wrapper">
                                     <span class="input-icon">✉️</span>
-                                    <input type="email" id="new-email" placeholder="Digite seu novo e-mail">
+                                    <input type="email" id="new-email" autocomplete="email" placeholder="Digite seu novo e-mail">
                                 </div>
                             </div>
                         </div>
@@ -719,7 +719,7 @@
                 if (!currentUser) {
                     showMessage('Usuário não autenticado. Redirecionando para login...', 'error', 'password');
                     setTimeout(() => {
-                        window.location.href = 'login.html';
+                        window.location.href = 'home.html';
                     }, 2000);
                     return;
                 }
@@ -760,7 +760,7 @@
                     log('✅ Senha atualizada com sucesso');
                     
                     // Mostrar mensagem de sucesso
-                    showMessage('✅ Senha atualizada com sucesso! Você será redirecionado para o login.', 'success', 'password');
+                    showMessage('✅ Senha atualizada com sucesso! Você será redirecionado para a página inicial.', 'success', 'password');
 
                     // Limpar campos
                     if (currentPasswordInput) currentPasswordInput.value = '';
@@ -774,12 +774,12 @@
                             await signOut(auth);
                             log('✅ Logout realizado com sucesso');
                             
-                            // Redirecionar para login
-                            window.location.href = 'login.html';
+                            // Redirecionar para home
+                            window.location.href = 'home.html';
                         } catch (logoutError) {
                             console.error('❌ Erro ao fazer logout:', logoutError);
-                            // Mesmo com erro no logout, redirecionar para login
-                            window.location.href = 'login.html';
+                            // Mesmo com erro no logout, redirecionar para home
+                            window.location.href = 'home.html';
                         }
                     }, 2000); // 2 segundos para o usuário ler a mensagem
                     
@@ -823,7 +823,7 @@
                 if (!currentUser) {
                     showMessage('Usuário não autenticado. Redirecionando para login...', 'error', 'email');
                     setTimeout(() => {
-                        window.location.href = 'login.html';
+                        window.location.href = 'home.html';
                     }, 2000);
                     return;
                 }
@@ -963,7 +963,7 @@
                 if (!currentUser) {
                     showMessage('Usuário não autenticado. Redirecionando para login...', 'error');
                     setTimeout(() => {
-                        window.location.href = 'login.html';
+                        window.location.href = 'home.html';
                     }, 2000);
                     return;
                 }
@@ -1035,7 +1035,7 @@
                             messageType = 'error';
                             errorMessage = 'Sessão expirada. Faça login novamente.';
                             setTimeout(() => {
-                                window.location.href = 'login.html';
+                                window.location.href = 'home.html';
                             }, 3000);
                         } else if (response.status === 400) {
                             messageType = 'error';
@@ -1176,7 +1176,7 @@
                 if (!currentUser) {
                     showMessage('Usuário não autenticado. Redirecionando para login...', 'error');
                     setTimeout(() => {
-                        window.location.href = 'login.html';
+                        window.location.href = 'home.html';
                     }, 2000);
                     return;
                 }
@@ -1276,7 +1276,7 @@
                             // Erro de autenticação
                             errorMessage = 'Sessão expirada. Faça login novamente.';
                             setTimeout(() => {
-                                window.location.href = 'login.html';
+                                window.location.href = 'home.html';
                             }, 2000);
                         } else if (response.status === 404) {
                             // Usuário não encontrado
