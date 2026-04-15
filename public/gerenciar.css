@@ -366,6 +366,12 @@ body {
     outline: none;
 }
 
+/* Garante que inputs de email nunca herdem máscara de senha */
+.input-wrapper input[type="email"] {
+    -webkit-text-security: none !important;
+    letter-spacing: normal !important;
+}
+
 .input-wrapper input:focus {
     border-color: #00cfff;
     box-shadow: 
