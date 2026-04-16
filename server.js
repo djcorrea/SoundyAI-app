@@ -1,4 +1,19 @@
 ﻿// server.js
+
+// ============================================================================
+// 🔇 CONTROLE GLOBAL DE LOGS — Variável Railway: DEBUG_LOGS=true
+// Padrão (sem a variável): nenhum log aparece nos logs do Railway.
+// Para ativar: adicione DEBUG_LOGS=true nas variáveis do projeto Railway.
+// console.error é SEMPRE exibido (erros críticos de startup/crash).
+// ============================================================================
+if (process.env.DEBUG_LOGS !== 'true') {
+  const _noop = () => {};
+  console.log   = _noop;
+  console.info  = _noop;
+  console.warn  = _noop;
+  console.debug = _noop;
+}
+
 import express from "express";
 import cors from "cors";
 import path from "path";
