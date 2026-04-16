@@ -2104,6 +2104,10 @@
       <span class="drawer-nav-item-icon" aria-hidden="true">👤</span>
       Gerenciar Conta
     </button>
+    <button class="drawer-nav-item" id="drawerBtnPlanos" type="button">
+      <span class="drawer-nav-item-icon" aria-hidden="true">💎</span>
+      Planos
+    </button>
     <div class="drawer-divider"></div>
     <button class="drawer-nav-item item-danger" id="drawerBtnSignOut" type="button">
       <span class="drawer-nav-item-icon" aria-hidden="true">🚪</span>
@@ -3032,7 +3036,7 @@
       +   '<button class="am-download-btn" type="button" onclick="downloadMaster()">'
       +     '⬇ BAIXAR FAIXA MASTERIZADA'
       +   '</button>'
-      +   '<button class="am-secondary-btn" type="button" onclick="resetMasterFlow()">Masterizar outra faixa</button>'
+      +   '<button class="am-secondary-btn" type="button" onclick="location.href=\'home.html\'">Masterizar outra faixa</button>'
       + '</div>'
       + '<div id="homeFeedbackBlock" style="margin-top:1.5rem;text-align:center;">'
       +   '<p style="font-size:.82rem;color:rgba(255,255,255,.5);margin:0 0 .6rem;">Gostou do resultado?</p>'
@@ -4453,6 +4457,15 @@ function renderModeSelection() {
       btnAccount.addEventListener('click', function () {
         closeDrawer();
         window.location.href = '/gerenciar.html';
+      });
+    }
+
+    // ── Item: Planos ───────────────────────────────────────────────────────
+    var btnPlanos = document.getElementById('drawerBtnPlanos');
+    if (btnPlanos) {
+      btnPlanos.addEventListener('click', function () {
+        closeDrawer();
+        window.location.href = '/planos.html';
       });
     }
 
