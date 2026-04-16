@@ -10,7 +10,7 @@
 (function() {
   'use strict';
 
-  console.log('[REFERRAL] 🚀 Sistema de afiliados inicializado');
+  debugLog('[REFERRAL] 🚀 Sistema de afiliados inicializado');
 
   /**
    * Gera UUID v4 válido
@@ -48,17 +48,17 @@
       const ref = urlParams.get('ref');
       
       if (ref && isValidPartnerId(ref)) {
-        console.log('[REFERRAL] ✅ Código de parceiro capturado:', ref);
+        debugLog('[REFERRAL] ✅ Código de parceiro capturado:', ref);
         return ref;
       }
       
       if (ref && !isValidPartnerId(ref)) {
-        console.warn('[REFERRAL] ⚠️ Código inválido (ignorado):', ref);
+        debugWarn('[REFERRAL] ⚠️ Código inválido (ignorado):', ref);
       }
       
       return null;
     } catch (error) {
-      console.error('[REFERRAL] ❌ Erro ao capturar URL:', error);
+      debugError('[REFERRAL] ❌ Erro ao capturar URL:', error);
       return null;
     }
   }
@@ -72,18 +72,18 @@
       
       // Validar UUID existente
       if (visitorId && isValidUUID(visitorId)) {
-        console.log('[REFERRAL] 🔄 Visitor ID existente:', visitorId);
+        debugLog('[REFERRAL] 🔄 Visitor ID existente:', visitorId);
         return visitorId;
       }
       
       // Gerar novo UUID
       visitorId = generateUUID();
       localStorage.setItem('soundy_visitor_id', visitorId);
-      console.log('[REFERRAL] 🆕 Visitor ID criado:', visitorId);
+      debugLog('[REFERRAL] 🆕 Visitor ID criado:', visitorId);
       
       return visitorId;
     } catch (error) {
-      console.error('[REFERRAL] ❌ Erro ao gerenciar visitor ID:', error);
+      debugError('[REFERRAL] ❌ Erro ao gerenciar visitor ID:', error);
       return generateUUID(); // Fallback sem localStorage
     }
   }
@@ -98,14 +98,14 @@
       localStorage.setItem('soundy_referral_code', partnerId);
       localStorage.setItem('soundy_referral_timestamp', timestamp);
       
-      console.log('[REFERRAL] 💾 Dados salvos no localStorage:', {
+      debugLog('[REFERRAL] 💾 Dados salvos no localStorage:', {
         partnerId,
         timestamp
       });
       
       return timestamp;
     } catch (error) {
-      console.error('[REFERRAL] ❌ Erro ao salvar no localStorage:', error);
+      debugError('[REFERRAL] ❌ Erro ao salvar no localStorage:', error);
       return new Date().toISOString();
     }
   }
@@ -120,10 +120,10 @@
       if (url.searchParams.has('ref')) {
         url.searchParams.delete('ref');
         window.history.replaceState({}, '', url);
-        console.log('[REFERRAL] 🧹 URL limpa (parâmetro removido)');
+        debugLog('[REFERRAL] 🧹 URL limpa (parâmetro removido)');
       }
     } catch (error) {
-      console.error('[REFERRAL] ⚠️ Erro ao limpar URL:', error);
+      debugError('[REFERRAL] ⚠️ Erro ao limpar URL:', error);
     }
   }
 
@@ -143,8 +143,8 @@
         apiUrl = '/api/referral/track-visitor';
       }
       
-      console.log('[REFERRAL] 📡 Enviando rastreamento ao backend...');
-      console.log('[REFERRAL] 🌐 API URL:', apiUrl);
+      debugLog('[REFERRAL] 📡 Enviando rastreamento ao backend...');
+      debugLog('[REFERRAL] 🌐 API URL:', apiUrl);
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -167,18 +167,18 @@
       const result = await response.json();
       
       if (result.success) {
-        console.log('[REFERRAL] ✅ Rastreamento salvo com sucesso!', {
+        debugLog('[REFERRAL] ✅ Rastreamento salvo com sucesso!', {
           visitorId: result.data?.visitorId,
           partnerId: result.data?.partnerId,
           isNew: result.data?.isNew
         });
       } else {
-        console.warn('[REFERRAL] ⚠️ Backend retornou success=false:', result);
+        debugWarn('[REFERRAL] ⚠️ Backend retornou success=false:', result);
       }
       
       return result;
     } catch (error) {
-      console.error('[REFERRAL] ❌ Erro ao enviar rastreamento:', error);
+      debugError('[REFERRAL] ❌ Erro ao enviar rastreamento:', error);
       // FALHA SILENCIOSA: Não quebra a página
       return { success: false, error: error.message };
     }
@@ -203,18 +203,18 @@
       const daysDiff = (now - referralDate) / (1000 * 60 * 60 * 24);
       
       if (daysDiff > 30) {
-        console.log('[REFERRAL] ⏰ Referral expirado (>30 dias)');
+        debugLog('[REFERRAL] ⏰ Referral expirado (>30 dias)');
         return false;
       }
       
-      console.log('[REFERRAL] ✅ Referral válido encontrado:', {
+      debugLog('[REFERRAL] ✅ Referral válido encontrado:', {
         referralCode,
         age: Math.floor(daysDiff) + ' dias'
       });
       
       return true;
     } catch (error) {
-      console.error('[REFERRAL] ❌ Erro ao verificar referral:', error);
+      debugError('[REFERRAL] ❌ Erro ao verificar referral:', error);
       return false;
     }
   }
@@ -230,9 +230,9 @@
       if (!partnerId) {
         // Verificar se já existe referral salvo
         if (hasValidReferral()) {
-          console.log('[REFERRAL] ℹ️ Usando referral existente (sem novo ?ref)');
+          debugLog('[REFERRAL] ℹ️ Usando referral existente (sem novo ?ref)');
         } else {
-          console.log('[REFERRAL] ℹ️ Sem código de parceiro na URL');
+          debugLog('[REFERRAL] ℹ️ Sem código de parceiro na URL');
         }
         return;
       }
@@ -241,7 +241,7 @@
       const visitorId = getOrCreateVisitorId();
       
       if (!visitorId) {
-        console.error('[REFERRAL] ❌ Falha ao obter visitor ID');
+        debugError('[REFERRAL] ❌ Falha ao obter visitor ID');
         return;
       }
 
@@ -249,13 +249,13 @@
       const existingCode = localStorage.getItem('soundy_referral_code');
       
       if (existingCode && existingCode === partnerId) {
-        console.log('[REFERRAL] ℹ️ Parceiro já rastreado (idempotente)');
+        debugLog('[REFERRAL] ℹ️ Parceiro já rastreado (idempotente)');
         cleanURLParams();
         return;
       }
       
       if (existingCode && existingCode !== partnerId) {
-        console.warn('[REFERRAL] ⚠️ Sobrescrevendo referral anterior:', {
+        debugWarn('[REFERRAL] ⚠️ Sobrescrevendo referral anterior:', {
           anterior: existingCode,
           novo: partnerId
         });
@@ -271,7 +271,7 @@
       await trackVisitorOnBackend(visitorId, partnerId, timestamp);
 
     } catch (error) {
-      console.error('[REFERRAL] ❌ Erro crítico no processamento:', error);
+      debugError('[REFERRAL] ❌ Erro crítico no processamento:', error);
       // FALHA SILENCIOSA: Não quebra a página
     }
   }

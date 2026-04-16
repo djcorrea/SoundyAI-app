@@ -24,65 +24,65 @@ const API_CONFIG = {
     
     // 🧪 AMBIENTE DE TESTE: Railway TEST
     if (host === 'soundyai-app-soundyai-teste.up.railway.app') {
-      console.log('🧪 [API_CONFIG] ═══════════════════════════════════════');
-      console.log('🧪 [API_CONFIG] AMBIENTE DE TESTE DETECTADO');
-      console.log('🧪 [API_CONFIG] Host:', host);
-      console.log('🧪 [API_CONFIG] API URL: /api (relativo)');
-      console.log('🧪 [API_CONFIG] Backend: soundyai-app-soundyai-teste.up.railway.app');
-      console.log('🧪 [API_CONFIG] ═══════════════════════════════════════');
+      debugLog('🧪 [API_CONFIG] ═══════════════════════════════════════');
+      debugLog('🧪 [API_CONFIG] AMBIENTE DE TESTE DETECTADO');
+      debugLog('🧪 [API_CONFIG] Host:', host);
+      debugLog('🧪 [API_CONFIG] API URL: /api (relativo)');
+      debugLog('🧪 [API_CONFIG] Backend: soundyai-app-soundyai-teste.up.railway.app');
+      debugLog('🧪 [API_CONFIG] ═══════════════════════════════════════');
       return '/api';
     }
     
     // 🧪 FRONTEND DE TESTE (Vercel) -> Chamar API de TESTE
     if (host === 'soundyai-teste.vercel.app') {
-      console.log('🧪 [API_CONFIG] ═══════════════════════════════════════');
-      console.log('🧪 [API_CONFIG] FRONTEND TESTE (Vercel)');
-      console.log('🧪 [API_CONFIG] Host:', host);
-      console.log('🧪 [API_CONFIG] API URL: https://soundyai-app-soundyai-teste.up.railway.app/api');
-      console.log('🧪 [API_CONFIG] Backend: TESTE Railway');
-      console.log('🧪 [API_CONFIG] ═══════════════════════════════════════');
+      debugLog('🧪 [API_CONFIG] ═══════════════════════════════════════');
+      debugLog('🧪 [API_CONFIG] FRONTEND TESTE (Vercel)');
+      debugLog('🧪 [API_CONFIG] Host:', host);
+      debugLog('🧪 [API_CONFIG] API URL: https://soundyai-app-soundyai-teste.up.railway.app/api');
+      debugLog('🧪 [API_CONFIG] Backend: TESTE Railway');
+      debugLog('🧪 [API_CONFIG] ═══════════════════════════════════════');
       return 'https://soundyai-app-soundyai-teste.up.railway.app/api';
     }
     
     // 🚀 PRODUÇÃO: soundyai.com.br (Railway) -> usar /api relativo
     if (host === 'soundyai.com.br' || host === 'www.soundyai.com.br') {
-      console.log('🚀 [API_CONFIG] ═══════════════════════════════════════');
-      console.log('🚀 [API_CONFIG] AMBIENTE DE PRODUÇÃO');
-      console.log('🚀 [API_CONFIG] Host:', host);
-      console.log('🚀 [API_CONFIG] API URL: /api (relativo)');
-      console.log('🚀 [API_CONFIG] Backend: soundyai-app-production.up.railway.app');
-      console.log('🚀 [API_CONFIG] ═══════════════════════════════════════');
+      debugLog('🚀 [API_CONFIG] ═══════════════════════════════════════');
+      debugLog('🚀 [API_CONFIG] AMBIENTE DE PRODUÇÃO');
+      debugLog('🚀 [API_CONFIG] Host:', host);
+      debugLog('🚀 [API_CONFIG] API URL: /api (relativo)');
+      debugLog('🚀 [API_CONFIG] Backend: soundyai-app-production.up.railway.app');
+      debugLog('🚀 [API_CONFIG] ═══════════════════════════════════════');
       return '/api';
     }
     
     // 🚀 Railway PRODUÇÃO direto
     if (host === 'soundyai-app-production.up.railway.app') {
-      console.log('🚀 [API_CONFIG] ═══════════════════════════════════════');
-      console.log('🚀 [API_CONFIG] RAILWAY PRODUÇÃO DIRETO');
-      console.log('🚀 [API_CONFIG] Host:', host);
-      console.log('🚀 [API_CONFIG] API URL: /api (relativo)');
-      console.log('🚀 [API_CONFIG] Backend: soundyai-app-production.up.railway.app');
-      console.log('🚀 [API_CONFIG] ═══════════════════════════════════════');
+      debugLog('🚀 [API_CONFIG] ═══════════════════════════════════════');
+      debugLog('🚀 [API_CONFIG] RAILWAY PRODUÇÃO DIRETO');
+      debugLog('🚀 [API_CONFIG] Host:', host);
+      debugLog('🚀 [API_CONFIG] API URL: /api (relativo)');
+      debugLog('🚀 [API_CONFIG] Backend: soundyai-app-production.up.railway.app');
+      debugLog('🚀 [API_CONFIG] ═══════════════════════════════════════');
       return '/api';
     }
     
     // 🔧 Ambiente local -> chamar Railway PRODUÇÃO
     if (host === 'localhost' || host.startsWith('127.0.0.1')) {
-      console.log('🔧 [API_CONFIG] ═══════════════════════════════════════');
-      console.log('🔧 [API_CONFIG] AMBIENTE LOCAL');
-      console.log('🔧 [API_CONFIG] Host:', host);
-      console.log('🔧 [API_CONFIG] API URL: https://soundyai-app-production.up.railway.app/api');
-      console.log('🔧 [API_CONFIG] Backend: Railway PRODUÇÃO');
-      console.log('🔧 [API_CONFIG] ═══════════════════════════════════════');
+      debugLog('🔧 [API_CONFIG] ═══════════════════════════════════════');
+      debugLog('🔧 [API_CONFIG] AMBIENTE LOCAL');
+      debugLog('🔧 [API_CONFIG] Host:', host);
+      debugLog('🔧 [API_CONFIG] API URL: https://soundyai-app-production.up.railway.app/api');
+      debugLog('🔧 [API_CONFIG] Backend: Railway PRODUÇÃO');
+      debugLog('🔧 [API_CONFIG] ═══════════════════════════════════════');
       return 'https://soundyai-app-production.up.railway.app/api';
     }
     
     // ⚠️ Fallback: Railway PRODUÇÃO
-    console.warn('⚠️ [API_CONFIG] ═══════════════════════════════════════');
-    console.warn('⚠️ [API_CONFIG] AMBIENTE DESCONHECIDO - USANDO PRODUÇÃO');
-    console.warn('⚠️ [API_CONFIG] Host:', host);
-    console.warn('⚠️ [API_CONFIG] API URL: https://soundyai-app-production.up.railway.app/api');
-    console.warn('⚠️ [API_CONFIG] ═══════════════════════════════════════');
+    debugWarn('⚠️ [API_CONFIG] ═══════════════════════════════════════');
+    debugWarn('⚠️ [API_CONFIG] AMBIENTE DESCONHECIDO - USANDO PRODUÇÃO');
+    debugWarn('⚠️ [API_CONFIG] Host:', host);
+    debugWarn('⚠️ [API_CONFIG] API URL: https://soundyai-app-production.up.railway.app/api');
+    debugWarn('⚠️ [API_CONFIG] ═══════════════════════════════════════');
     return 'https://soundyai-app-production.up.railway.app/api';
   })(),
 
@@ -616,7 +616,7 @@ class ProdAIChatbot {
                     if (referralCode) {
                         localStorage.setItem('soundy_referral_code', referralCode);
                         localStorage.setItem('soundy_referral_timestamp', referralTimestamp);
-                        console.log('🔗 [REFERRAL] Código preservado após logout:', referralCode);
+                        debugLog('🔗 [REFERRAL] Código preservado após logout:', referralCode);
                     }
                     
                     window.location.href = "login.html";

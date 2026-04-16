@@ -15,7 +15,7 @@
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'G-MBDHDYN6Z0');
-      console.log('🎯 [GA4] Tag carregada em entrevista.html');
+      debugLog('🎯 [GA4] Tag carregada em entrevista.html');
     </script>
     
     <!-- 📊 TRACKING SYSTEM (Captura UTMs, Anonymous ID, Session ID, Firestore backup) -->
@@ -680,9 +680,9 @@
                                     daw: daw,
                                     estilo: estilo
                                 });
-                                console.log('📊 [TRACKING] interview_complete enviado');
+                                debugLog('📊 [TRACKING] interview_complete enviado');
                             } catch (trackError) {
-                                console.error('❌ [TRACKING] Erro ao enviar interview_complete:', trackError);
+                                debugError('❌ [TRACKING] Erro ao enviar interview_complete:', trackError);
                             }
                         }
                         
@@ -743,9 +743,9 @@
                 window.SoundyTracking.trackEventV2('interview_start', {
                     source: 'entrevista_page'
                 }).then(result => {
-                    console.log('📊 [TRACKING] interview_start enviado:', result);
+                    debugLog('📊 [TRACKING] interview_start enviado:', result);
                 }).catch(err => {
-                    console.error('❌ [TRACKING] Erro ao enviar interview_start:', err);
+                    debugError('❌ [TRACKING] Erro ao enviar interview_start:', err);
                 });
             }
             

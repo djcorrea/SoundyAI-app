@@ -13,10 +13,10 @@
   
   <!-- ✅ EMERGENCY: Função global para habilitar botões -->
   <script>
-    console.log('🚨 [EMERGENCY LOADER] Script de emergência carregado');
+    debugLog('🚨 [EMERGENCY LOADER] Script de emergência carregado');
     
     window.enableButtonsEmergency = function() {
-      console.log('🚨 [EMERGENCY] Habilitando botões por fallback');
+      debugLog('🚨 [EMERGENCY] Habilitando botões por fallback');
       
       const loginBtn = document.getElementById('loginBtn');
       const signUpBtn = document.getElementById('signUpBtn');
@@ -27,7 +27,7 @@
         loginBtn.textContent = 'Entrar';
         loginBtn.style.opacity = '1';
         loginBtn.style.cursor = 'pointer';
-        console.log('✅ Botão Entrar habilitado');
+        debugLog('✅ Botão Entrar habilitado');
       }
       
       if (signUpBtn) {
@@ -35,21 +35,21 @@
         signUpBtn.textContent = 'Cadastrar';
         signUpBtn.style.opacity = '1';
         signUpBtn.style.cursor = 'pointer';
-        console.log('✅ Botão Cadastrar habilitado');
+        debugLog('✅ Botão Cadastrar habilitado');
       }
       
       if (googleBtn) {
         googleBtn.disabled = false;
         googleBtn.style.opacity = '1';
         googleBtn.style.cursor = 'pointer';
-        console.log('✅ Botão Google habilitado');
+        debugLog('✅ Botão Google habilitado');
       }
     };
     
     // Verificar Firebase após 5 segundos
     setTimeout(function() {
       if (!window.firebaseReady) {
-        console.warn('⚠️ Firebase não carregou em 5s - ativando fallback');
+        debugWarn('⚠️ Firebase não carregou em 5s - ativando fallback');
         if (document.getElementById('loginBtn')) {
           window.enableButtonsEmergency();
         }
@@ -617,7 +617,7 @@
         const googleBtn = document.getElementById('googleLoginBtn');
         
         if (loginBtn && loginBtn.disabled) {
-          console.log('⚡ [FALLBACK] Habilitando botão Entrar');
+          debugLog('⚡ [FALLBACK] Habilitando botão Entrar');
           loginBtn.disabled = false;
           loginBtn.textContent = 'Entrar';
           loginBtn.style.opacity = '1';
@@ -625,7 +625,7 @@
         }
         
         if (signUpBtn && signUpBtn.disabled) {
-          console.log('⚡ [FALLBACK] Habilitando botão Cadastrar');
+          debugLog('⚡ [FALLBACK] Habilitando botão Cadastrar');
           signUpBtn.disabled = false;
           signUpBtn.textContent = 'Cadastrar';
           signUpBtn.style.opacity = '1';
@@ -633,7 +633,7 @@
         }
         
         if (googleBtn && googleBtn.disabled) {
-          console.log('⚡ [FALLBACK] Habilitando botão Google');
+          debugLog('⚡ [FALLBACK] Habilitando botão Google');
           googleBtn.disabled = false;
           googleBtn.style.opacity = '1';
           googleBtn.style.cursor = 'pointer';
@@ -761,9 +761,9 @@
       function sendGA4Event(eventName, params = {}) {
         if (typeof gtag === 'function') {
           gtag('event', eventName, params);
-          console.log('🎯 [GA4] Evento disparado:', eventName, params);
+          debugLog('🎯 [GA4] Evento disparado:', eventName, params);
         } else {
-          console.warn('⚠️ [GA4] gtag não está disponível');
+          debugWarn('⚠️ [GA4] gtag não está disponível');
         }
       }
       

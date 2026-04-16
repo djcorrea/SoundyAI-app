@@ -21,8 +21,8 @@ export function caiarIsEnabled() { return _isEnabled(); }
 export function caiarLog(stage, message, data) {
   if (!_isEnabled()) return;
   const ts = (typeof performance !== 'undefined' && performance.now) ? performance.now().toFixed(1) + 'ms' : new Date().toISOString();
-  if (data !== undefined) console.log(`[CAIAR][${ts}] ${stage} :: ${message}`, data);
-  else console.log(`[CAIAR][${ts}] ${stage} :: ${message}`);
+  if (data !== undefined) debugLog(`[CAIAR][${ts}] ${stage} :: ${message}`, data);
+  else debugLog(`[CAIAR][${ts}] ${stage} :: ${message}`);
 }
 
 export function caiarGroup(stage, message, fn) {

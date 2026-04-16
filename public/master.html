@@ -1,9 +1,13 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SoundyAI — AutoMaster V1</title>
+    <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
+    <script src="logger.js"></script>
+    
+
   <meta name="description" content="Masterização profissional com IA — SoundyAI AutoMaster V1">
   <meta name="theme-color" content="#4f8ef7">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -1130,12 +1134,12 @@ const automasterState = {
   const urlFileName  = params.get('fileName');
   if (urlFileKey && typeof urlFileKey === 'string' && urlFileKey.trim().length > 0) {
     const SAFE_RE = /^[a-zA-Z0-9/_\-.]+$/;
-    if (!SAFE_RE.test(urlFileKey)) { console.warn('[AUTOMASTER] fileKey inválido ignorado'); return; }
+    if (!SAFE_RE.test(urlFileKey)) { debugWarn('[AUTOMASTER] fileKey inválido ignorado'); return; }
     automasterState.fileKey      = urlFileKey.trim();
     automasterState.fileName     = (urlFileName || 'audio').trim();
     automasterState.fromHomeFlow = true;
     automasterState.file         = { name: automasterState.fileName, size: 0, type: 'audio/wav' };
-    console.log('[AUTOMASTER] Fluxo contínuo detectado', { fileKey: automasterState.fileKey, fileName: automasterState.fileName });
+    debugLog('[AUTOMASTER] Fluxo contínuo detectado', { fileKey: automasterState.fileKey, fileName: automasterState.fileName });
   }
 })();
 
@@ -1170,7 +1174,7 @@ function savePendingMaster() {
     };
     if (!data.fileKey) return; // nada a salvar sem fileKey
     localStorage.setItem(PENDING_MASTER_KEY, JSON.stringify(data));
-    console.log('[AUTOMASTER] Estado pendente salvo para restauração pós-login');
+    debugLog('[AUTOMASTER] Estado pendente salvo para restauração pós-login');
   } catch (_) {}
 }
 
@@ -1233,7 +1237,7 @@ function normalizeMode(m) { return m ? String(m).toUpperCase().trim() : ''; }
 function isValidMode(m)   { return ['STREAMING','LOW','MEDIUM','HIGH','EXTREME'].includes(normalizeMode(m)); }
 function setMode(m) {
   const n = normalizeMode(m);
-  if (!isValidMode(n)) { console.error('[AUTOMASTER] Modo inválido:', m); return false; }
+  if (!isValidMode(n)) { debugError('[AUTOMASTER] Modo inválido:', m); return false; }
   automasterState.mode = n; return true;
 }
 function getModeName(code) {
@@ -1454,7 +1458,7 @@ async function startProcessing() {
     const sd = await pollJobStatus(jobId);
     stopDspAnimation();
 
-    console.log('[FRONT-RAW-RESULT] status:', sd.status,
+    debugLog('[FRONT-RAW-RESULT] status:', sd.status,
       '| sd.metrics:', JSON.stringify(sd.metrics),
       '| mixNotApt_raw:', sd.metrics?.mixNotApt,
       '| typeof:', typeof sd.metrics?.mixNotApt,
@@ -1573,7 +1577,7 @@ async function pollJobStatus(jobId) {
         } else if (s.status === 'failed' || s.status === 'error') {
           clearInterval(timer); reject(new Error(s.error || s.message || 'Falha no processamento.'));
         }
-      } catch (pe) { console.warn(`[POLL #${attempt}] Erro de rede:`, pe.message); }
+      } catch (pe) { debugWarn(`[POLL #${attempt}] Erro de rede:`, pe.message); }
     }, INT);
   });
 }
@@ -1595,7 +1599,7 @@ function showNeedsConfirmationModal(statusData) {
 
 async function confirmSafeMastering() {
   const jobId = automasterState._confirmJobId || automasterState.jobId;
-  if (!jobId) { console.error('[AUTOMASTER] Nenhum jobId para confirmar'); return; }
+  if (!jobId) { debugError('[AUTOMASTER] Nenhum jobId para confirmar'); return; }
   showModal('processingModal');
   document.getElementById('processingLoading').style.display = 'block';
   document.getElementById('processingError').style.display   = 'none';
@@ -1605,7 +1609,7 @@ async function confirmSafeMastering() {
     const sd = await pollJobStatus(jobId);
     stopDspAnimation();
 
-    console.log('[FRONT-RAW-RESULT] (confirm) status:', sd.status,
+    debugLog('[FRONT-RAW-RESULT] (confirm) status:', sd.status,
       '| sd.metrics:', JSON.stringify(sd.metrics),
       '| mixNotApt_raw:', sd.metrics?.mixNotApt,
       '| typeof:', typeof sd.metrics?.mixNotApt,
@@ -1730,7 +1734,7 @@ function openPreviewModal() {
   const _mixNotAptFromMetrics = (_tpRaw   != null && _tpRaw   >= -1.0) ||
                                 (_lufsRaw != null && _lufsRaw >= -10.0);
   const _mixNotAptFront = (automasterState.result.mixNotApt === true) || _mixNotAptFromMetrics;
-  console.log('[FRONT-MIXNOTAPT] state_flag:', automasterState.result.mixNotApt,
+  debugLog('[FRONT-MIXNOTAPT] state_flag:', automasterState.result.mixNotApt,
     '| tp_before:', _tpRaw,
     '| lufs_before:', _lufsRaw,
     '| from_metrics:', _mixNotAptFromMetrics,
@@ -1840,8 +1844,8 @@ function togglePlayPause(side) {
   const secondary = side === 'before' ? _prevAfter  : _prevBefore;
   if (!primary) return;
   if (primary.paused) {
-    primary.play().catch(e => console.warn('[PLAYER] play:', e));
-    if (secondary) secondary.play().catch(e => console.warn('[PLAYER] secondary play:', e));
+    primary.play().catch(e => debugWarn('[PLAYER] play:', e));
+    if (secondary) secondary.play().catch(e => debugWarn('[PLAYER] secondary play:', e));
   } else {
     primary.pause();
     if (secondary) secondary.pause();
@@ -2014,7 +2018,7 @@ async function triggerBlobDownload(url) {
           if (signedFallback && signedFallback !== url) {
             url = signedFallback;
           }
-          console.warn('[AUTOMASTER] Token indisponível — usando URL de fallback');
+          debugWarn('[AUTOMASTER] Token indisponível — usando URL de fallback');
         }
       }
     }
@@ -2041,7 +2045,7 @@ async function triggerBlobDownload(url) {
   } catch (e) {
     // Propagar erro FREE_USED sem fallback
     if (e.code === 'FREE_USED') throw e;
-    console.warn('[AUTOMASTER] Blob fallback:', e.message);
+    debugWarn('[AUTOMASTER] Blob fallback:', e.message);
     const link = document.createElement('a');
     link.href = url; link.download = name;
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
@@ -2093,7 +2097,7 @@ function closeDownloadCTAModal() {
  * @param {boolean} liked
  */
 async function submitMasterFeedback(liked) {
-  console.log('[MASTER-FEEDBACK] Botão clicado', { liked, jobId: automasterState.jobId });
+  debugLog('[MASTER-FEEDBACK] Botão clicado', { liked, jobId: automasterState.jobId });
 
   const likeBtn    = document.getElementById('masterFeedbackLike');
   const dislikeBtn = document.getElementById('masterFeedbackDislike');
@@ -2105,7 +2109,7 @@ async function submitMasterFeedback(liked) {
 
   const jobId = automasterState.jobId;
   if (!jobId) {
-    console.warn('[MASTER-FEEDBACK] jobId ausente — feedback não enviado ao servidor');
+    debugWarn('[MASTER-FEEDBACK] jobId ausente — feedback não enviado ao servidor');
     if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
     return;
   }
@@ -2114,12 +2118,12 @@ async function submitMasterFeedback(liked) {
     const auth  = window.__firebaseAuth || null;
     const user  = auth ? auth.currentUser : null;
     if (!user) {
-      console.warn('[MASTER-FEEDBACK] Usuário não autenticado — feedback não enviado');
+      debugWarn('[MASTER-FEEDBACK] Usuário não autenticado — feedback não enviado');
       if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
       return;
     }
     const token = await user.getIdToken(false);
-    console.log('[MASTER-FEEDBACK] Enviando para /api/automaster/feedback...');
+    debugLog('[MASTER-FEEDBACK] Enviando para /api/automaster/feedback...');
 
     const res = await fetch('/api/automaster/feedback', {
       method:  'POST',
@@ -2129,12 +2133,12 @@ async function submitMasterFeedback(liked) {
     let resData;
     try { resData = await res.json(); } catch (_) { resData = {}; }
     if (!res.ok) {
-      console.error('[MASTER-FEEDBACK] Servidor retornou erro', res.status, resData);
+      debugError('[MASTER-FEEDBACK] Servidor retornou erro', res.status, resData);
     } else {
-      console.log('[MASTER-FEEDBACK] Feedback salvo com sucesso', resData);
+      debugLog('[MASTER-FEEDBACK] Feedback salvo com sucesso', resData);
     }
   } catch (err) {
-    console.error('[MASTER-FEEDBACK] Erro ao enviar feedback:', err.message);
+    debugError('[MASTER-FEEDBACK] Erro ao enviar feedback:', err.message);
   }
 
   if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
@@ -2176,7 +2180,7 @@ function resetFlow() {
 // INIT
 // ================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('🎚️ [AUTOMASTER] AutoMaster V1 — Produção');
+  debugLog('🎚️ [AUTOMASTER] AutoMaster V1 — Produção');
 
   // ── AUTH GUARD ────────────────────────────────────────────
   // Aguarda o Firebase resolver o estado inicial de autenticação.
@@ -2187,20 +2191,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (automasterState.fromHomeFlow && automasterState.fileKey) {
       savePendingMaster(); // preserva fileKey para restauração pós-login
     }
-    console.warn('⚠️ [AUTOMASTER] Usuário não autenticado — redirecionando para login');
+    debugWarn('⚠️ [AUTOMASTER] Usuário não autenticado — redirecionando para login');
     window.location.href = '/login.html?returnTo=master';
     return; // interrompe init
   }
-  console.log('✅ [AUTOMASTER] Usuário autenticado:', user.uid);
+  debugLog('✅ [AUTOMASTER] Usuário autenticado:', user.uid);
   clearPendingMaster(); // limpar qualquer pendência antiga ao entrar autenticado
 
   // Inicializar fingerprint de dispositivo (não-bloqueante)
   if (window.SoundyFingerprint) {
     window.SoundyFingerprint.get().then(fp => {
       automasterState.fingerprintId = fp?.fingerprint_hash || null;
-      console.log('[AUTOMASTER] Fingerprint pronto:', automasterState.fingerprintId?.substring(0, 8) + '...');
+      debugLog('[AUTOMASTER] Fingerprint pronto:', automasterState.fingerprintId?.substring(0, 8) + '...');
     }).catch(err => {
-      console.warn('[AUTOMASTER] Fingerprint indisponível:', err.message);
+      debugWarn('[AUTOMASTER] Fingerprint indisponível:', err.message);
     });
   }
 
@@ -2224,7 +2228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 if (window.location.hostname === 'localhost') {
-  console.log('🔧 [AUTOMASTER-DEBUG] Modo debug ativado');
+  debugLog('🔧 [AUTOMASTER-DEBUG] Modo debug ativado');
   window.automasterState = automasterState;
 }
 </script>

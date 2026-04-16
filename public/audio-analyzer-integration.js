@@ -7,14 +7,14 @@ if (typeof window !== 'undefined' && !window.suggestionSystem) {
     script.src = 'suggestion-system-unified.js';
     script.async = true;
     script.onload = () => {
-        console.log('🎯 [AudioIntegration] Sistema Unificado CORRIGIDO carregado');
-        console.log('✅ Correções implementadas: delta correto, direção correta, z-score, cobertura total, textos educativos');
-        console.log('📋 Acesso via: window.suggestionSystem');
+        debugLog('🎯 [AudioIntegration] Sistema Unificado CORRIGIDO carregado');
+        debugLog('✅ Correções implementadas: delta correto, direção correta, z-score, cobertura total, textos educativos');
+        debugLog('📋 Acesso via: window.suggestionSystem');
         // Ativar sistema unificado por padrão
         window.USE_UNIFIED_SUGGESTIONS = true;
     };
     script.onerror = () => {
-        console.warn('[AudioIntegration] Falha ao carregar sistema unificado - usando fallback');
+        debugWarn('[AudioIntegration] Falha ao carregar sistema unificado - usando fallback');
         window.USE_UNIFIED_SUGGESTIONS = false;
     };
     document.head.appendChild(script);
@@ -22,8 +22,8 @@ if (typeof window !== 'undefined' && !window.suggestionSystem) {
 
 // Debug flag (silencia logs em produção; defina window.DEBUG_ANALYZER = true para habilitar)
 const __DEBUG_ANALYZER__ = true; // 🔧 TEMPORÁRIO: Ativado para debug do problema
-const __dbg = (...a) => { if (__DEBUG_ANALYZER__) console.log('[AUDIO-DEBUG]', ...a); };
-const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', ...a); };
+const __dbg = (...a) => { if (__DEBUG_ANALYZER__) debugLog('[AUDIO-DEBUG]', ...a); };
+const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) debugWarn('[AUDIO-WARN]', ...a); };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🔧 GLOBALS RESTAURADOS — REMOVIDOS ACIDENTALMENTE (logger migration)
@@ -79,7 +79,7 @@ function cloneDeepSafe(obj) {
             },
             has(key) { return key ? this._data.has(key) : false; },
             delete(key) { return this._data.delete(key); },
-            clear() { this._data.clear(); console.log('[CACHE] 🗑️ clear'); },
+            clear() { this._data.clear(); debugLog('[CACHE] 🗑️ clear'); },
             put(keyOrAnalysis, analysis) {
                 let key, data;
                 if (typeof keyOrAnalysis === 'string' && analysis) {
@@ -91,11 +91,11 @@ function cloneDeepSafe(obj) {
                 }
                 if (!key || !data) return;
                 this._data.set(key, Object.freeze(cloneDeepSafe(data)));
-                console.log('[CACHE] ✅ put', { vid: key, file: data?.fileName || data?.metadata?.fileName });
+                debugLog('[CACHE] ✅ put', { vid: key, file: data?.fileName || data?.metadata?.fileName });
             },
             ids() { return Array.from(this._data.keys()); }
         };
-        console.log('[BOOT] AnalysisCache ✅');
+        debugLog('[BOOT] AnalysisCache ✅');
     }
 
     if (!window.FirstAnalysisStore) {
@@ -105,23 +105,23 @@ function cloneDeepSafe(obj) {
         };
         window.FirstAnalysisStore = {
             setUser(analysis, vid, jobId) {
-                if (_state.user) { console.warn('[FIRST-STORE] ⚠️ USER já existe — ignorado'); return; }
+                if (_state.user) { debugWarn('[FIRST-STORE] ⚠️ USER já existe — ignorado'); return; }
                 _state.user = analysis;
                 _state.userVid = vid;
                 _state.userJobId = jobId || analysis?.jobId;
-                console.log('[FIRST-STORE] ✅ setUser', { vid, jobId: _state.userJobId, file: analysis?.fileName || analysis?.metadata?.fileName });
+                debugLog('[FIRST-STORE] ✅ setUser', { vid, jobId: _state.userJobId, file: analysis?.fileName || analysis?.metadata?.fileName });
             },
             setRef(analysis, vid, jobId) {
                 _state.ref = analysis;
                 _state.refVid = vid;
                 _state.refJobId = jobId || analysis?.jobId;
-                console.log('[FIRST-STORE] ✅ setRef', { vid, jobId: _state.refJobId, file: analysis?.fileName || analysis?.metadata?.fileName });
+                debugLog('[FIRST-STORE] ✅ setRef', { vid, jobId: _state.refJobId, file: analysis?.fileName || analysis?.metadata?.fileName });
             },
             getUser() {
                 if (_state.user) return _state.user;
                 if (window.CacheIndex.USER && window.AnalysisCache?.has(window.CacheIndex.USER)) {
                     const restored = window.AnalysisCache.get(window.CacheIndex.USER);
-                    console.log('[FIRST-STORE] ♻️ RESTORE USER from cache', { vid: window.CacheIndex.USER });
+                    debugLog('[FIRST-STORE] ♻️ RESTORE USER from cache', { vid: window.CacheIndex.USER });
                     return restored;
                 }
                 return null;
@@ -130,7 +130,7 @@ function cloneDeepSafe(obj) {
                 if (_state.ref) return _state.ref;
                 if (window.CacheIndex.REF && window.AnalysisCache?.has(window.CacheIndex.REF)) {
                     const restored = window.AnalysisCache.get(window.CacheIndex.REF);
-                    console.log('[FIRST-STORE] ♻️ RESTORE REF from cache', { vid: window.CacheIndex.REF });
+                    debugLog('[FIRST-STORE] ♻️ RESTORE REF from cache', { vid: window.CacheIndex.REF });
                     return restored;
                 }
                 return null;
@@ -144,9 +144,9 @@ function cloneDeepSafe(obj) {
                     const vid = `${jobId}::USER`;
                     this.setUser(analysis, vid, jobId);
                     window.CacheIndex.USER = vid;
-                    try { window.StorageManager?.setReferenceJobId?.(jobId || ''); } catch (e) { console.warn('[FIRST-STORE] ⚠️ StorageManager.setReferenceJobId falhou:', e); }
+                    try { window.StorageManager?.setReferenceJobId?.(jobId || ''); } catch (e) { debugWarn('[FIRST-STORE] ⚠️ StorageManager.setReferenceJobId falhou:', e); }
                 } else {
-                    console.warn('[FIRST-STORE] ⚠️ set() chamado mas USER já existe — use setRef()');
+                    debugWarn('[FIRST-STORE] ⚠️ set() chamado mas USER já existe — use setRef()');
                 }
             },
             get() { return this.getUser(); },
@@ -157,8 +157,8 @@ function cloneDeepSafe(obj) {
                 _state.ref  = null; _state.refVid  = null; _state.refJobId  = null;
                 window.CacheIndex.USER = null;
                 window.CacheIndex.REF  = null;
-                try { window.StorageManager?.clearReference?.(); } catch (e) { console.warn('[FIRST-STORE] ⚠️ StorageManager.clearReference falhou:', e); }
-                console.log('[FIRST-STORE] 🗑️ clear (USER + REF)');
+                try { window.StorageManager?.clearReference?.(); } catch (e) { debugWarn('[FIRST-STORE] ⚠️ StorageManager.clearReference falhou:', e); }
+                debugLog('[FIRST-STORE] 🗑️ clear (USER + REF)');
             },
             _debug() {
                 return {
@@ -169,7 +169,7 @@ function cloneDeepSafe(obj) {
                 };
             }
         };
-        console.log('[BOOT] FirstAnalysisStore ✅ (Role-based: USER/REF)');
+        debugLog('[BOOT] FirstAnalysisStore ✅ (Role-based: USER/REF)');
     }
 })();
 
@@ -180,17 +180,17 @@ const FirstAnalysisStore = window.FirstAnalysisStore;
 // 🔧 FALLBACKS: funcoes opcionais — stubs seguros se nao carregadas
 // ═══════════════════════════════════════════════════════════════════
 window.showAILoadingSpinner = window.showAILoadingSpinner ?? function(msg) {
-    console.log('[AI-SPINNER] show:', msg);
+    debugLog('[AI-SPINNER] show:', msg);
 };
 window.hideAILoadingSpinner = window.hideAILoadingSpinner ?? function() {
-    console.log('[AI-SPINNER] hide');
+    debugLog('[AI-SPINNER] hide');
 };
 window.waitForAIEnrichment = window.waitForAIEnrichment ?? async function(jobId, timeout) {
-    console.warn('[AI-ENRICH] waitForAIEnrichment nao disponivel');
+    debugWarn('[AI-ENRICH] waitForAIEnrichment nao disponivel');
     return null;
 };
 window.displayComparisonSection = window.displayComparisonSection ?? function(comparisonData, suggestions) {
-    console.warn('[REF-FLOW] displayComparisonSection indisponivel - fallback sem renderizacao');
+    debugWarn('[REF-FLOW] displayComparisonSection indisponivel - fallback sem renderizacao');
 };
 window.getRealValue = window.getRealValue ?? function() {
     return null;
@@ -312,7 +312,7 @@ function trapFocus(modal) {
 
 // 🎯 Função Principal de Seleção de Modo
 function selectAnalysisMode(mode) {
-    console.log('🎯 Modo selecionado:', mode);
+    debugLog('🎯 Modo selecionado:', mode);
     
     // Armazenar modo selecionado
     window.currentAnalysisMode = mode;
@@ -402,7 +402,7 @@ function handleReferenceFileSelection(type) {
             }
             
             uploadedFiles[type] = file;
-            console.log(`✅ Arquivo ${type} selecionado:`, file.name);
+            debugLog(`✅ Arquivo ${type} selecionado:`, file.name);
             
             // Atualizar interface
             updateFileStatus(type, file.name);
@@ -511,7 +511,7 @@ async function startReferenceAnalysis() {
         displayReferenceComparison(result);
         
     } catch (error) {
-        console.error('❌ Erro na análise:', error);
+        debugError('❌ Erro na análise:', error);
         alert('❌ Erro durante a análise. Tente novamente.');
     }
 }
@@ -673,7 +673,7 @@ window.selectAnalysisMode = selectAnalysisMode;
 
 //! DEBUG: Função de debug global para forçar recarga
 window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
-    console.log('🔄 FORÇA RECARGA DE REFERÊNCIAS:', genre);
+    debugLog('🔄 FORÇA RECARGA DE REFERÊNCIAS:', genre);
     
     // Limpar tudo
     delete window.__refDataCache;
@@ -683,11 +683,11 @@ window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
     window.__activeRefGenre = null;
     delete window.PROD_AI_REF_DATA;
     
-    console.log('💥 Cache limpo, forçando reload...');
+    debugLog('💥 Cache limpo, forçando reload...');
     
     try {
         const result = await loadReferenceData(genre);
-        console.log('✅ Recarga forçada concluída:', {
+        debugLog('✅ Recarga forçada concluída:', {
             version: result.version,
             lufs_target: result.lufs_target,
             true_peak_target: result.true_peak_target,
@@ -698,7 +698,7 @@ window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
         window.REFS_BYPASS_CACHE = false;
         return result;
     } catch (error) {
-        console.error('💥 Erro na recarga forçada:', error);
+        debugError('💥 Erro na recarga forçada:', error);
         window.REFS_BYPASS_CACHE = false;
         throw error;
     }
@@ -710,7 +710,7 @@ window.diagnosRefSources = function(genre = null) {
     const currentData = __activeRefData;
     const cached = __refDataCache[targetGenre];
     
-    console.log('🎯 REFERÊNCIAS DIAGNÓSTICO COMPLETO:', {
+    debugLog('🎯 REFERÊNCIAS DIAGNÓSTICO COMPLETO:', {
         requestedGenre: targetGenre,
         activeGenre: __activeRefGenre,
         currentSource: currentData ? 'loaded' : 'none',
@@ -731,7 +731,7 @@ window.diagnosRefSources = function(genre = null) {
     const testUrl = `/public/refs/out/${targetGenre}.json?v=diagnostic`;
     fetch(testUrl).then(r => r.json()).then(j => {
         const data = j[targetGenre];
-        console.log('🌐 EXTERNAL JSON TEST:', {
+        debugLog('🌐 EXTERNAL JSON TEST:', {
             url: testUrl,
             success: true,
             version: data?.version,
@@ -740,7 +740,7 @@ window.diagnosRefSources = function(genre = null) {
             true_peak_target: data?.true_peak_target,
             stereo_target: data?.stereo_target
         });
-    }).catch(e => console.log('❌ EXTERNAL JSON FAILED:', testUrl, e.message));
+    }).catch(e => debugLog('❌ EXTERNAL JSON FAILED:', testUrl, e.message));
     
     return { targetGenre, currentData, cached };
 };
@@ -753,7 +753,7 @@ function __logMetricAnomaly(kind, key, context={}) {
         const store = (window.__METRIC_ANOMALIES__ = window.__METRIC_ANOMALIES__ || []);
         const stamp = Date.now();
         store.push({ t: stamp, kind, key, ctx: context });
-        if (window.DEBUG_ANALYZER) console.warn('[METRIC_ANOMALY]', kind, key, context);
+        if (window.DEBUG_ANALYZER) debugWarn('[METRIC_ANOMALY]', kind, key, context);
         // Limitar tamanho
         if (store.length > 500) store.splice(0, store.length - 500);
     } catch {}
@@ -840,7 +840,7 @@ function enrichReferenceObject(refObj, genreKey) {
             // Se maioria positiva mas queremos alinhar a negativos, apenas anotar
             if (posRatio>0.7 && negRatio<0.3) refObj.__scale_mismatch_hint = 'positive_targets_vs_negative_measurements';
         }
-    } catch (e) { console.warn('[refEnrich] falha', e); }
+    } catch (e) { debugWarn('[refEnrich] falha', e); }
     return refObj;
 }
 
@@ -966,7 +966,7 @@ function buildAggregatedRefStats() {
         for (const [g, st] of Object.entries(__refDerivedStats)) {
             if (st.countStereo > 0) st.avgStereo = st.sumStereo / st.countStereo;
         }
-    } catch (e) { if (window.DEBUG_ANALYZER) console.warn('buildAggregatedRefStats fail', e); }
+    } catch (e) { if (window.DEBUG_ANALYZER) debugWarn('buildAggregatedRefStats fail', e); }
 }
 
 // Carregar dinamicamente o fallback embutido se necessário
@@ -1002,13 +1002,13 @@ async function fetchRefJsonWithFallback(paths) {
             // Cache-busting para evitar CDN retornar 404 ou versões antigas
             const hasQ = p.includes('?');
             const url = p + (hasQ ? '&' : '?') + 'v=' + Date.now();
-            if (__DEBUG_ANALYZER__) console.log('[refs] tentando fetch:', url);
+            if (__DEBUG_ANALYZER__) debugLog('[refs] tentando fetch:', url);
             const res = await fetch(url, {
                 cache: 'no-store',
                 headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
             });
             if (res.ok) {
-                if (__DEBUG_ANALYZER__) console.log('[refs] OK:', p);
+                if (__DEBUG_ANALYZER__) debugLog('[refs] OK:', p);
                 
                 // Verificar se a resposta tem conteúdo JSON válido
                 const text = await res.text();
@@ -1016,19 +1016,19 @@ async function fetchRefJsonWithFallback(paths) {
                     try {
                         return JSON.parse(text);
                     } catch (jsonError) {
-                        console.warn('[refs] JSON inválido em', p, ':', text.substring(0, 100));
+                        debugWarn('[refs] JSON inválido em', p, ':', text.substring(0, 100));
                         throw new Error(`JSON inválido em ${p}`);
                     }
                 } else {
-                    console.warn('[refs] Resposta vazia em', p);
+                    debugWarn('[refs] Resposta vazia em', p);
                     throw new Error(`Resposta vazia em ${p}`);
                 }
             } else {
-                if (__DEBUG_ANALYZER__) console.warn('[refs] Falha', res.status, 'em', p);
+                if (__DEBUG_ANALYZER__) debugWarn('[refs] Falha', res.status, 'em', p);
                 lastErr = new Error(`HTTP ${res.status} @ ${p}`);
             }
         } catch (e) {
-            if (__DEBUG_ANALYZER__) console.warn('[refs] Erro fetch', p, e?.message || e);
+            if (__DEBUG_ANALYZER__) debugWarn('[refs] Erro fetch', p, e?.message || e);
             lastErr = e;
         }
     }
@@ -1126,11 +1126,11 @@ async function loadReferenceData(genre) {
         }
         updateRefStatus('⏳ carregando...', '#996600');
         
-        console.log('🔍 DEBUG loadReferenceData início:', { genre, bypassCache });
+        debugLog('🔍 DEBUG loadReferenceData início:', { genre, bypassCache });
         
         // PRIORIDADE CORRIGIDA: external > embedded > fallback
         // 1) Tentar carregar JSON externo primeiro (sempre, independente de REFS_ALLOW_NETWORK)
-        console.log('🌐 Tentando carregar JSON externo primeiro...');
+        debugLog('🌐 Tentando carregar JSON externo primeiro...');
         try {
             const version = Date.now(); // Force cache bust
             const json = await fetchRefJsonWithFallback([
@@ -1149,7 +1149,7 @@ async function loadReferenceData(genre) {
                 window.PROD_AI_REF_DATA = enrichedNet;
                 
                 // Log de diagnóstico
-                console.log('🎯 REFS DIAGNOSTIC:', {
+                debugLog('🎯 REFS DIAGNOSTIC:', {
                     genre,
                     source: 'external',
                     path: `/public/refs/out/${genre}.json`,
@@ -1165,8 +1165,8 @@ async function loadReferenceData(genre) {
                 return enrichedNet;
             }
         } catch (netError) {
-            console.log('❌ External refs failed:', netError.message);
-            console.log('🔄 Fallback para embedded refs...');
+            debugLog('❌ External refs failed:', netError.message);
+            debugLog('🔄 Fallback para embedded refs...');
         }
         
         // 2) Fallback para referências embutidas (embedded)
@@ -1181,7 +1181,7 @@ async function loadReferenceData(genre) {
             window.PROD_AI_REF_DATA = enriched;
             
             // Log de diagnóstico
-            console.log('🎯 REFS DIAGNOSTIC:', {
+            debugLog('🎯 REFS DIAGNOSTIC:', {
                 genre,
                 source: 'embedded',
                 path: embWin ? 'window.__EMBEDDED_REFS__' : '__INLINE_EMBEDDED_REFS__',
@@ -1199,7 +1199,7 @@ async function loadReferenceData(genre) {
         
         // 3) Se ainda nada funcionou e REFS_ALLOW_NETWORK está ativo (legacy path)
         if (typeof window !== 'undefined' && window.REFS_ALLOW_NETWORK === true) {
-            console.log('⚠️ Using legacy REFS_ALLOW_NETWORK path - should not happen with new logic');
+            debugLog('⚠️ Using legacy REFS_ALLOW_NETWORK path - should not happen with new logic');
         }
         
         // 4) Último recurso: trance inline (fallback)
@@ -1212,7 +1212,7 @@ async function loadReferenceData(genre) {
             window.PROD_AI_REF_DATA = enrichedFb;
             
             // Log de diagnóstico
-            console.log('🎯 REFS DIAGNOSTIC:', {
+            debugLog('🎯 REFS DIAGNOSTIC:', {
                 genre,
                 source: 'fallback',
                 path: '__INLINE_EMBEDDED_REFS__.trance',
@@ -1229,7 +1229,7 @@ async function loadReferenceData(genre) {
         }
         throw new Error('Sem referências disponíveis');
     } catch (e) {
-        console.warn('Falha ao carregar referências', genre, e);
+        debugWarn('Falha ao carregar referências', genre, e);
         // Fallback: tentar EMBEDDED
         try {
             const embMap = (typeof window !== 'undefined' && window.__EMBEDDED_REFS__ && window.__EMBEDDED_REFS__.byGenre) || __INLINE_EMBEDDED_REFS__.byGenre || {};
@@ -1280,8 +1280,8 @@ function applyGenreSelection(genre) {
     try { 
         delete __refDataCache[genre]; 
         invalidateReferenceDerivedCaches();
-        console.log('✅ Cache invalidado para gênero:', genre);
-    } catch(e) { console.warn('⚠️ Falha na invalidação:', e); }
+        debugLog('✅ Cache invalidado para gênero:', genre);
+    } catch(e) { debugWarn('⚠️ Falha na invalidação:', e); }
     // Carregar refs e, se já houver análise no modal, atualizar sugestões de referência e re-renderizar
     return loadReferenceData(genre).then(() => {
         try {
@@ -1290,12 +1290,12 @@ function applyGenreSelection(genre) {
                 try {
                     if (typeof window !== 'undefined' && window.computeMixScore && __refData) {
                         currentModalAnalysis.qualityOverall = window.computeMixScore(currentModalAnalysis.technicalData, __refData);
-                        console.log('✅ Score recalculado para novo gênero:', currentModalAnalysis.qualityOverall);
+                        debugLog('✅ Score recalculado para novo gênero:', currentModalAnalysis.qualityOverall);
                     }
-                } catch(e) { console.warn('❌ Falha ao recalcular score:', e); }
+                } catch(e) { debugWarn('❌ Falha ao recalcular score:', e); }
                 
                 // Recalcular sugestões reference_* com as novas tolerâncias
-                try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { console.warn('updateReferenceSuggestions falhou', e); }
+                try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { debugWarn('updateReferenceSuggestions falhou', e); }
                 // Re-renderização completa para refletir sugestões e comparações
                 try { 
                     // 🔒 UI GATE: Verificar se análise ainda é válida
@@ -1303,14 +1303,14 @@ function applyGenreSelection(genre) {
                     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
                     
                     if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
-                        console.warn(`🚫 [UI_GATE] Re-render cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
+                        debugWarn(`🚫 [UI_GATE] Re-render cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
                         return;
                     }
                     
                     displayModalResults(currentModalAnalysis); 
-                } catch(e) { console.warn('re-render modal falhou', e); }
+                } catch(e) { debugWarn('re-render modal falhou', e); }
             }
-        } catch (e) { console.warn('re-render comparação falhou', e); }
+        } catch (e) { debugWarn('re-render comparação falhou', e); }
     });
 }
 // Expor global
@@ -1356,7 +1356,7 @@ if (typeof window !== 'undefined' && !window.__audioHealthCheck) {
 if (typeof window !== 'undefined' && !window.__runAcceptanceAudioTests) {
     window.__runAcceptanceAudioTests = async function(opts = {}) {
         if (window.ACCEPTANCE_TEST_MODE !== true) {
-            console.warn('Acceptance test mode desativado. Defina window.ACCEPTANCE_TEST_MODE = true antes de chamar.');
+            debugWarn('Acceptance test mode desativado. Defina window.ACCEPTANCE_TEST_MODE = true antes de chamar.');
             return { skipped: true };
         }
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1420,7 +1420,7 @@ if (typeof window !== 'undefined' && !window.__runAcceptanceAudioTests) {
             }
         }
         const summary = { results: results.map(r=>({ name:r.name, tp:r.analysis?.technicalData?.truePeakDbtp, lufs:r.analysis?.technicalData?.lufsIntegrated, headroom:r.analysis?.technicalData?.headroomTruePeakDb, lra:r.analysis?.technicalData?.lra, balance:r.analysis?.technicalData?.balanceLR })), evals, pass: evals.every(e=>e.pass) };
-        if (window.DEBUG_ANALYZER) console.log('ACCEPTANCE TEST SUMMARY', summary);
+        if (window.DEBUG_ANALYZER) debugLog('ACCEPTANCE TEST SUMMARY', summary);
         return summary;
     };
 }
@@ -1537,7 +1537,7 @@ function openModeSelectionModal() {
     
     const modal = document.getElementById('analysisModeModal');
     if (!modal) {
-        console.error('Modal de seleção de modo não encontrado');
+        debugError('Modal de seleção de modo não encontrado');
         return;
     }
     
@@ -1597,7 +1597,7 @@ function openAnalysisModalForMode(mode) {
     
     const modal = document.getElementById('audioAnalysisModal');
     if (!modal) {
-        console.error('Modal de análise não encontrado');
+        debugError('Modal de análise não encontrado');
         return;
     }
     
@@ -1857,7 +1857,7 @@ async function handleModalFileSelection(file) {
         }
         
     } catch (error) {
-        console.error('❌ Erro na análise do modal:', error);
+        debugError('❌ Erro na análise do modal:', error);
         
         // Verificar se é um erro de fallback para modo gênero
         if (window.FEATURE_FLAGS?.FALLBACK_TO_GENRE && currentAnalysisMode === 'reference') {
@@ -1883,7 +1883,7 @@ async function handleModalFileSelection(file) {
                 window.wavMobileOptimizer.cleanupWAVOptimizations();
             }
         } catch (cleanupError) {
-            console.warn('WAV cleanup error in finally (non-critical):', cleanupError);
+            debugWarn('WAV cleanup error in finally (non-critical):', cleanupError);
         }
         
         // 🔧 CORREÇÃO: Sempre limpar flag de análise em progresso
@@ -1930,7 +1930,7 @@ function validateAudioFile(file) {
         const sizeInMB = (file.size / 1024 / 1024).toFixed(1);
         const estimatedTime = Math.ceil(file.size / (2 * 1024 * 1024)); // ~2MB/s no mobile
         
-        console.warn(`⏱️ WAV grande no mobile: ${sizeInMB}MB - tempo estimado: ${estimatedTime}s`);
+        debugWarn(`⏱️ WAV grande no mobile: ${sizeInMB}MB - tempo estimado: ${estimatedTime}s`);
         
         // Mostrar aviso não-bloqueante
         setTimeout(() => {
@@ -1943,7 +1943,7 @@ function validateAudioFile(file) {
     
     // Mostrar recomendação para MP3
     if (file.type === 'audio/mpeg' || file.type === 'audio/mp3' || file.name.toLowerCase().endsWith('.mp3')) {
-        console.log('💡 MP3 detectado - Recomendação: Use WAV ou FLAC para maior precisão');
+        debugLog('💡 MP3 detectado - Recomendação: Use WAV ou FLAC para maior precisão');
     }
     
     return true;
@@ -1962,10 +1962,10 @@ async function handleReferenceFileSelection(file) {
         referenceStepState.userAudioFile = file;
         
         // 🐛 DIAGNÓSTICO: Verificar se está carregando dados de gênero no modo referência
-        console.log('🔍 [DIAGNÓSTICO] Analisando USER audio em modo referência');
-        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
-        console.log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
-        console.log('🔍 [DIAGNÓSTICO] Active ref data:', !!__activeRefData);
+        debugLog('🔍 [DIAGNÓSTICO] Analisando USER audio em modo referência');
+        debugLog('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
+        debugLog('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
+        debugLog('🔍 [DIAGNÓSTICO] Active ref data:', !!__activeRefData);
         
         // Analisar arquivo do usuário
         showModalLoading();
@@ -1986,10 +1986,10 @@ async function handleReferenceFileSelection(file) {
         
         // 🐛 VALIDAÇÃO: Verificar que não há comparação com gênero
         if (analysis.comparison || analysis.mixScore) {
-          console.warn('⚠️ [AVISO] Análise do usuário contaminada com comparação/score');
+          debugWarn('⚠️ [AVISO] Análise do usuário contaminada com comparação/score');
         }
         
-        console.log('🔍 [DIAGNÓSTICO] User analysis (pura):', {
+        debugLog('🔍 [DIAGNÓSTICO] User analysis (pura):', {
           lufs: analysis.technicalData?.lufsIntegrated,
           stereoCorrelation: analysis.technicalData?.stereoCorrelation,
           dynamicRange: analysis.technicalData?.dynamicRange,
@@ -2014,9 +2014,9 @@ async function handleReferenceFileSelection(file) {
         referenceStepState.referenceAudioFile = file;
         
         // 🐛 DIAGNÓSTICO: Verificar análise do arquivo de referência
-        console.log('🔍 [DIAGNÓSTICO] Analisando REFERENCE audio em modo referência');
-        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
-        console.log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
+        debugLog('🔍 [DIAGNÓSTICO] Analisando REFERENCE audio em modo referência');
+        debugLog('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
+        debugLog('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
         
         // Analisar arquivo de referência (extração de métricas com MESMAS configurações)
         showModalLoading();
@@ -2037,10 +2037,10 @@ async function handleReferenceFileSelection(file) {
         
         // 🐛 VALIDAÇÃO: Verificar que não há comparação com gênero
         if (analysis.comparison || analysis.mixScore) {
-          console.warn('⚠️ [AVISO] Análise da referência contaminada com comparação/score');
+          debugWarn('⚠️ [AVISO] Análise da referência contaminada com comparação/score');
         }
         
-        console.log('🔍 [DIAGNÓSTICO] Reference analysis (pura):', {
+        debugLog('🔍 [DIAGNÓSTICO] Reference analysis (pura):', {
           lufs: analysis.technicalData?.lufsIntegrated,
           stereoCorrelation: analysis.technicalData?.stereoCorrelation,
           dynamicRange: analysis.technicalData?.dynamicRange,
@@ -2066,7 +2066,7 @@ async function handleReferenceFileSelection(file) {
           throw new Error('REFERENCE_METRICS_FAILED: Não foi possível extrair correlação estéreo da música de referência.');
         }
         
-        console.log('✅ [SUCESSO] Métricas da referência extraídas:', referenceMetrics);
+        debugLog('✅ [SUCESSO] Métricas da referência extraídas:', referenceMetrics);
         
         referenceStepState.referenceAnalysis = analysis;
         referenceStepState.referenceMetrics = referenceMetrics;
@@ -2081,11 +2081,11 @@ async function handleReferenceFileSelection(file) {
         updateModalProgress(100, '✅ Análise por referência concluída!');
         
         // 🎯 LOGS finais de validação
-        console.log('🎉 [ANÁLISE POR REFERÊNCIA] Concluída com sucesso:');
-        console.log('  - Baseline source:', finalAnalysis.comparison?.baseline_source);
-        console.log('  - LUFS difference:', finalAnalysis.comparison?.loudness?.difference?.toFixed(2));
-        console.log('  - Sugestões:', finalAnalysis.suggestions?.length || 0);
-        console.log('  - Sem gênero:', !finalAnalysis.genre);
+        debugLog('🎉 [ANÁLISE POR REFERÊNCIA] Concluída com sucesso:');
+        debugLog('  - Baseline source:', finalAnalysis.comparison?.baseline_source);
+        debugLog('  - LUFS difference:', finalAnalysis.comparison?.loudness?.difference?.toFixed(2));
+        debugLog('  - Sugestões:', finalAnalysis.suggestions?.length || 0);
+        debugLog('  - Sem gênero:', !finalAnalysis.genre);
         
         // Exibir modal de resultados
         displayReferenceResults(finalAnalysis);
@@ -2100,8 +2100,8 @@ async function handleReferenceFileSelection(file) {
 // 🎯 NOVO: Processar arquivo no modo gênero (comportamento original)
 async function handleGenreFileSelection(file) {
     // 🐛 DIAGNÓSTICO: Confirmar que este é o modo gênero
-    console.log('🔍 [DIAGNÓSTICO] handleGenreFileSelection - modo:', window.currentAnalysisMode);
-    console.log('🔍 [DIAGNÓSTICO] Este deveria ser APENAS modo gênero!');
+    debugLog('🔍 [DIAGNÓSTICO] handleGenreFileSelection - modo:', window.currentAnalysisMode);
+    debugLog('🔍 [DIAGNÓSTICO] Este deveria ser APENAS modo gênero!');
     
     __dbg('🔄 Iniciando nova análise - forçando exibição do loading');
     showModalLoading();
@@ -2119,7 +2119,7 @@ async function handleGenreFileSelection(file) {
         // Garantir que referências do gênero selecionado estejam carregadas antes da análise (evita race e gênero errado)
         try {
             const genre = (typeof window !== 'undefined') ? window.PROD_AI_REF_GENRE : null;
-            console.log('🔍 [DIAGNÓSTICO] Carregando referências de gênero:', genre);
+            debugLog('🔍 [DIAGNÓSTICO] Carregando referências de gênero:', genre);
             
             if (genre && (!__activeRefData || __activeRefGenre !== genre)) {
                 updateModalProgress(25, `📚 Carregando referências: ${genre}...`);
@@ -2127,10 +2127,10 @@ async function handleGenreFileSelection(file) {
                 updateModalProgress(30, '📚 Referências ok');
             }
         } catch (_) { 
-            console.log('🔍 [DIAGNÓSTICO] Erro ao carregar referências de gênero (não crítico)');
+            debugLog('🔍 [DIAGNÓSTICO] Erro ao carregar referências de gênero (não crítico)');
         }
     } else {
-        console.log('🔍 [DIAGNÓSTICO] PULAR carregamento de referências - modo não é gênero');
+        debugLog('🔍 [DIAGNÓSTICO] PULAR carregamento de referências - modo não é gênero');
     }
     
     // Analisar arquivo
@@ -2149,11 +2149,11 @@ async function handleGenreFileSelection(file) {
             // Aguardar carregamento com timeout
             await new Promise((resolve) => {
                 optimizerScript.onload = () => {
-                    console.log('🎵 WAV optimizer carregado');
+                    debugLog('🎵 WAV optimizer carregado');
                     resolve();
                 };
                 optimizerScript.onerror = () => {
-                    console.warn('⚠️ WAV optimizer falhou ao carregar');
+                    debugWarn('⚠️ WAV optimizer falhou ao carregar');
                     resolve();
                 };
                 setTimeout(resolve, 1500); // fallback timeout
@@ -2165,11 +2165,11 @@ async function handleGenreFileSelection(file) {
             const wavAnalysis = window.wavMobileOptimizer.applyWAVOptimizations(file);
             if (wavAnalysis.requiresOptimization) {
                 updateModalProgress(45, `🎵 WAV ${wavAnalysis.sizeInMB}MB - otimização mobile ativa...`);
-                console.log('🎵 WAV mobile optimizations applied:', wavAnalysis);
+                debugLog('🎵 WAV mobile optimizations applied:', wavAnalysis);
             }
         }
     } catch (optimizerError) {
-        console.warn('⚠️ WAV optimizer failed, continuing with standard processing:', optimizerError);
+        debugWarn('⚠️ WAV optimizer failed, continuing with standard processing:', optimizerError);
     }
     
     // �🎯 CORREÇÃO: Passar modo correto para análise
@@ -2187,7 +2187,7 @@ async function handleGenreFileSelection(file) {
             window.wavMobileOptimizer.cleanupWAVOptimizations();
         }
     } catch (cleanupError) {
-        console.warn('WAV cleanup error (non-critical):', cleanupError);
+        debugWarn('WAV cleanup error (non-critical):', cleanupError);
     }
     
     __dbg('✅ Análise concluída:', analysis);
@@ -2300,9 +2300,9 @@ async function performReferenceComparison() {
             throw new Error('USER_METRICS_FAILED: Não foi possível extrair métricas LUFS da sua música');
         }
         
-        console.log('🔍 [COMPARAÇÃO] Métricas extraídas:');
-        console.log('  - Usuário:', userMetrics);
-        console.log('  - Referência:', referenceMetrics);
+        debugLog('🔍 [COMPARAÇÃO] Métricas extraídas:');
+        debugLog('  - Usuário:', userMetrics);
+        debugLog('  - Referência:', referenceMetrics);
         
         // 🎯 CALCULAR diferenças PURAS (referência como baseline)
         const differences = {
@@ -2312,7 +2312,7 @@ async function performReferenceComparison() {
             truePeak: userMetrics.truePeak - referenceMetrics.truePeak
         };
         
-        console.log('🔍 [COMPARAÇÃO] Diferenças calculadas:', differences);
+        debugLog('🔍 [COMPARAÇÃO] Diferenças calculadas:', differences);
         
         // 🎯 GERAR sugestões baseadas APENAS na referência
         const referenceSuggestions = [];
@@ -2333,7 +2333,7 @@ async function performReferenceComparison() {
                 
                 // 🚨 REGRA 1: Se CLIPPED, não sugerir aumento
                 if (isClipped) {
-                    console.log(`[REF-HEADROOM] 🚨 Clipping detectado - não sugerindo aumento de ${adjustmentDb.toFixed(1)}dB`);
+                    debugLog(`[REF-HEADROOM] 🚨 Clipping detectado - não sugerindo aumento de ${adjustmentDb.toFixed(1)}dB`);
                     referenceSuggestions.push({
                         type: 'reference_loudness_blocked_clipping',
                         message: `Impossível igualar referência - áudio tem clipping`,
@@ -2361,7 +2361,7 @@ async function performReferenceComparison() {
                             headroom_check: `Seguro: ${availableHeadroom.toFixed(1)}dB disponível`
                         });
                     } else {
-                        console.log(`[REF-HEADROOM] ⚠️ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB - bloqueando`);
+                        debugLog(`[REF-HEADROOM] ⚠️ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB - bloqueando`);
                         referenceSuggestions.push({
                             type: 'reference_loudness_blocked_headroom',
                             message: `Impossível igualar referência - sem headroom suficiente`,
@@ -2438,7 +2438,7 @@ async function performReferenceComparison() {
             });
         }
         
-        console.log(`🔍 [COMPARAÇÃO] Sugestões geradas: ${referenceSuggestions.length}`);
+        debugLog(`🔍 [COMPARAÇÃO] Sugestões geradas: ${referenceSuggestions.length}`);
         
         // 🎯 CRIAR análise final com comparação pura
         const finalAnalysis = {
@@ -2479,34 +2479,34 @@ async function performReferenceComparison() {
         };
         
         // 🎯 LOGS de validação final
-        console.log('🎉 [SUCESSO] Comparação por referência concluída:');
-        console.log('  - Modo:', finalAnalysis.comparison.mode);
-        console.log('  - Baseline source:', finalAnalysis.comparison.baseline_source);
-        console.log('  - Sugestões:', referenceSuggestions.length);
-        console.log('  - Sem contaminação de gênero:', !finalAnalysis.genre);
+        debugLog('🎉 [SUCESSO] Comparação por referência concluída:');
+        debugLog('  - Modo:', finalAnalysis.comparison.mode);
+        debugLog('  - Baseline source:', finalAnalysis.comparison.baseline_source);
+        debugLog('  - Sugestões:', referenceSuggestions.length);
+        debugLog('  - Sem contaminação de gênero:', !finalAnalysis.genre);
         
         referenceStepState.finalAnalysis = finalAnalysis;
-        console.log('🔍 [DIAGNÓSTICO] Reference analysis tem comparação com gênero:', !!refAnalysis.comparison);
+        debugLog('🔍 [DIAGNÓSTICO] Reference analysis tem comparação com gênero:', !!refAnalysis.comparison);
         
         // 🎯 NOVO: Verificar se análises estão "limpas" (sem contaminar com gênero)
         const userClean = !userAnalysis.comparison && !userAnalysis.reference;
         const refClean = !refAnalysis.comparison && !refAnalysis.reference;
-        console.log('🔍 [DIAGNÓSTICO] User analysis clean (sem gênero):', userClean);
-        console.log('🔍 [DIAGNÓSTICO] Reference analysis clean (sem gênero):', refClean);
+        debugLog('🔍 [DIAGNÓSTICO] User analysis clean (sem gênero):', userClean);
+        debugLog('🔍 [DIAGNÓSTICO] Reference analysis clean (sem gênero):', refClean);
         
         // Gerar comparação
         const comparison = generateComparison(userAnalysis, refAnalysis);
         
         // 🐛 DIAGNÓSTICO: Verificar se comparison está usando os dados corretos
-        console.log('🔍 [DIAGNÓSTICO] Comparison gerada:', comparison);
-        console.log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
+        debugLog('🔍 [DIAGNÓSTICO] Comparison gerada:', comparison);
+        debugLog('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
         
         // Gerar sugestões baseadas na comparação
         const suggestions = generateReferenceSuggestions(comparison);
         
         // 🐛 DIAGNÓSTICO: Verificar se sugestões são baseadas apenas na comparison
-        console.log('🔍 [DIAGNÓSTICO] Sugestões geradas (count):', suggestions.length);
-        console.log('🔍 [DIAGNÓSTICO] Primeiro tipo de sugestão:', suggestions[0]?.type);
+        debugLog('🔍 [DIAGNÓSTICO] Sugestões geradas (count):', suggestions.length);
+        debugLog('🔍 [DIAGNÓSTICO] Primeiro tipo de sugestão:', suggestions[0]?.type);
         
         // Criar análise combinada para exibição
         const combinedAnalysis = {
@@ -2561,7 +2561,7 @@ async function performReferenceComparison() {
             }
         };
         
-        console.log('🔍 [DIAGNÓSTICO] Combined analysis diagnostic:', combinedAnalysis._diagnostic);
+        debugLog('🔍 [DIAGNÓSTICO] Combined analysis diagnostic:', combinedAnalysis._diagnostic);
         
         currentModalAnalysis = combinedAnalysis;
         
@@ -2574,7 +2574,7 @@ async function performReferenceComparison() {
             const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
             
             if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
-                console.warn(`🚫 [UI_GATE] Comparação cancelada - não renderizar UI (análise: ${analysisRunId}, atual: ${currentRunId})`);
+                debugWarn(`🚫 [UI_GATE] Comparação cancelada - não renderizar UI (análise: ${analysisRunId}, atual: ${currentRunId})`);
                 return;
             }
             
@@ -2583,7 +2583,7 @@ async function performReferenceComparison() {
         }, 800);
         
     } catch (error) {
-        console.error('❌ Erro na comparação:', error);
+        debugError('❌ Erro na comparação:', error);
         window.logReferenceEvent('reference_comparison_error', { error: error.message });
         showModalError(`Erro na comparação: ${error.message}`);
     }
@@ -2644,16 +2644,16 @@ function compareSpectralData(userTech, refTech) {
 // 🎯 NOVO: Gerar sugestões baseadas na comparação
 function generateReferenceSuggestions(comparison) {
     // 🐛 DIAGNÓSTICO: Logs para verificar fonte dos dados
-    console.log('🔍 [DIAGNÓSTICO] generateReferenceSuggestions called with:', comparison);
-    console.log('🔍 [DIAGNÓSTICO] Usando APENAS dados da comparison, não genre targets');
-    console.log('🔍 [DIAGNÓSTICO] Genre ativo (NÃO usado):', window.PROD_AI_REF_GENRE);
+    debugLog('🔍 [DIAGNÓSTICO] generateReferenceSuggestions called with:', comparison);
+    debugLog('🔍 [DIAGNÓSTICO] Usando APENAS dados da comparison, não genre targets');
+    debugLog('🔍 [DIAGNÓSTICO] Genre ativo (NÃO usado):', window.PROD_AI_REF_GENRE);
     
     const suggestions = [];
     
     // Sugestões de loudness - 🚨 COM VERIFICAÇÃO DE HEADROOM SEGURO
     if (comparison.loudness.difference !== null) {
         const diff = comparison.loudness.difference;
-        console.log('🔍 [DIAGNÓSTICO] Loudness difference:', diff);
+        debugLog('🔍 [DIAGNÓSTICO] Loudness difference:', diff);
         
         if (Math.abs(diff) > 1) {
             const adjustmentDb = Math.abs(diff);
@@ -2668,7 +2668,7 @@ function generateReferenceSuggestions(comparison) {
                 const headroomSafetyMargin = -0.6;
                 
                 if (isClipped) {
-                    console.log(`[REF-HEADROOM] 🚨 Clipping detectado - bloqueando aumento de ${adjustmentDb.toFixed(1)}dB`);
+                    debugLog(`[REF-HEADROOM] 🚨 Clipping detectado - bloqueando aumento de ${adjustmentDb.toFixed(1)}dB`);
                     suggestions.push({
                         type: 'reference_loudness_blocked_clipping',
                         message: 'Impossível igualar referência - áudio tem clipping',
@@ -2695,7 +2695,7 @@ function generateReferenceSuggestions(comparison) {
                         };
                         suggestions.push(suggestion);
                     } else {
-                        console.log(`[REF-HEADROOM] ⚠️ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB`);
+                        debugLog(`[REF-HEADROOM] ⚠️ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB`);
                         suggestions.push({
                             type: 'reference_loudness_blocked_headroom',
                             message: 'Impossível igualar referência - sem headroom suficiente',
@@ -2734,13 +2734,13 @@ function generateReferenceSuggestions(comparison) {
                 suggestions.push(suggestion);
             }
             
-            console.log('🔍 [DIAGNÓSTICO] Sugestão de loudness processada com headroom check');
+            debugLog('🔍 [DIAGNÓSTICO] Sugestão de loudness processada com headroom check');
         }
     }
     
     // Sugestões espectrais
     Object.entries(comparison.spectral).forEach(([band, data]) => {
-        console.log(`🔍 [DIAGNÓSTICO] Spectral band ${band}:`, data);
+        debugLog(`🔍 [DIAGNÓSTICO] Spectral band ${band}:`, data);
         
         if (Math.abs(data.difference) > 2) {
             const freqRanges = {
@@ -2765,13 +2765,13 @@ function generateReferenceSuggestions(comparison) {
                 q_factor: 1.0
             };
             
-            console.log(`🔍 [DIAGNÓSTICO] Adicionando sugestão espectral para ${band}:`, suggestion);
+            debugLog(`🔍 [DIAGNÓSTICO] Adicionando sugestão espectral para ${band}:`, suggestion);
             suggestions.push(suggestion);
         }
     });
     
-    console.log('🔍 [DIAGNÓSTICO] Total sugestões geradas:', suggestions.length);
-    console.log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
+    debugLog('🔍 [DIAGNÓSTICO] Total sugestões geradas:', suggestions.length);
+    debugLog('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
     
     return suggestions;
 }
@@ -3045,7 +3045,7 @@ window.toggleDiagTable = function toggleDiagTable(btn) {
 
     const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__ || window.latestAnalysis?.current || window.latestAnalysis;
     const mode = analysis?.mode || window.currentAnalysisMode;
-    console.log('[CLICK DEBUG] modo atual:', mode);
+    debugLog('[CLICK DEBUG] modo atual:', mode);
 
     const expandedBeforeRender = document.getElementById('diagnosticExpandedContent');
     const needsRender = !expandedBeforeRender || !expandedBeforeRender.querySelector('.diag-expanded-grid');
@@ -3096,13 +3096,13 @@ window.toggleDiagTable = function toggleDiagTable(btn) {
                 btnForm.disabled = false; btnDownload.disabled = false;
                 // Área dinâmica para formulário
                 ensureValidationPanel();
-            } catch(err){ console.error('Erro suite validação', err); statusEl.textContent='Erro'; btnRun.textContent='Erro'; btnRun.disabled=false; }
+            } catch(err){ debugError('Erro suite validação', err); statusEl.textContent='Erro'; btnRun.textContent='Erro'; btnRun.disabled=false; }
         };
         btnForm.onclick = async ()=>{
-            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); ensureValidationPanel(); mod.renderSubjectiveForm('validationPanelInner'); statusEl.textContent='Formulário subjetivo aberto'; } catch(e){ console.warn(e); }
+            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); ensureValidationPanel(); mod.renderSubjectiveForm('validationPanelInner'); statusEl.textContent='Formulário subjetivo aberto'; } catch(e){ debugWarn(e); }
         };
         btnDownload.onclick = async ()=>{
-            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); const rep = mod.generateValidationReport(); if(rep){ downloadObjectAsJson(rep, 'prodai_validation_report.json'); statusEl.textContent = rep?.subjective?.pctImproved!=null? `Subj ${(rep.subjective.pctImproved*100).toFixed(0)}%`:'Relatório gerado'; } } catch(e){ console.warn(e); }
+            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); const rep = mod.generateValidationReport(); if(rep){ downloadObjectAsJson(rep, 'prodai_validation_report.json'); statusEl.textContent = rep?.subjective?.pctImproved!=null? `Subj ${(rep.subjective.pctImproved*100).toFixed(0)}%`:'Relatório gerado'; } } catch(e){ debugWarn(e); }
         };
     }
 
@@ -3126,7 +3126,7 @@ window.toggleDiagTable = function toggleDiagTable(btn) {
     }
 
     function downloadObjectAsJson(obj, filename){
-        try { const blob = new Blob([JSON.stringify(obj,null,2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 250); } catch(e){ console.warn('download json fail', e); }
+        try { const blob = new Blob([JSON.stringify(obj,null,2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 250); } catch(e){ debugWarn('download json fail', e); }
     }
 
 // ===== Painel Resumo Inteligente (top 3 problemas + top 3 ações) =====
@@ -3250,7 +3250,7 @@ function renderSmartSummary(analysis){
             }, { passive:true });
         }
         return html;
-    } catch (e) { console.warn('smart summary fail', e); return ''; }
+    } catch (e) { debugWarn('smart summary fail', e); return ''; }
 }
 
 // Recalcular apenas as sugestões baseadas em referência (sem reprocessar o áudio)
@@ -3260,7 +3260,7 @@ function updateReferenceSuggestions(analysis) {
     // 🎯 SISTEMA UNIFICADO: Usar novo sistema de sugestões quando disponível
     if (typeof window !== 'undefined' && window.suggestionSystem && window.USE_UNIFIED_SUGGESTIONS !== false) {
         try {
-            console.log('🎯 Usando Sistema Unificado de Sugestões...');
+            debugLog('🎯 Usando Sistema Unificado de Sugestões...');
             
             // Processar análise com sistema unificado
             const enhancedAnalysis = window.suggestionSystem.process(analysis, __activeRefData);
@@ -3281,7 +3281,7 @@ function updateReferenceSuggestions(analysis) {
             if (enhancedAnalysis._suggestionMetadata) {
                 analysis._suggestionMetadata = enhancedAnalysis._suggestionMetadata;
                 
-                console.log('🎯 Sistema Unificado - Metadata:', {
+                debugLog('🎯 Sistema Unificado - Metadata:', {
                     suggestions: enhancedAnalysis.suggestions.length,
                     processingTime: enhancedAnalysis._suggestionMetadata.processingTimeMs + 'ms',
                     severityDistribution: enhancedAnalysis._suggestionMetadata.auditLog
@@ -3289,17 +3289,17 @@ function updateReferenceSuggestions(analysis) {
                 });
             }
             
-            console.log(`🎯 Sistema Unificado: ${enhancedAnalysis.suggestions.length} sugestões educativas geradas`);
+            debugLog(`🎯 Sistema Unificado: ${enhancedAnalysis.suggestions.length} sugestões educativas geradas`);
             return;
             
         } catch (error) {
-            console.warn('🚨 Erro no Sistema Unificado, usando fallback:', error);
+            debugWarn('🚨 Erro no Sistema Unificado, usando fallback:', error);
             // Continuar com sistema legado em caso de erro
         }
     }
     
     // 🔄 SISTEMA LEGADO (fallback) - mantido para compatibilidade
-    console.log('⚠️ Usando sistema legado de sugestões (fallback)');
+    debugLog('⚠️ Usando sistema legado de sugestões (fallback)');
     const ref = __activeRefData;
     const tech = analysis.technicalData;
     
@@ -3463,7 +3463,7 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
         }
         
     } catch (error) {
-        console.error('❌ Erro ao enviar análise para chat:', error);
+        debugError('❌ Erro ao enviar análise para chat:', error);
         showTemporaryFeedback('❌ Erro ao enviar análise. Tente novamente.');
     }
 }
@@ -3478,7 +3478,7 @@ function downloadModalAnalysis() {
         return;
     }
     
-    console.log('📄 Baixando relatório...');
+    debugLog('📄 Baixando relatório...');
     
     try {
         const report = generateDetailedReport(currentModalAnalysis);
@@ -3493,11 +3493,11 @@ function downloadModalAnalysis() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        console.log('✅ Relatório baixado com sucesso');
+        debugLog('✅ Relatório baixado com sucesso');
         showTemporaryFeedback('📄 Relatório baixado!');
         
     } catch (error) {
-        console.error('❌ Erro ao baixar relatório:', error);
+        debugError('❌ Erro ao baixar relatório:', error);
         alert('Erro ao gerar relatório');
     }
 }
@@ -3712,7 +3712,7 @@ window.displayReferenceResults = function(referenceResults) {
         window.logReferenceEvent('reference_results_displayed_successfully');
         
     } catch (error) {
-        console.error('Error displaying reference results:', error);
+        debugError('Error displaying reference results:', error);
         window.logReferenceEvent('reference_display_error', { 
             error: error.message,
             baseline_source: referenceResults.baseline_source 
@@ -3756,7 +3756,7 @@ async function getPresignedUrl(file) {
       fileKey: data.fileKey
     };
   } catch (error) {
-    console.error('Erro ao obter URL pre-assinada:', error);
+    debugError('Erro ao obter URL pre-assinada:', error);
     throw new Error(`Falha ao gerar URL de upload: ${error.message}`);
   }
 }
@@ -3787,7 +3787,7 @@ async function uploadToBucket(uploadUrl, file) {
             });
         }
     } catch (error) {
-        console.error('❌ Erro no upload para bucket:', error);
+        debugError('❌ Erro no upload para bucket:', error);
         throw new Error(`Falha ao enviar arquivo para análise: ${error.message}`);
     }
 }
@@ -3916,7 +3916,7 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
         
         // 🔒 SANITY CHECK: Garantir que NÃO tem genre/genreTargets
         if (payload.genre || payload.genreTargets) {
-            console.error('[REF-PAYLOAD] SANITY_FAIL: Reference primeira track NÃO deve ter genre/targets!', payload);
+            debugError('[REF-PAYLOAD] SANITY_FAIL: Reference primeira track NÃO deve ter genre/targets!', payload);
             throw new Error('[REF-PAYLOAD] Reference primeira track (base) NÃO deve ter genre/genreTargets');
         }
         
@@ -3950,7 +3950,7 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
         
         // 🔒 SANITY CHECK: Garantir que NÃO tem genre/genreTargets
         if (payload.genre || payload.genreTargets) {
-            console.error('[REF-PAYLOAD] SANITY_FAIL: Reference segunda track tem genre/targets!', payload);
+            debugError('[REF-PAYLOAD] SANITY_FAIL: Reference segunda track tem genre/targets!', payload);
             throw new Error('[REF-PAYLOAD] Reference segunda track NÃO deve ter genre/genreTargets');
         }
         
@@ -3995,7 +3995,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             
             const demoVisitorId = window.SoundyDemo?.visitorId;
             if (!demoVisitorId) {
-                console.error('❌ [DEMO] visitorId não disponível');
+                debugError('❌ [DEMO] visitorId não disponível');
                 throw new Error('Identificação do demo não disponível. Recarregue a página.');
             }
             
@@ -4095,7 +4095,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             }
             
             if (!visitorId) {
-                console.error('❌ [ANONYMOUS] visitorId não disponível');
+                debugError('❌ [ANONYMOUS] visitorId não disponível');
                 throw new Error('Identificação de visitante não disponível. Recarregue a página.');
             }
             
@@ -4121,10 +4121,10 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             
             // Validação obrigatória de gênero
             if (!anonymousGenre || typeof anonymousGenre !== 'string' || anonymousGenre.trim() === '') {
-                console.error('❌ [ANONYMOUS] Gênero não selecionado!');
-                console.error('   window.__CURRENT_SELECTED_GENRE:', window.__CURRENT_SELECTED_GENRE);
-                console.error('   window.PROD_AI_REF_GENRE:', window.PROD_AI_REF_GENRE);
-                console.error('   genreSelect?.value:', genreSelect?.value);
+                debugError('❌ [ANONYMOUS] Gênero não selecionado!');
+                debugError('   window.__CURRENT_SELECTED_GENRE:', window.__CURRENT_SELECTED_GENRE);
+                debugError('   window.PROD_AI_REF_GENRE:', window.PROD_AI_REF_GENRE);
+                debugError('   genreSelect?.value:', genreSelect?.value);
                 throw new Error('Por favor, selecione um gênero antes de analisar.');
             }
             
@@ -4245,8 +4245,8 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 }
             }
             
-            console.error('[CRITICAL] ID Token ausente e modo anônimo não disponível.');
-            console.error('❌ Usuário não autenticado - não é possível criar job');
+            debugError('[CRITICAL] ID Token ausente e modo anônimo não disponível.');
+            debugError('❌ Usuário não autenticado - não é possível criar job');
             throw new Error('Você precisa estar logado para analisar áudio.');
         }
         
@@ -4255,9 +4255,9 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         // 🆕 PR2: USAR STATE MACHINE como fonte de verdade
         const stateMachine = window.AnalysisStateMachine;
         if (!stateMachine) {
-            console.error('%c[CRITICAL] AnalysisStateMachine não disponível em createAnalysisJob!', 'color:red;font-weight:bold;font-size:14px;');
-            console.error('[CRITICAL] Modo solicitado:', mode);
-            console.error('[CRITICAL] currentAnalysisMode:', window.currentAnalysisMode);
+            debugError('%c[CRITICAL] AnalysisStateMachine não disponível em createAnalysisJob!', 'color:red;font-weight:bold;font-size:14px;');
+            debugError('[CRITICAL] Modo solicitado:', mode);
+            debugError('[CRITICAL] currentAnalysisMode:', window.currentAnalysisMode);
             
             // Se não tem state machine MAS o mode é reference, tentar continuar com fallback
             if (mode === 'reference') {
@@ -4297,11 +4297,11 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             
             // 🔒 VERIFICAÇÃO CRÍTICA: se mode é reference, state machine DEVE estar em reference
             if (mode === 'reference' && currentSMMode !== 'reference') {
-                console.error('%c[CRITICAL] INCONSISTÊNCIA DETECTADA!', 'color:red;font-weight:bold;font-size:16px;');
-                console.error('[STATE] Parâmetro mode:', mode);
-                console.error('[STATE] stateMachine.getMode():', currentSMMode);
-                console.error('[STATE] currentAnalysisMode:', window.currentAnalysisMode);
-                console.error('[STATE] State completo:', currentState);
+                debugError('%c[CRITICAL] INCONSISTÊNCIA DETECTADA!', 'color:red;font-weight:bold;font-size:16px;');
+                debugError('[STATE] Parâmetro mode:', mode);
+                debugError('[STATE] stateMachine.getMode():', currentSMMode);
+                debugError('[STATE] currentAnalysisMode:', window.currentAnalysisMode);
+                debugError('[STATE] State completo:', currentState);
                 
                 warn('[FIX_ATTEMPT] Tentando corrigir state machine...');
                 try {
@@ -4315,7 +4315,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                     
                     log('%c[FIX_SUCCESS] State machine corrigido para reference', 'color:green;font-weight:bold;');
                 } catch (fixError) {
-                    console.error('[FIX_FAILED] Não foi possível corrigir:', fixError);
+                    debugError('[FIX_FAILED] Não foi possível corrigir:', fixError);
                     throw new Error(`[INVARIANTE] State machine está em '${currentSMMode}' mas mode param é '${mode}'. Correção falhou: ${fixError.message}`);
                 }
             }
@@ -4419,7 +4419,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             // 🆕 PR2: VALIDAÇÃO RÍGIDA - Se mode=reference (segunda track), NÃO pode ter genre/targets
             if (payload.mode === 'reference' && payload.referenceJobId) {
                 if (payload.genre || payload.genreTargets) {
-                    console.error('%c[PR2-SANITY-FAIL]', 'color:#FF0000;font-weight:bold;', {
+                    debugError('%c[PR2-SANITY-FAIL]', 'color:#FF0000;font-weight:bold;', {
                         message: 'REFERENCE mode segunda track TEM genre/genreTargets!',
                         payload,
                         traceId,
@@ -4434,8 +4434,8 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         
         // � VALIDAÇÃO CRÍTICA: Verificar se AuthGate permite chamada autenticada
         if (window.AuthGate && window.AuthGate.shouldBlockAuthenticatedCall('/api/audio/analyze')) {
-            console.error('🚫 [CREATEJOB] Tentativa de chamada autenticada bloqueada pelo AuthGate');
-            console.error('   Estado:', {
+            debugError('🚫 [CREATEJOB] Tentativa de chamada autenticada bloqueada pelo AuthGate');
+            debugError('   Estado:', {
                 isAnonymousMode: window.SoundyAnonymous?.isAnonymousMode,
                 forceCleanState: window.SoundyAnonymous?.forceCleanState,
                 hasCurrentUser: !!window.auth?.currentUser
@@ -4496,7 +4496,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             data.job?.id;
 
         if (!newJobId) {
-            console.error("[ANALYZE] ❌ Nenhum jobId retornado pelo backend!", data);
+            debugError("[ANALYZE] ❌ Nenhum jobId retornado pelo backend!", data);
             throw new Error('Resposta inválida do servidor: jobId ausente');
         }
 
@@ -4527,7 +4527,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         };
 
     } catch (error) {
-        console.error('❌ Erro ao criar job de análise:', error);
+        debugError('❌ Erro ao criar job de análise:', error);
         throw new Error(`Falha ao criar job de análise: ${error.message}`);
     }
 }
@@ -4540,7 +4540,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
 async function pollJobStatus(jobId) {
     // 🔒 BLINDAGEM: Validar jobId ANTES de iniciar polling
     if (!jobId || typeof jobId !== "string") {
-        console.error("[POLLING] ❌ jobId inválido ou undefined:", jobId);
+        debugError("[POLLING] ❌ jobId inválido ou undefined:", jobId);
         return Promise.reject(new Error("Job ID inválido - polling abortado"));
     }
 
@@ -4725,8 +4725,8 @@ async function pollJobStatus(jobId) {
                             stereoValue: jobResult.targets.stereo_target
                         });
                     } else {
-                        console.error('[AUDIT] ❌ CAMPO "targets" NÃO ENCONTRADO!');
-                        console.error('[AUDIT] Estrutura recebida pode estar incorreta');
+                        debugError('[AUDIT] ❌ CAMPO "targets" NÃO ENCONTRADO!');
+                        debugError('[AUDIT] Estrutura recebida pode estar incorreta');
                     }
                     log('🔍🔍🔍 [AUDIT] FIM DA AUDITORIA 🔍🔍🔍\n\n');
                     
@@ -4807,7 +4807,7 @@ async function pollJobStatus(jobId) {
                                 });
                                 log('[POLLING][REFERENCE] ✅ State machine atualizado');
                             } catch (err) {
-                                console.error('[POLLING][REFERENCE] ❌ Erro ao atualizar state machine:', err);
+                                debugError('[POLLING][REFERENCE] ❌ Erro ao atualizar state machine:', err);
                             }
                         }
                         
@@ -4818,7 +4818,7 @@ async function pollJobStatus(jobId) {
                                 openReferenceUploadModal(refJobId, jobResult);
                                 log('[POLLING][REFERENCE] ✅ Modal da 2ª música aberto - referenceJobId:', refJobId);
                             } else {
-                                console.error('[POLLING][REFERENCE] ❌ openReferenceUploadModal não encontrada');
+                                debugError('[POLLING][REFERENCE] ❌ openReferenceUploadModal não encontrada');
                                 alert('✅ Música A analisada! Por favor, clique em "Comparação A/B" para enviar a Música B.');
                             }
                         }, 500);
@@ -4848,7 +4848,7 @@ async function pollJobStatus(jobId) {
                 setTimeout(poll, 5000);
 
             } catch (error) {
-                console.error('❌ Erro no polling:', error);
+                debugError('❌ Erro no polling:', error);
                 reject(error);
             }
         };
@@ -5052,7 +5052,7 @@ function handleReferenceFileSelection(type) {
                         warn("[AUDITORIA] displayModalResults não disponível, tentativa", attempts + 1);
                         setTimeout(() => tryShowModal(result, attempts + 1), 500);
                     } else {
-                        console.error("[AUDITORIA] Falha ao exibir modal após múltiplas tentativas");
+                        debugError("[AUDITORIA] Falha ao exibir modal após múltiplas tentativas");
                         // Fallback: tentar exibir em modal simples
                         alert("Análise concluída, mas modal não pôde ser exibido. Verifique o console para dados.");
                         log("[AUDITORIA] Dados da análise:", result);
@@ -5068,7 +5068,7 @@ function handleReferenceFileSelection(type) {
                 }
                 
                 // 🔥 [DEMO-MODE] Registrar análise concluída
-                console.log('🔍 [DEBUG] Verificando modo demo:', {
+                debugLog('🔍 [DEBUG] Verificando modo demo:', {
                     exists: !!window.SoundyDemo,
                     isActive: window.SoundyDemo?.isActive,
                     pathname: window.location.pathname,
@@ -5076,21 +5076,21 @@ function handleReferenceFileSelection(type) {
                 });
                 
                 if (window.SoundyDemo?.isActive) {
-                    console.log('🔥 [AUDIO-ANALYZER] Chamando SoundyDemo.registerAnalysis()...');
-                    console.log('Estado antes:', {
+                    debugLog('🔥 [AUDIO-ANALYZER] Chamando SoundyDemo.registerAnalysis()...');
+                    debugLog('Estado antes:', {
                         isActive: window.SoundyDemo.isActive,
                         analyses_used: window.SoundyDemo.data?.analyses_used
                     });
                     await window.SoundyDemo.registerAnalysis();
-                    console.log('Estado depois:', {
+                    debugLog('Estado depois:', {
                         analyses_used: window.SoundyDemo.data?.analyses_used
                     });
                     log('📊 [DEMO] Análise registrada com sucesso');
                 } else {
-                    console.warn('⚠️ [DEMO] Modo demo NÃO está ativo, mas URL é /demo. Forçando ativação...');
+                    debugWarn('⚠️ [DEMO] Modo demo NÃO está ativo, mas URL é /demo. Forçando ativação...');
                     // Se a URL é /demo mas modo não está ativo, forçar
                     if (window.location.pathname.includes('/demo') && window.SoundyDemo) {
-                        console.log('🔧 Forçando ativação do modo demo...');
+                        debugLog('🔧 Forçando ativação do modo demo...');
                         window.SoundyDemo.isActive = true;
                         if (window.SoundyDemo.data) {
                             window.SoundyDemo.data.analyses_used = window.SoundyDemo.data.analyses_used || 0;
@@ -5121,7 +5121,7 @@ function handleReferenceFileSelection(type) {
                 }
 
             } catch (error) {
-                console.error(`❌ Erro no processamento do arquivo ${type}:`, error);
+                debugError(`❌ Erro no processamento do arquivo ${type}:`, error);
                 alert(`❌ Erro ao processar arquivo: ${error.message}`);
 
                 // Abrir modal de análise em caso de erro
@@ -5237,8 +5237,8 @@ async function startReferenceAnalysis() {
         }
         
         if (!token) {
-            console.error('[CRITICAL] ID Token ausente no localStorage após login.');
-            console.error('❌ Token não disponível - usuário não autenticado');
+            debugError('[CRITICAL] ID Token ausente no localStorage após login.');
+            debugError('❌ Token não disponível - usuário não autenticado');
             throw new Error('Você precisa estar logado para analisar áudio.');
         }
 
@@ -5310,7 +5310,7 @@ async function startReferenceAnalysis() {
                 await new Promise(resolve => setTimeout(resolve, pollInterval));
                 
             } catch (pollError) {
-                console.error('❌ [REF-POLLING] Erro no polling:', pollError);
+                debugError('❌ [REF-POLLING] Erro no polling:', pollError);
                 throw pollError;
             }
         }
@@ -5323,7 +5323,7 @@ async function startReferenceAnalysis() {
         displayReferenceComparison(completeResult);
 
     } catch (error) {
-        console.error('❌ Erro na análise:', error);
+        debugError('❌ Erro na análise:', error);
         alert('❌ Erro durante a análise. Tente novamente.');
     }
 }
@@ -5558,7 +5558,7 @@ window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
         window.REFS_BYPASS_CACHE = false;
         return result;
     } catch (error) {
-        console.error('💥 Erro na recarga forçada:', error);
+        debugError('💥 Erro na recarga forçada:', error);
         window.REFS_BYPASS_CACHE = false;
         throw error;
     }
@@ -6015,8 +6015,8 @@ async function fetchRefJsonWithFallback(paths) {
                 
                 // 🎯 VALIDAÇÃO CRÍTICA: Detectar HTML no lugar de JSON
                 if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-                    console.error('[refs] ❌ ERRO: Servidor retornou HTML ao invés de JSON em', p);
-                    console.error('[refs] Primeiros 200 caracteres:', text.substring(0, 200));
+                    debugError('[refs] ❌ ERRO: Servidor retornou HTML ao invés de JSON em', p);
+                    debugError('[refs] Primeiros 200 caracteres:', text.substring(0, 200));
                     throw new Error(`HTML retornado ao invés de JSON em ${p}`);
                 }
                 
@@ -6026,9 +6026,9 @@ async function fetchRefJsonWithFallback(paths) {
                         log('[refs] ✅ JSON válido carregado de:', p);
                         return json;
                     } catch (jsonError) {
-                        console.error('[refs] ❌ JSON inválido em', p);
-                        console.error('[refs] Erro:', jsonError.message);
-                        console.error('[refs] Primeiros 200 caracteres:', text.substring(0, 200));
+                        debugError('[refs] ❌ JSON inválido em', p);
+                        debugError('[refs] Erro:', jsonError.message);
+                        debugError('[refs] Primeiros 200 caracteres:', text.substring(0, 200));
                         throw new Error(`JSON inválido em ${p}: ${jsonError.message}`);
                     }
                 } else {
@@ -6161,7 +6161,7 @@ function extractGenreTargets(json, genreName) {
     }
     
     if (!root) {
-        console.error('[EXTRACT-TARGETS] ❌ Root não encontrado no JSON para:', genreName);
+        debugError('[EXTRACT-TARGETS] ❌ Root não encontrado no JSON para:', genreName);
         return null;
     }
     
@@ -6191,7 +6191,7 @@ function extractGenreTargets(json, genreName) {
     }
     
     if (!targets) {
-        console.error('[EXTRACT-TARGETS] ❌ Nenhum target encontrado no JSON para:', genreName);
+        debugError('[EXTRACT-TARGETS] ❌ Nenhum target encontrado no JSON para:', genreName);
         return null;
     }
     
@@ -6576,7 +6576,7 @@ function initializeAudioAnalyzerIntegration() {
             BAND_WEIGHTED_SCORE_V2_flag: !!window.BAND_WEIGHTED_SCORE_V2,
             computeScoreV3_exists: typeof window.computeScoreV3 === 'function'
         };
-        console.log('[FREQ-RANGE-SCORE v1] Providers detection:', providers);
+        debugLog('[FREQ-RANGE-SCORE v1] Providers detection:', providers);
     } catch (e) {
         // noop
     }
@@ -6701,7 +6701,7 @@ function openWelcomeModal() {
     
     const modal = document.getElementById('welcomeAnalysisModal');
     if (!modal) {
-        console.error('❌ Modal de boas-vindas não encontrado no DOM');
+        debugError('❌ Modal de boas-vindas não encontrado no DOM');
         return;
     }
     
@@ -6790,7 +6790,7 @@ window.proceedToAnalysis = proceedToAnalysis;
 function openBetaExpiredModal() {
     const modal = document.getElementById('betaDjExpiredModal');
     if (!modal) {
-        console.error('❌ Modal betaDjExpiredModal não encontrado');
+        debugError('❌ Modal betaDjExpiredModal não encontrado');
         return;
     }
     
@@ -6897,14 +6897,14 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     
     // 🎯 PROTEÇÃO: Garantir que primeira análise está completa
     if (!firstAnalysisResult) {
-        console.error('❌ [PROTECTION] Primeira análise não está completa - abortando abertura do modal de referência');
+        debugError('❌ [PROTECTION] Primeira análise não está completa - abortando abertura do modal de referência');
         alert('⚠️ A primeira análise ainda não foi concluída. Por favor, aguarde.');
         return;
     }
     
     // 🎯 PROTEÇÃO: Validar que há dados essenciais
     if (!firstAnalysisResult.technicalData) {
-        console.error('❌ [PROTECTION] Primeira análise não contém technicalData - dados incompletos');
+        debugError('❌ [PROTECTION] Primeira análise não contém technicalData - dados incompletos');
         alert('⚠️ A primeira análise não foi concluída corretamente. Por favor, tente novamente.');
         return;
     }
@@ -6967,8 +6967,8 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     
     // 🆕 PR2: GUARD USANDO STATE MACHINE
     if (stateMachine && !stateMachine.isAwaitingSecondTrack()) {
-        console.error('%c[PR2-GUARD] ❌ BLOQUEIO: State machine não está aguardando segunda track', 'color:#FF0000;font-weight:bold;font-size:14px;');
-        console.error('[PR2-GUARD] Estado atual:', stateMachine.getState());
+        debugError('%c[PR2-GUARD] ❌ BLOQUEIO: State machine não está aguardando segunda track', 'color:#FF0000;font-weight:bold;font-size:14px;');
+        debugError('[PR2-GUARD] Estado atual:', stateMachine.getState());
         
         // 🔍 PR1: Log guard blocked
         if (window.logStep) {
@@ -7012,9 +7012,9 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
             });
         }
         
-        console.error('%c[PROTECTION] ❌ BLOQUEIO ATIVADO: openReferenceUploadModal chamado mas flags de explicit = false', 'color:#FF0000;font-weight:bold;font-size:14px;');
-        console.error('[PROTECTION] ❌ Legacy flag:', userExplicitlySelectedReferenceMode);
-        console.error('[PROTECTION] ❌ StateMachine flag:', stateMachineExplicit);
+        debugError('%c[PROTECTION] ❌ BLOQUEIO ATIVADO: openReferenceUploadModal chamado mas flags de explicit = false', 'color:#FF0000;font-weight:bold;font-size:14px;');
+        debugError('[PROTECTION] ❌ Legacy flag:', userExplicitlySelectedReferenceMode);
+        debugError('[PROTECTION] ❌ StateMachine flag:', stateMachineExplicit);
         console.trace('[PROTECTION] Stack trace do bloqueio:');
         
         // 🔍 PR1: Assert invariante violada
@@ -7045,7 +7045,7 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     // Abrir modal novamente
     const modal = document.getElementById('audioAnalysisModal');
     if (!modal) {
-        console.error('❌ Modal de análise de áudio não encontrado');
+        debugError('❌ Modal de análise de áudio não encontrado');
         return;
     }
     
@@ -7107,7 +7107,7 @@ function openModeSelectionModal() {
     
     const modal = document.getElementById('analysisModeModal');
     if (!modal) {
-        console.error('Modal de seleção de modo não encontrado');
+        debugError('Modal de seleção de modo não encontrado');
         return;
     }
     
@@ -7262,7 +7262,7 @@ function getSoundDestinationMode() {
  */
 function setSoundDestinationMode(mode) {
     if (mode !== 'pista' && mode !== 'streaming') {
-        console.error('[DEST-MODE] ❌ Tentativa de setar modo inválido:', mode);
+        debugError('[DEST-MODE] ❌ Tentativa de setar modo inválido:', mode);
         return false;
     }
     window.__SOUNDY_ANALYSIS_MODE__ = mode;
@@ -7564,7 +7564,7 @@ function openSoundDestinationModal(callback) {
             if (firstBtn) firstBtn.focus();
         }, 100);
     } else {
-        console.error('[DEST-MODAL] ❌ Modal não encontrado no DOM!');
+        debugError('[DEST-MODAL] ❌ Modal não encontrado no DOM!');
         // Fallback: continuar sem o modal de destino
         if (typeof callback === 'function') {
             log('[DEST-MODAL] Usando fallback: modo pista');
@@ -7622,7 +7622,7 @@ function openGenreModal() {
     
     const modal = document.getElementById('newGenreModal');
     if (!modal) {
-        console.error('[GENRE_MODAL] Modal não encontrado no DOM');
+        debugError('[GENRE_MODAL] Modal não encontrado no DOM');
         return;
     }
     
@@ -7699,7 +7699,7 @@ function initGenreModal() {
             
             const genre = card.dataset.genre;
             if (!genre) {
-                console.error('[GENRE_MODAL] Gênero não definido no card');
+                debugError('[GENRE_MODAL] Gênero não definido no card');
                 return;
             }
             
@@ -7725,7 +7725,7 @@ function initGenreModal() {
                 
                 __dbg('[GENRE_MODAL] ✅ applyGenreSelection concluído com sucesso');
             } else {
-                console.error('[GENRE_MODAL] applyGenreSelection não está disponível');
+                debugError('[GENRE_MODAL] applyGenreSelection não está disponível');
                 return;
             }
             
@@ -7772,7 +7772,7 @@ function openAnalysisModalForGenre() {
     
     const modal = document.getElementById('audioAnalysisModal');
     if (!modal) {
-        console.error('[GENRE_MODAL] Modal de análise não encontrado');
+        debugError('[GENRE_MODAL] Modal de análise não encontrado');
         return;
     }
     
@@ -7823,7 +7823,7 @@ function openAnalysisModalForMode(mode) {
     
     const modal = document.getElementById('audioAnalysisModal');
     if (!modal) {
-        console.error('Modal de análise não encontrado');
+        debugError('Modal de análise não encontrado');
         return;
     }
     
@@ -9073,21 +9073,21 @@ function extractGenreName(analysis) {
         return analysis?.genre || null;
     }
 
-    console.log('[GENRE-ONLY-UTILS] 🎵 Extraindo nome do gênero no modo GENRE');
+    debugLog('[GENRE-ONLY-UTILS] 🎵 Extraindo nome do gênero no modo GENRE');
 
     // 🎯 FONTE OFICIAL: analysis.data.genre
     if (analysis?.data?.genre) {
-        console.log('[GENRE-ONLY-UTILS] ✅ Gênero encontrado:', analysis.data.genre);
+        debugLog('[GENRE-ONLY-UTILS] ✅ Gênero encontrado:', analysis.data.genre);
         return analysis.data.genre;
     }
 
     // Fallback para analysis.genre
     if (analysis?.genre) {
-        console.log('[GENRE-ONLY-UTILS] ⚠️ Usando fallback analysis.genre:', analysis.genre);
+        debugLog('[GENRE-ONLY-UTILS] ⚠️ Usando fallback analysis.genre:', analysis.genre);
         return analysis.genre;
     }
 
-    console.warn('[GENRE-ONLY-UTILS] ❌ Gênero não encontrado, usando "default"');
+    debugWarn('[GENRE-ONLY-UTILS] ❌ Gênero não encontrado, usando "default"');
     return "default";
 }
 
@@ -9097,16 +9097,16 @@ function extractGenreName(analysis) {
  * @returns {Object} Targets padrão
  */
 function loadDefaultGenreTargets(genreName = "default") {
-    console.log('[GENRE-ONLY-UTILS] 📦 Carregando targets padrão para:', genreName);
+    debugLog('[GENRE-ONLY-UTILS] 📦 Carregando targets padrão para:', genreName);
 
     // Tentar carregar de window.GENRE_TARGETS_DB
     if (window.GENRE_TARGETS_DB && window.GENRE_TARGETS_DB[genreName]) {
-        console.log('[GENRE-ONLY-UTILS] ✅ Targets carregados de GENRE_TARGETS_DB');
+        debugLog('[GENRE-ONLY-UTILS] ✅ Targets carregados de GENRE_TARGETS_DB');
         return window.GENRE_TARGETS_DB[genreName];
     }
 
     // Fallback: targets genéricos
-    console.warn('[GENRE-ONLY-UTILS] ⚠️ Usando targets genéricos');
+    debugWarn('[GENRE-ONLY-UTILS] ⚠️ Usando targets genéricos');
     return {
         lufs_target: -14,
         true_peak_target: -1,
@@ -9118,7 +9118,7 @@ function loadDefaultGenreTargets(genreName = "default") {
 }
 
 function renderGenreView(analysis) {
-    console.log("STEP 7 - entrou renderGenreView");
+    debugLog("STEP 7 - entrou renderGenreView");
     console.group('%c[GENRE-VIEW] 🎨 Renderizando UI exclusiva de gênero', 'color:#00C9FF;font-weight:bold;font-size:14px;');
     
     // 🔥 ISOLAMENTO TOTAL: Limpar TODAS as variáveis de referência
@@ -9130,7 +9130,7 @@ function renderGenreView(analysis) {
     
     // 1️⃣ Validar análise
     if (!analysis) {
-        console.error('[GENRE-VIEW] ❌ ERRO: Análise não fornecida');
+        debugError('[GENRE-VIEW] ❌ ERRO: Análise não fornecida');
         console.groupEnd();
         return;
     }
@@ -9209,12 +9209,12 @@ function renderGenreView(analysis) {
     }
     
     if (!genreTargets) {
-        console.error('[GENRE-VIEW] ❌ CRÍTICO: Targets de gênero não disponíveis - ABORTANDO');
-        console.error('[GENRE-VIEW]    window.PROD_AI_REF_DATA:', window.PROD_AI_REF_DATA);
-        console.error('[GENRE-VIEW]    window.__activeRefData:', window.__activeRefData);
-        console.error('[GENRE-VIEW]    Tipo PROD_AI_REF_DATA:', typeof window.PROD_AI_REF_DATA);
-        console.error('[GENRE-VIEW]    analysis.referenceComparison:', analysis.referenceComparison);
-        console.error('[GENRE-VIEW] 🔍 DIAGNÓSTICO: Verificar se targets foram carregados antes de displayModalResults');
+        debugError('[GENRE-VIEW] ❌ CRÍTICO: Targets de gênero não disponíveis - ABORTANDO');
+        debugError('[GENRE-VIEW]    window.PROD_AI_REF_DATA:', window.PROD_AI_REF_DATA);
+        debugError('[GENRE-VIEW]    window.__activeRefData:', window.__activeRefData);
+        debugError('[GENRE-VIEW]    Tipo PROD_AI_REF_DATA:', typeof window.PROD_AI_REF_DATA);
+        debugError('[GENRE-VIEW]    analysis.referenceComparison:', analysis.referenceComparison);
+        debugError('[GENRE-VIEW] 🔍 DIAGNÓSTICO: Verificar se targets foram carregados antes de displayModalResults');
         console.groupEnd();
         return; // ❌ ABORTAR se não houver targets
     } else {
@@ -9254,7 +9254,7 @@ function renderGenreView(analysis) {
             opacity: window.getComputedStyle(refCompContainer).opacity
         });
     } else {
-        console.error('[GENRE-VIEW] ❌ Container #referenceComparisons NÃO ENCONTRADO!');
+        debugError('[GENRE-VIEW] ❌ Container #referenceComparisons NÃO ENCONTRADO!');
     }
     
     log('%c[GENRE-VIEW] ✅ Renderização de gênero concluída', 'color:#00FF88;font-weight:bold;');
@@ -9383,11 +9383,11 @@ function renderGenreComparisonTable(options) {
         }
     }
 
-    console.log('ANALYSIS COMPLETO:', analysis);
+    debugLog('ANALYSIS COMPLETO:', analysis);
 
-    console.log('[DATA CHECK] analysis:', analysis);
-    console.log('[DATA CHECK] metrics:', analysis?.metrics);
-    console.log('[DATA CHECK] technicalData:', analysis?.technicalData);
+    debugLog('[DATA CHECK] analysis:', analysis);
+    debugLog('[DATA CHECK] metrics:', analysis?.metrics);
+    debugLog('[DATA CHECK] technicalData:', analysis?.technicalData);
 
     const lufs = analysis?.technicalData?.lufsIntegrated ?? analysis?.lufs;
     const truePeak = analysis?.technicalData?.truePeakDbtp ?? analysis?.truePeak;
@@ -9395,7 +9395,7 @@ function renderGenreComparisonTable(options) {
     const dynamicRange = analysis?.technicalData?.dynamicRange ?? analysis?.dynamicRange ?? analysis?.technicalData?.dr;
 
     if (!lufs || !dynamicRange) {
-        console.warn('[GENRE-TABLE] dados incompletos — abortando render sem quebrar UI');
+        debugWarn('[GENRE-TABLE] dados incompletos — abortando render sem quebrar UI');
         return;
     }
     
@@ -9430,7 +9430,7 @@ function renderGenreComparisonTable(options) {
     // Buscar parent do bloco técnico
     const parent = document.getElementById('modalTechnicalData');
     if (!parent) {
-        console.error('[GENRE-TABLE] ❌ Container #modalTechnicalData não encontrado!');
+        debugError('[GENRE-TABLE] ❌ Container #modalTechnicalData não encontrado!');
         console.groupEnd();
         return;
     }
@@ -9446,9 +9446,9 @@ function renderGenreComparisonTable(options) {
     log('[GENRE-TABLE] 📦 Genre data recebido (flat object):', Object.keys(genreData || {}));
     
     if (!genreData) {
-        console.error('[GENRE-TABLE] ❌ CRÍTICO: Nenhum target disponível!');
-        console.error('[GENRE-TABLE]    - analysis.data.genreTargets:', !!analysis?.data?.genreTargets);
-        console.error('[GENRE-TABLE]    - targets parameter:', !!targets);
+        debugError('[GENRE-TABLE] ❌ CRÍTICO: Nenhum target disponível!');
+        debugError('[GENRE-TABLE]    - analysis.data.genreTargets:', !!analysis?.data?.genreTargets);
+        debugError('[GENRE-TABLE]    - targets parameter:', !!targets);
         console.groupEnd();
         return;
     }
@@ -9468,7 +9468,7 @@ function renderGenreComparisonTable(options) {
     });
 
     // 🎯 [AUDITORIA] TARGETS RESOLVIDOS — fonte de verdade final para todos os cards
-    console.log('[TARGETS-RESOLVIDOS]', {
+    debugLog('[TARGETS-RESOLVIDOS]', {
         genre,
         finalTargets: {
             lufs_target:      genreData?.lufs_target,
@@ -9486,7 +9486,7 @@ function renderGenreComparisonTable(options) {
         },
         targetsSource: (isDirectAnalysis ? 'resolveGenreTargetsForDiagnostic' : 'options.targets + validation'),
     });
-    console.log('[TARGET-AUDIT]', {
+    debugLog('[TARGET-AUDIT]', {
         genre,
         lufs_target: genreData?.lufs_target,
         tol_lufs:    genreData?.tol_lufs,
@@ -9683,7 +9683,7 @@ function renderGenreComparisonTable(options) {
             const result = calcSeverity(lufsValue, genreData.lufs_target, _tol_lufs, {
                 targetRange: { min: _lufsMin, max: _lufsMax }
             });
-            console.log('[CARD-DEBUG]', {
+            debugLog('[CARD-DEBUG]', {
                 metricName:    'LUFS',
                 displayedValue: lufsValue.toFixed(2) + ' LUFS',
                 rawValue:      lufsValue,
@@ -9779,7 +9779,7 @@ function renderGenreComparisonTable(options) {
             const result = calcSeverity(drValue, genreData.dr_target, _tol_dr, {
                 targetRange: { min: _drMin, max: _drMax }
             });
-            console.log('[CARD-DEBUG]', {
+            debugLog('[CARD-DEBUG]', {
                 metricName:    'DR',
                 displayedValue: drValue.toFixed(2) + ' DR',
                 rawValue:      drValue,
@@ -9822,7 +9822,7 @@ function renderGenreComparisonTable(options) {
             const result = calcSeverity(lraValue, genreData.lra_target, _tol_lra, {
                 targetRange: { min: _lraMin, max: _lraMax }
             });
-            console.log('[CARD-DEBUG]', {
+            debugLog('[CARD-DEBUG]', {
                 metricName:    'LRA',
                 displayedValue: lraValue.toFixed(2) + ' LU',
                 rawValue:      lraValue,
@@ -9895,7 +9895,7 @@ function renderGenreComparisonTable(options) {
             }
             const canRenderCf = shouldRenderRealValue('crestFactor', 'table', analysis);
             _summaryCf = { displayValue: canRenderCf ? _cfVal.toFixed(2) + ' dB' : '🔒', severityClass: _cfSev.severityClass, severity: canRenderCf ? _cfSev.severity : '🔒', action: canRenderCf ? _cfSev.action : '' };
-            console.log('[TARGET-AUDIT] CF', { value: _cfVal, CF_OK_MIN, CF_WARN_MIN, severity: _cfSev.severity });
+            debugLog('[TARGET-AUDIT] CF', { value: _cfVal, CF_OK_MIN, CF_WARN_MIN, severity: _cfSev.severity });
         }
     }
 
@@ -10083,7 +10083,7 @@ function renderGenreComparisonTable(options) {
 
     const container = document.getElementById('diagnosticExpandedContent');
     if (!container) {
-        console.error('[GENRE-TABLE] ❌ Container #diagnosticExpandedContent não encontrado após render do shell');
+        debugError('[GENRE-TABLE] ❌ Container #diagnosticExpandedContent não encontrado após render do shell');
         console.groupEnd();
         return;
     }
@@ -10189,10 +10189,10 @@ function renderGenreComparisonTable(options) {
     });
 
     // ── PASSO 1: Log do container destino (diagnosticExpandedContent) ──
-    console.log('[DEBUG DOM] container destino:', container);
+    debugLog('[DEBUG DOM] container destino:', container);
 
     // ── PASSO 2: Log do HTML gerado ──
-    console.log('[DEBUG DOM] HTML tabela nova (primeiros 500 chars):', tableHTML.substring(0, 500));
+    debugLog('[DEBUG DOM] HTML tabela nova (primeiros 500 chars):', tableHTML.substring(0, 500));
 
     try {
         container.innerHTML = tableHTML;
@@ -10205,7 +10205,7 @@ function renderGenreComparisonTable(options) {
             rowsInDOM: container.querySelectorAll('tr').length
         });
     } catch (err) {
-        console.error('[GENRE-TABLE-ERROR] ❌ Erro ao inserir HTML:', err);
+        debugError('[GENRE-TABLE-ERROR] ❌ Erro ao inserir HTML:', err);
         container.innerHTML = `<div class="error-message">❌ Erro ao renderizar tabela: ${err.message}</div>`;
     }
 
@@ -10216,7 +10216,7 @@ function renderGenreComparisonTable(options) {
     container.style.height = 'auto';
 
     // ── PASSO 5: Log final ──
-    console.log('[DEBUG DOM] tabela nova aplicada no container correto');
+    debugLog('[DEBUG DOM] tabela nova aplicada no container correto');
     
     // 🔥 AUDITORIA FINAL: Verificar visibilidade computada
     const computedStyle = window.getComputedStyle(container);
@@ -11177,20 +11177,20 @@ async function handleModalFileSelection(file) {
     
     // 🔒 [INVARIANTE #1] Se estamos em reference mas state machine não está, CORRIGIR
     if (window.currentAnalysisMode === 'reference' && currentMode !== 'reference') {
-        console.error('%c[INVARIANTE #1 VIOLADA] currentAnalysisMode=reference mas StateMachine=' + currentMode, 'color:red;font-weight:bold;font-size:14px;');
-        console.error('[FIX_ATTEMPT] Tentando corrigir state machine para reference...');
+        debugError('%c[INVARIANTE #1 VIOLADA] currentAnalysisMode=reference mas StateMachine=' + currentMode, 'color:red;font-weight:bold;font-size:14px;');
+        debugError('[FIX_ATTEMPT] Tentando corrigir state machine para reference...');
         
         if (stateMachine) {
             try {
                 stateMachine.setMode('reference', { userExplicitlySelected: true });
                 log('%c[FIX_SUCCESS] State machine corrigido para reference', 'color:green;font-weight:bold;');
             } catch (err) {
-                console.error('[FIX_FAILED] Não foi possível corrigir state machine:', err);
+                debugError('[FIX_FAILED] Não foi possível corrigir state machine:', err);
                 alert('⚠️ ERRO: Estado inconsistente. Por favor, selecione o modo A/B novamente.');
                 return;
             }
         } else {
-            console.error('[FIX_FAILED] AnalysisStateMachine não disponível!');
+            debugError('[FIX_FAILED] AnalysisStateMachine não disponível!');
             alert('⚠️ ERRO: Sistema não inicializado corretamente.');
             return;
         }
@@ -11340,8 +11340,8 @@ async function handleModalFileSelection(file) {
             const stateMachine = getSafeStateMachine();
             const smMode = stateMachine?.getMode();
             if (smMode !== 'reference') {
-                console.error('%c[INVARIANTE #1 VIOLADA] State machine não está em reference antes de startReferenceFirstTrack!', 'color:red;font-weight:bold;font-size:14px;');
-                console.error('[STATE] smMode:', smMode, '| currentAnalysisMode:', currentAnalysisMode);
+                debugError('%c[INVARIANTE #1 VIOLADA] State machine não está em reference antes de startReferenceFirstTrack!', 'color:red;font-weight:bold;font-size:14px;');
+                debugError('[STATE] smMode:', smMode, '| currentAnalysisMode:', currentAnalysisMode);
                 
                 // Tentar corrigir
                 if (stateMachine && currentAnalysisMode === 'reference') {
@@ -11479,7 +11479,7 @@ async function handleModalFileSelection(file) {
             if (normalizedFirst && normalizedFirst.jobId) {
                 openReferenceUploadModal(normalizedFirst.jobId, normalizedFirst);
             } else {
-                console.error('[ERROR] ❌ Não foi possível abrir modal: normalizedFirst inválido');
+                debugError('[ERROR] ❌ Não foi possível abrir modal: normalizedFirst inválido');
             }
         } else if (isSecondTrack) {
             // ✅ SEGUNDA música em modo reference: mostrar resultado comparativo
@@ -11588,9 +11588,9 @@ async function handleModalFileSelection(file) {
                 });
                 
                 if (!allowSecondTrack) {
-                    console.error('%c[PROTECTION] ❌ BLOQUEIO CRÍTICO: Tentativa de ativar isSecondTrack mas userExplicitlySelectedReferenceMode = false E sem contexto ativo', 'color:#FF0000;font-weight:bold;font-size:16px;');
-                    console.error('[PROTECTION] ❌ Sistema em modo genre - NÃO pode processar segunda track');
-                    console.error('[PROTECTION] ❌ state.previousAnalysis existe mas modo não é reference explícito');
+                    debugError('%c[PROTECTION] ❌ BLOQUEIO CRÍTICO: Tentativa de ativar isSecondTrack mas userExplicitlySelectedReferenceMode = false E sem contexto ativo', 'color:#FF0000;font-weight:bold;font-size:16px;');
+                    debugError('[PROTECTION] ❌ Sistema em modo genre - NÃO pode processar segunda track');
+                    debugError('[PROTECTION] ❌ state.previousAnalysis existe mas modo não é reference explícito');
                     console.trace('[PROTECTION] Stack trace do bloqueio:');
                     // NÃO construir estrutura A/B - abortar processamento de segunda track
                     return;
@@ -11673,9 +11673,9 @@ async function handleModalFileSelection(file) {
                 });
                 
                 if (!allowSecondTrackFallback) {
-                    console.error('%c[PROTECTION] ❌ BLOQUEIO CRÍTICO (FALLBACK): Tentativa de ativar isSecondTrack mas userExplicitlySelectedReferenceMode = false E sem contexto ativo', 'color:#FF0000;font-weight:bold;font-size:16px;');
-                    console.error('[PROTECTION] ❌ Sistema em modo genre - NÃO pode processar segunda track');
-                    console.error('[PROTECTION] ❌ FirstAnalysisStore.has() = true mas modo não é reference explícito');
+                    debugError('%c[PROTECTION] ❌ BLOQUEIO CRÍTICO (FALLBACK): Tentativa de ativar isSecondTrack mas userExplicitlySelectedReferenceMode = false E sem contexto ativo', 'color:#FF0000;font-weight:bold;font-size:16px;');
+                    debugError('[PROTECTION] ❌ Sistema em modo genre - NÃO pode processar segunda track');
+                    debugError('[PROTECTION] ❌ FirstAnalysisStore.has() = true mas modo não é reference explícito');
                     console.trace('[PROTECTION] Stack trace do bloqueio:');
                     // NÃO construir estrutura A/B - abortar processamento de segunda track
                     return;
@@ -11829,8 +11829,8 @@ async function handleModalFileSelection(file) {
             });
             
             if (!allowForceMode) {
-                console.error('%c[PROTECTION] ❌ BLOQUEIO: Tentativa de forçar modo reference mas userExplicitlySelectedReferenceMode = false E sem contexto ativo', 'color:#FF0000;font-weight:bold;font-size:16px;');
-                console.error('[PROTECTION] ❌ Sistema em modo genre - NÃO pode forçar modo reference');
+                debugError('%c[PROTECTION] ❌ BLOQUEIO: Tentativa de forçar modo reference mas userExplicitlySelectedReferenceMode = false E sem contexto ativo', 'color:#FF0000;font-weight:bold;font-size:16px;');
+                debugError('[PROTECTION] ❌ Sistema em modo genre - NÃO pode forçar modo reference');
                 console.trace('[PROTECTION] Stack trace do bloqueio:');
                 // NÃO forçar modo reference
                 return;
@@ -11864,9 +11864,9 @@ async function handleModalFileSelection(file) {
                 
                 // 🚨 VALIDAÇÃO CRÍTICA: Garantir que jobIds são DIFERENTES
                 if (currentJobId === referenceJobId) {
-                    console.error('❌ [MODAL-FILE] ERRO CRÍTICO: Backend retornou mesmo jobId!');
-                    console.error('   currentJobId:', currentJobId);
-                    console.error('   referenceJobId:', referenceJobId);
+                    debugError('❌ [MODAL-FILE] ERRO CRÍTICO: Backend retornou mesmo jobId!');
+                    debugError('   currentJobId:', currentJobId);
+                    debugError('   referenceJobId:', referenceJobId);
                     console.trace();
                     alert('ERRO: O backend retornou o mesmo jobId da primeira música. Tente novamente.');
                     return;
@@ -11907,8 +11907,8 @@ async function handleModalFileSelection(file) {
             log('⚠️ JobIds iguais?', (userAnalysis?.jobId || userAnalysis?.id) === (referenceAnalysisData?.jobId || referenceAnalysisData?.id));
             
             if ((userAnalysis?.fileName || userAnalysis?.metadata?.fileName) === (referenceAnalysisData?.fileName || referenceAnalysisData?.metadata?.fileName)) {
-                console.error('🚨 CONTAMINAÇÃO DETECTADA: userFileName === refFileName!');
-                console.error('🚨 Isso indica que os clones NÃO são independentes ou que a fonte está contaminada!');
+                debugError('🚨 CONTAMINAÇÃO DETECTADA: userFileName === refFileName!');
+                debugError('🚨 Isso indica que os clones NÃO são independentes ou que a fonte está contaminada!');
             } else {
                 log('✅ INTEGRIDADE CONFIRMADA: Arquivos são diferentes');
             }
@@ -11990,7 +11990,7 @@ async function handleModalFileSelection(file) {
                 
                 // PATCH JOB-ID: Validar jobId antes de chamar waitForAIEnrichment
                 if (!normalizedResult.jobId || normalizedResult.jobId === 'undefined') {
-                    console.error('[AI-SYNC] ❌ jobId inválido, não é possível aguardar enriquecimento:', normalizedResult.jobId);
+                    debugError('[AI-SYNC] ❌ jobId inválido, não é possível aguardar enriquecimento:', normalizedResult.jobId);
                     warn('[AI-SYNC] ⚠️ Pulando enriquecimento IA - usando dados já disponíveis');
                 } else {
                     // Mostrar spinner visual
@@ -12023,7 +12023,7 @@ async function handleModalFileSelection(file) {
                         }
                         
                     } catch (syncError) {
-                        console.error('[AI-SYNC] ❌ Erro ao aguardar enriquecimento IA:', syncError);
+                        debugError('[AI-SYNC] ❌ Erro ao aguardar enriquecimento IA:', syncError);
                         warn('[AI-SYNC] ℹ️ Continuando com sugestões base...');
                     } finally {
                         // Remover spinner
@@ -12050,7 +12050,7 @@ async function handleModalFileSelection(file) {
                 
                 // PATCH JOB-ID: Validar jobId antes de chamar waitForAIEnrichment
                 if (!normalizedResult.jobId || normalizedResult.jobId === 'undefined') {
-                    console.error('[AI-SYNC] ❌ jobId inválido, não é possível aguardar enriquecimento:', normalizedResult.jobId);
+                    debugError('[AI-SYNC] ❌ jobId inválido, não é possível aguardar enriquecimento:', normalizedResult.jobId);
                     warn('[AI-SYNC] ⚠️ Pulando enriquecimento IA - abrindo modal com dados disponíveis');
                 } else {
                     showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
@@ -12065,7 +12065,7 @@ async function handleModalFileSelection(file) {
                         warn('[AI-SYNC] ⚠️ Timeout ou IA não retornou sugestões válidas. Fallback para sugestões base.');
                     }
                 } catch (error) {
-                    console.error('[AI-SYNC] ❌ Erro ao aguardar sugestões enriquecidas:', error);
+                    debugError('[AI-SYNC] ❌ Erro ao aguardar sugestões enriquecidas:', error);
                 } finally {
                     hideAILoadingSpinner();
                 }
@@ -12084,7 +12084,7 @@ async function handleModalFileSelection(file) {
             log('   É o mesmo que normalizedResult?', window.__FIRST_ANALYSIS_FROZEN__?.jobId === normalizedResult?.jobId);
             
             if (window.__FIRST_ANALYSIS_FROZEN__?.jobId === normalizedResult?.jobId) {
-                console.error('🚨 FALHA CRÍTICA: __FIRST_ANALYSIS_FROZEN__ foi sobrescrito pela segunda análise!');
+                debugError('🚨 FALHA CRÍTICA: __FIRST_ANALYSIS_FROZEN__ foi sobrescrito pela segunda análise!');
             } else {
                 log('✅ INTEGRIDADE MANTIDA: __FIRST_ANALYSIS_FROZEN__ permanece intacto');
             }
@@ -12127,13 +12127,13 @@ async function handleModalFileSelection(file) {
         }
 
     } catch (error) {
-        console.error('🔴🔴🔴 [ERRO-CRÍTICO-CAPTURADO] ════════════════════════════════════');
-        console.error('🔴 [ERRO-CRÍTICO] Erro capturado no handleModalFileSelection!');
-        console.error('🔴 [ERRO-CRÍTICO] Error message:', error.message);
-        console.error('🔴 [ERRO-CRÍTICO] Error stack:', error.stack);
-        console.error('🔴 [ERRO-CRÍTICO] currentAnalysisMode ANTES:', currentAnalysisMode);
-        console.error('🔴🔴🔴 [ERRO-CRÍTICO-CAPTURADO] ════════════════════════════════════');
-        console.error('❌ Erro na análise do modal:', error);
+        debugError('🔴🔴🔴 [ERRO-CRÍTICO-CAPTURADO] ════════════════════════════════════');
+        debugError('🔴 [ERRO-CRÍTICO] Erro capturado no handleModalFileSelection!');
+        debugError('🔴 [ERRO-CRÍTICO] Error message:', error.message);
+        debugError('🔴 [ERRO-CRÍTICO] Error stack:', error.stack);
+        debugError('🔴 [ERRO-CRÍTICO] currentAnalysisMode ANTES:', currentAnalysisMode);
+        debugError('🔴🔴🔴 [ERRO-CRÍTICO-CAPTURADO] ════════════════════════════════════');
+        debugError('❌ Erro na análise do modal:', error);
         
         // 🔓 FIX BUG 3: Em modo anônimo, NUNCA resetar genre/mode após erro
         // Apenas permitir retry mantendo o estado atual
@@ -12410,7 +12410,7 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
         }
         
     } catch (error) {
-        console.error('❌ Erro ao processar análise por referência:', error);
+        debugError('❌ Erro ao processar análise por referência:', error);
         window.logReferenceEvent('reference_analysis_error', { 
             error: error.message,
             fileKey,
@@ -12490,7 +12490,7 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                     warn(`[GENRE-TARGETS] ⚠️ /refs/out/${genreId}.json não encontrado (${response.status})`);
                 }
             } catch (err) {
-                console.error('[GENRE-TARGETS] Erro ao carregar targets de gênero:', err);
+                debugError('[GENRE-TARGETS] Erro ao carregar targets de gênero:', err);
             }
         } else {
             warn('[GENRE-TARGETS] GenreId inválido ou "default" — pulando fetch:', genreId);
@@ -12526,7 +12526,7 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                     warn('[AI-SYNC] IA não retornou sugestões válidas — exibindo com dados base');
                 }
             } catch (err) {
-                console.error('[AI-SYNC] Erro ao aguardar enriquecimento IA:', err);
+                debugError('[AI-SYNC] Erro ao aguardar enriquecimento IA:', err);
             } finally {
                 hideAILoadingSpinner();
             }
@@ -12537,11 +12537,11 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             await displayModalResults(normalizedResult);
             log('[DISPLAY] Modal renderizado com sucesso (modo genre)');
         } else {
-            console.error('❌ displayModalResults não encontrada — modal não pode ser renderizado');
+            debugError('❌ displayModalResults não encontrada — modal não pode ser renderizado');
         }
 
     } catch (err) {
-        console.error('❌ Erro ao processar análise por gênero:', err);
+        debugError('❌ Erro ao processar análise por gênero:', err);
         throw err;
     }
 }
@@ -12878,7 +12878,7 @@ async function handleGenreFileSelection(file) {
                 log('🔧 [GENRE-FALLBACK] Restaurando gênero do localStorage:', savedGenre);
                 window.PROD_AI_REF_GENRE = savedGenre;
             } else {
-                console.error('❌ [GENRE-CRITICAL] Gênero não encontrado - modo gênero sem targets');
+                debugError('❌ [GENRE-CRITICAL] Gênero não encontrado - modo gênero sem targets');
             }
         }
         
@@ -12902,7 +12902,7 @@ async function handleGenreFileSelection(file) {
                 
                 // ✅ VALIDAÇÃO: Confirmar que targets foram carregados
                 if (!window.__activeRefData) {
-                    console.error('❌ [GENRE-CRITICAL] Falha ao carregar targets de gênero');
+                    debugError('❌ [GENRE-CRITICAL] Falha ao carregar targets de gênero');
                 } else {
                     log('✅ [GENRE-SUCCESS] Targets carregados:', {
                         genre,
@@ -12912,7 +12912,7 @@ async function handleGenreFileSelection(file) {
                 }
             }
         } catch (e) { 
-            console.error('❌ [GENRE-ERROR] Erro ao carregar referências de gênero:', e);
+            debugError('❌ [GENRE-ERROR] Erro ao carregar referências de gênero:', e);
         }
     } else {
         log('🔍 [DIAGNÓSTICO] PULAR carregamento de referências - modo não é gênero');
@@ -13024,7 +13024,7 @@ async function handleGenreFileSelection(file) {
                 if (typeof displayModalResults === 'function') {
                     displayModalResults(analysis);
                 } else {
-                    console.error('❌ [MODAL_MONITOR] Timeout - função displayModalResults não encontrada após espera');
+                    debugError('❌ [MODAL_MONITOR] Timeout - função displayModalResults não encontrada após espera');
                 }
             }, 1000);
         }
@@ -13425,7 +13425,7 @@ async function performReferenceComparison() {
         }, 800);
         
     } catch (error) {
-        console.error('❌ Erro na comparação:', error);
+        debugError('❌ Erro na comparação:', error);
         window.logReferenceEvent('reference_comparison_error', { error: error.message });
         showModalError(`Erro na comparação: ${error.message}`);
     }
@@ -14513,14 +14513,14 @@ function renderReducedModeAdvanced(analysis) {
                 });
                 
             } catch (innerError) {
-                console.error('[REDUCED-MODE][ERROR] Erro no processo de mascaramento:', innerError);
-                console.error('[REDUCED-MODE][ERROR] Stack:', innerError.stack);
+                debugError('[REDUCED-MODE][ERROR] Erro no processo de mascaramento:', innerError);
+                debugError('[REDUCED-MODE][ERROR] Stack:', innerError.stack);
             }
         }, 500); // Timeout para garantir que o DOM foi completamente renderizado
         
     } catch (error) {
-        console.error('[REDUCED-MODE][ERROR] Erro ao inicializar modo reduzido:', error);
-        console.error('[REDUCED-MODE][ERROR] Stack:', error.stack);
+        debugError('[REDUCED-MODE][ERROR] Erro ao inicializar modo reduzido:', error);
+        debugError('[REDUCED-MODE][ERROR] Stack:', error.stack);
         
         // Em caso de erro, modal continua funcionando normalmente
         warn('[REDUCED-MODE] ⚠️ Fallback: Modal renderizado sem mascaramento');
@@ -14768,7 +14768,7 @@ function renderReducedMode(data) {
 function renderMusicIdentificationBlock(analysis) {
     // Validação de entrada
     if (!analysis || typeof analysis !== 'object') {
-        console.warn('[MUSIC-ID] ⚠️ analysis inválido ou ausente');
+        debugWarn('[MUSIC-ID] ⚠️ analysis inválido ou ausente');
         return '';
     }
 
@@ -14807,7 +14807,7 @@ function renderMusicIdentificationBlock(analysis) {
         : `Analisado em ${analysisDate.toLocaleDateString('pt-BR')}`;
 
     // Logs de debug
-    console.log('[MUSIC-ID] 🎵 Renderizando bloco de identificação:', {
+    debugLog('[MUSIC-ID] 🎵 Renderizando bloco de identificação:', {
         fileName,
         duration: durationFormatted,
         sampleRate: `${sampleRateKHz} kHz`,
@@ -14949,7 +14949,7 @@ function areSameTrack(a, b) {
 
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
-    console.log("🔥 RESETANDO ESTADO PARA TESTE");
+    debugLog("🔥 RESETANDO ESTADO PARA TESTE");
 
     try {
         localStorage.removeItem("referenceJobId");
@@ -14958,16 +14958,16 @@ async function displayModalResults(analysis) {
         delete window.__FIRST_ANALYSIS_FROZEN__;
         delete window.currentAnalysisMode;
     } catch (e) {
-        console.warn("Erro ao limpar estado", e);
+        debugWarn("Erro ao limpar estado", e);
     }
 
-    console.log("Estado limpo:", {
+    debugLog("Estado limpo:", {
         referenceJobId: localStorage.getItem("referenceJobId"),
         globalRef: window.__REFERENCE_JOB_ID__,
         mode: window.currentAnalysisMode
     });
 
-    console.log("STEP 1 - entrou displayModalResults");
+    debugLog("STEP 1 - entrou displayModalResults");
     log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
 
     // 🔒 IDs locais seguros (sem dependência de helpers externos)
@@ -15003,7 +15003,7 @@ async function displayModalResults(analysis) {
         try {
             fn();
         } catch (err) {
-            console.error('Erro parcial no modal:', { label, err });
+            debugError('Erro parcial no modal:', { label, err });
         }
     };
     
@@ -15110,9 +15110,9 @@ async function displayModalResults(analysis) {
     
     // ⚠️ ALERTA se technicalData tiver menos de 10 campos
     if (analysis.technicalData && Object.keys(analysis.technicalData).length < 10) {
-        console.error("[AUDIT-FINAL-FRONT] ❌ technicalData TEM POUCOS CAMPOS!");
-        console.error("[AUDIT-FINAL-FRONT] Campos presentes:", Object.keys(analysis.technicalData));
-        console.error("[AUDIT-FINAL-FRONT] MODAL PODE NÃO ABRIR CORRETAMENTE!");
+        debugError("[AUDIT-FINAL-FRONT] ❌ technicalData TEM POUCOS CAMPOS!");
+        debugError("[AUDIT-FINAL-FRONT] Campos presentes:", Object.keys(analysis.technicalData));
+        debugError("[AUDIT-FINAL-FRONT] MODAL PODE NÃO ABRIR CORRETAMENTE!");
     } else if (analysis.technicalData && Object.keys(analysis.technicalData).length >= 30) {
         log("[AUDIT-FINAL-FRONT] ✅ technicalData COMPLETO com", Object.keys(analysis.technicalData).length, "campos");
     }
@@ -15128,8 +15128,8 @@ async function displayModalResults(analysis) {
             // Skip validação - reference mode não usa genreTargets
         } else {
             // ❌ GENRE MODE: genreTargets é obrigatório
-            console.error("[GENRE-MODE] ❌ genreTargets AUSENTE!");
-            console.error("[GENRE-MODE] Tabelas de comparação NÃO vão funcionar!");
+            debugError("[GENRE-MODE] ❌ genreTargets AUSENTE!");
+            debugError("[GENRE-MODE] Tabelas de comparação NÃO vão funcionar!");
             
             // 🩹 PATCH CRÍTICO: Tentar reconstruir genreTargets do estado global (APENAS GENRE)
             if (mode === 'genre') {
@@ -15252,11 +15252,11 @@ async function displayModalResults(analysis) {
                         fileName: restoredReference.metadata?.fileName || restoredReference.fileName
                     });
                 } else {
-                    console.error('[RESTORE] ❌ Referência no cache está vazia');
+                    debugError('[RESTORE] ❌ Referência no cache está vazia');
                 }
             } else {
-                console.error('[RESTORE] ❌ Referência não encontrada no AnalysisCache');
-                console.error('[RESTORE] Cache IDs disponíveis:', window.AnalysisCache?.ids?.() || 'N/A');
+                debugError('[RESTORE] ❌ Referência não encontrada no AnalysisCache');
+                debugError('[RESTORE] Cache IDs disponíveis:', window.AnalysisCache?.ids?.() || 'N/A');
             }
         } else {
             log('[RESTORE] ✅ Dados de referência já existem - restauração não necessária');
@@ -15289,7 +15289,7 @@ async function displayModalResults(analysis) {
         !window.aiUIController ||
         typeof window.aiUIController.renderMetricCards !== 'function'
     ) {
-        console.error('[FATAL] aiUIController não carregado após todas as tentativas');
+        debugError('[FATAL] aiUIController não carregado após todas as tentativas');
         alert('Erro ao carregar interface de resultados. Recarregue a página.');
         return;
     }
@@ -15325,9 +15325,9 @@ async function displayModalResults(analysis) {
             });
 
             if (!allowDisplayReference) {
-                console.error('%c[PROTECTION] ❌ BLOQUEIO em displayModalResults: isSecondTrack detectado mas userExplicitlySelectedReferenceMode = false E sem contexto ativo', 'color:#FF0000;font-weight:bold;font-size:16px;');
-                console.error('[PROTECTION] ❌ Sistema em modo genre - NÃO pode forçar modo reference');
-                console.error('[PROTECTION] ❌ Abortando renderização A/B'); 
+                debugError('%c[PROTECTION] ❌ BLOQUEIO em displayModalResults: isSecondTrack detectado mas userExplicitlySelectedReferenceMode = false E sem contexto ativo', 'color:#FF0000;font-weight:bold;font-size:16px;');
+                debugError('[PROTECTION] ❌ Sistema em modo genre - NÃO pode forçar modo reference');
+                debugError('[PROTECTION] ❌ Abortando renderização A/B'); 
                 console.trace('[PROTECTION] Stack trace do bloqueio:');      
                 // NÃO forçar modo reference - abortar
                 return;
@@ -15388,17 +15388,17 @@ async function displayModalResults(analysis) {
             log('[AB-HYDRATE] ✅ window.referenceAnalysisData hidratado com sucesso');
         } else {
             // ❌ DIAGNÓSTICO DETALHADO antes de mostrar fallback
-            console.error('[REF-FIX] ❌ Hidratação falhou - DIAGNÓSTICO:');
-            console.error('[REF-FIX]   1. FirstAnalysisStore.getRef() retornou:', refFromStore ? 'objeto' : 'null/undefined');
-            console.error('[REF-FIX]   2. refFromStore.jobId:', refFromStore?.jobId);
-            console.error('[REF-FIX]   3. refFromStore.technicalData existe?', !!refFromStore?.technicalData);
-            console.error('[REF-FIX]   4. refFromStore.metrics existe?', !!refFromStore?.metrics);
-            console.error('[REF-FIX]   5. extractABMetrics debugShape:', refMetrics.debugShape);
-            console.error('[REF-FIX]   6. window.__REFERENCE_JOB_ID__:', referenceJobId);
-            console.error('[REF-FIX]   7. Chaves disponíveis:', refFromStore ? Object.keys(refFromStore) : 'N/A');
-            console.error('[AB-BLOCK] abState:', abState);
-            console.error('[AB-BLOCK] FirstAnalysisStore.getRef():', refFromStore);
-            console.error('[AB-DATA] ref metrics extraction failed:', refMetrics.debugShape);
+            debugError('[REF-FIX] ❌ Hidratação falhou - DIAGNÓSTICO:');
+            debugError('[REF-FIX]   1. FirstAnalysisStore.getRef() retornou:', refFromStore ? 'objeto' : 'null/undefined');
+            debugError('[REF-FIX]   2. refFromStore.jobId:', refFromStore?.jobId);
+            debugError('[REF-FIX]   3. refFromStore.technicalData existe?', !!refFromStore?.technicalData);
+            debugError('[REF-FIX]   4. refFromStore.metrics existe?', !!refFromStore?.metrics);
+            debugError('[REF-FIX]   5. extractABMetrics debugShape:', refMetrics.debugShape);
+            debugError('[REF-FIX]   6. window.__REFERENCE_JOB_ID__:', referenceJobId);
+            debugError('[REF-FIX]   7. Chaves disponíveis:', refFromStore ? Object.keys(refFromStore) : 'N/A');
+            debugError('[AB-BLOCK] abState:', abState);
+            debugError('[AB-BLOCK] FirstAnalysisStore.getRef():', refFromStore);
+            debugError('[AB-DATA] ref metrics extraction failed:', refMetrics.debugShape);
             
             // Renderizar fallback com diagnóstico preciso
             const container = ensureReferenceContainer();
@@ -15565,7 +15565,7 @@ async function displayModalResults(analysis) {
         const first = FirstAnalysisStore.get();
         
         if (!first) {
-            console.error('[A/B] ❌ Primeira análise não encontrada no FirstAnalysisStore');
+            debugError('[A/B] ❌ Primeira análise não encontrada no FirstAnalysisStore');
             warn('[A/B] ⚠️ Renderizando apenas segunda análise como single');
             
             // Renderiza apenas a segunda como single (fallback seguro)
@@ -15933,9 +15933,9 @@ async function displayModalResults(analysis) {
             
             // 🚨 VALIDAÇÃO CRÍTICA: Detectar contaminação no store
             if (window.SoundyAI_Store.first?.jobId === window.SoundyAI_Store.second?.jobId) {
-                console.error('🚨 [STORE-ERROR] ❌ CONTAMINAÇÃO NO STORE DETECTADA!');
-                console.error('   - JobIds são IGUAIS:', window.SoundyAI_Store.first.jobId);
-                console.error('   - Isso indica bug no salvamento dos dados');
+                debugError('🚨 [STORE-ERROR] ❌ CONTAMINAÇÃO NO STORE DETECTADA!');
+                debugError('   - JobIds são IGUAIS:', window.SoundyAI_Store.first.jobId);
+                debugError('   - Isso indica bug no salvamento dos dados');
                 console.trace();
             }
             
@@ -15997,13 +15997,13 @@ async function displayModalResults(analysis) {
         
         // 🚨 VALIDAÇÃO CRÍTICA: Se jobIds forem iguais, ABORTAR IMEDIATAMENTE
         if (refJobId && currJobId && refJobId === currJobId) {
-            console.error('🚨🚨🚨 [CRITICAL-ERROR] JOBIDS IGUAIS DETECTADOS! 🚨🚨🚨');
-            console.error('   - refJobId:', refJobId);
-            console.error('   - currJobId:', currJobId);
-            console.error('   - refFileName:', refFileName);
-            console.error('   - currFileName:', currFileName);
-            console.error('   - Sistema está tentando comparar a música consigo mesma!');
-            console.error('   - ABORTANDO renderização para evitar dados incorretos');
+            debugError('🚨🚨🚨 [CRITICAL-ERROR] JOBIDS IGUAIS DETECTADOS! 🚨🚨🚨');
+            debugError('   - refJobId:', refJobId);
+            debugError('   - currJobId:', currJobId);
+            debugError('   - refFileName:', refFileName);
+            debugError('   - currFileName:', currFileName);
+            debugError('   - Sistema está tentando comparar a música consigo mesma!');
+            debugError('   - ABORTANDO renderização para evitar dados incorretos');
             console.trace();
             
             // Mostrar alerta ao usuário
@@ -16118,10 +16118,10 @@ async function displayModalResults(analysis) {
         
         // 🔴 VALIDAÇÃO CRÍTICA: Se os arquivos são iguais, ABORTAR imediatamente
         if (refNormalized?.metadata?.fileName === currNormalized?.metadata?.fileName) {
-            console.error('🔴 [AUDITORIA_STATE_FLOW] ❌❌❌ CONTAMINAÇÃO CONFIRMADA ❌❌❌');
-            console.error('🔴 refNormalized e currNormalized têm O MESMO ARQUIVO!');
-            console.error('🔴 Isso significa que window.__FIRST_ANALYSIS_FROZEN__ foi contaminado!');
-            console.error('🔴 Sistema está comparando a música consigo mesma!');
+            debugError('🔴 [AUDITORIA_STATE_FLOW] ❌❌❌ CONTAMINAÇÃO CONFIRMADA ❌❌❌');
+            debugError('🔴 refNormalized e currNormalized têm O MESMO ARQUIVO!');
+            debugError('🔴 Isso significa que window.__FIRST_ANALYSIS_FROZEN__ foi contaminado!');
+            debugError('🔴 Sistema está comparando a música consigo mesma!');
             console.table({
                 'refNormalized.fileName': refNormalized?.metadata?.fileName,
                 'refNormalized.jobId': refNormalized?.jobId,
@@ -16297,8 +16297,8 @@ async function displayModalResults(analysis) {
         log('   - Esses também são diferentes?', expectedCurrentJobId !== expectedReferenceJobId);
 
         if (frozenRef.jobId === frozenCurr.jobId) {
-            console.error('❌ [DISPLAY-MODAL] ERRO: frozenRef e frozenCurr têm o MESMO jobId!');
-            console.error('   Isso significa que os dados estão contaminados!');
+            debugError('❌ [DISPLAY-MODAL] ERRO: frozenRef e frozenCurr têm o MESMO jobId!');
+            debugError('   Isso significa que os dados estão contaminados!');
             console.trace();
             console.groupEnd();
 
@@ -16484,11 +16484,11 @@ async function displayModalResults(analysis) {
                     });
                     
                     if (cardsAfter === 0) {
-                        console.error('   [AUDITORIA_DOM] ❌ NENHUM CARD FOI RENDERIZADO!');
-                        console.error('   [AUDITORIA_DOM] Possíveis causas:');
-                        console.error('   [AUDITORIA_DOM]   1. analysisForSuggestions não tem suggestions[]');
-                        console.error('   [AUDITORIA_DOM]   2. Função checkForAISuggestions retornou cedo');
-                        console.error('   [AUDITORIA_DOM]   3. Erro no renderCompactPreview()');
+                        debugError('   [AUDITORIA_DOM] ❌ NENHUM CARD FOI RENDERIZADO!');
+                        debugError('   [AUDITORIA_DOM] Possíveis causas:');
+                        debugError('   [AUDITORIA_DOM]   1. analysisForSuggestions não tem suggestions[]');
+                        debugError('   [AUDITORIA_DOM]   2. Função checkForAISuggestions retornou cedo');
+                        debugError('   [AUDITORIA_DOM]   3. Erro no renderCompactPreview()');
                     } else {
                         log('   [AUDITORIA_DOM] ✅', cardsAfter, 'cards renderizados com sucesso!');
                     }
@@ -16507,17 +16507,17 @@ async function displayModalResults(analysis) {
     }
     else {
         // 🔴 DIAGNÓSTICO: Por que NÃO entrou no bloco A/B?
-        console.error('🔴🔴🔴 [DIAGNÓSTICO-AB] NÃO ENTROU NO BLOCO A/B!');
-        console.error('🔴 [DIAGNÓSTICO-AB] Motivo:');
+        debugError('🔴🔴🔴 [DIAGNÓSTICO-AB] NÃO ENTROU NO BLOCO A/B!');
+        debugError('🔴 [DIAGNÓSTICO-AB] Motivo:');
         if (mode !== 'reference') {
-            console.error('🔴 [DIAGNÓSTICO-AB]   ❌ mode !== "reference" (mode =', mode, ')');
+            debugError('🔴 [DIAGNÓSTICO-AB]   ❌ mode !== "reference" (mode =', mode, ')');
         }
         if (!isSecondTrack) {
-            console.error('🔴 [DIAGNÓSTICO-AB]   ❌ isSecondTrack = false');
-            console.error('🔴 [DIAGNÓSTICO-AB]   window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+            debugError('🔴 [DIAGNÓSTICO-AB]   ❌ isSecondTrack = false');
+            debugError('🔴 [DIAGNÓSTICO-AB]   window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
         }
-        console.error('🔴 [DIAGNÓSTICO-AB] Sistema VAI RENDERIZAR EM MODO SINGLE-TRACK!');
-        console.error('🔴🔴🔴 [DIAGNÓSTICO-AB] ════════════════════════════════════');
+        debugError('🔴 [DIAGNÓSTICO-AB] Sistema VAI RENDERIZAR EM MODO SINGLE-TRACK!');
+        debugError('🔴🔴🔴 [DIAGNÓSTICO-AB] ════════════════════════════════════');
     }
     
     // 🎯 CORREÇÃO: Definir modo baseado no contexto real da análise
@@ -16565,7 +16565,7 @@ async function displayModalResults(analysis) {
     
     if (!results || !technicalData) {
         warn('[AUDITORIA_CONDICAO] ⚠️ Retorno antecipado: !results || !technicalData', { hasResults: !!results, hasTechnicalData: !!technicalData, mode: analysis?.mode });
-        console.error('❌ Elementos de resultado não encontrados');
+        debugError('❌ Elementos de resultado não encontrados');
         return;
     }
     
@@ -16600,7 +16600,7 @@ async function displayModalResults(analysis) {
             warn('[MUSIC-ID] ⚠️ Container #musicIdentificationBlock não encontrado no DOM');
         }
     } catch (error) {
-        console.error('[MUSIC-ID] ❌ Erro ao renderizar bloco de identificação:', error);
+        debugError('[MUSIC-ID] ❌ Erro ao renderizar bloco de identificação:', error);
     }
     
     // 🎯 HOOK: Aplicar máscaras de Modo Reduzido se necessário
@@ -16910,9 +16910,9 @@ async function displayModalResults(analysis) {
     
     // 🚨 PATCH: Alerta crítico se arquivos são iguais (contaminação detectada)
     if (userMd.fileName === refMd.fileName && state.previousAnalysis) {
-        console.error('[INTEGRITY-CHECK] ❌ FALHA CRÍTICA: userFile === refFile');
-        console.error('[INTEGRITY-CHECK] ❌ Provável contaminação de dados!');
-        console.error('[INTEGRITY-CHECK] ❌ Tentando recuperar de state.previousAnalysis...');
+        debugError('[INTEGRITY-CHECK] ❌ FALHA CRÍTICA: userFile === refFile');
+        debugError('[INTEGRITY-CHECK] ❌ Provável contaminação de dados!');
+        debugError('[INTEGRITY-CHECK] ❌ Tentando recuperar de state.previousAnalysis...');
         
         // Tentar recuperar userFull de previousAnalysis
         if (state.previousAnalysis.metadata?.fileName !== refMd.fileName) {
@@ -16983,7 +16983,7 @@ async function displayModalResults(analysis) {
         
         // � HARD-GUARD: SEMPRE usar FirstAnalysisStore.get() como fonte confiável
         if (!FirstAnalysisStore.has()) {
-            console.error('[FIX] ❌ FirstAnalysisStore vazio! Abortando recuperação...');
+            debugError('[FIX] ❌ FirstAnalysisStore vazio! Abortando recuperação...');
             return;
         }
         
@@ -17547,12 +17547,12 @@ async function displayModalResults(analysis) {
         };
     }
 
-    console.log("STEP 2 - antes calculateAnalysisScores");
+    debugLog("STEP 2 - antes calculateAnalysisScores");
     let analysisScores = null;
     try {
         analysisScores = __safeCalculateAnalysisScores(analysis, referenceDataForScores, detectedGenre);
     } catch (scoreErr) {
-        console.error('[SCORE-GUARD] Erro em __safeCalculateAnalysisScores:', scoreErr);
+        debugError('[SCORE-GUARD] Erro em __safeCalculateAnalysisScores:', scoreErr);
     }
 
     if (!analysisScores || !Number.isFinite(analysisScores.final)) {
@@ -17598,8 +17598,8 @@ async function displayModalResults(analysis) {
         if (analysisScores.tecnico === null || analysisScores.tecnico === undefined) nullScores.push('tecnico');
         
         if (nullScores.length > 0) {
-            console.error('❌ [AUDIT-SCORES] SUBSCORES NULL DETECTADOS:', nullScores);
-            console.error('⚠️ [AUDIT-SCORES] Causa provável: métricas ausentes em analysis.metrics ou analysis.technicalData');
+            debugError('❌ [AUDIT-SCORES] SUBSCORES NULL DETECTADOS:', nullScores);
+            debugError('⚠️ [AUDIT-SCORES] Causa provável: métricas ausentes em analysis.metrics ou analysis.technicalData');
         } else {
             log('✅ [AUDIT-SCORES] TODOS OS SUBSCORES SÃO VÁLIDOS');
         }
@@ -17607,7 +17607,7 @@ async function displayModalResults(analysis) {
         
         // Adicionar scores à análise
         analysis.scores = analysisScores;
-        console.log("STEP 3 - depois calculateAnalysisScores", analysis.scores);
+        debugLog("STEP 3 - depois calculateAnalysisScores", analysis.scores);
         log('✅ Scores calculados e adicionados à análise');
         
         // Também armazenar globalmente
@@ -17994,7 +17994,7 @@ async function displayModalResults(analysis) {
             // 🛡️ SAFETY: Se TOOLTIP_REGISTRY não existir, retornar null sem quebrar
             if (typeof TOOLTIP_REGISTRY === 'undefined') {
                 if (isDev) {
-                    console.error('[TOOLTIP-ERROR] TOOLTIP_REGISTRY não está definido! Sistema de tooltips não foi inicializado.');
+                    debugError('[TOOLTIP-ERROR] TOOLTIP_REGISTRY não está definido! Sistema de tooltips não foi inicializado.');
                 }
                 return null;
             }
@@ -19265,7 +19265,7 @@ async function displayModalResults(analysis) {
                         };
                         
                     } catch (error) {
-                        console.error('[SUGGESTION_VALIDATOR] Erro ao validar:', error);
+                        debugError('[SUGGESTION_VALIDATOR] Erro ao validar:', error);
                         return { valid: true, reason: 'validation_error' };  // Fail-safe: permitir em caso de erro
                     }
                 };
@@ -19301,12 +19301,12 @@ async function displayModalResults(analysis) {
                             const correctTargets = getCorrectTargets(analysis);
                             
                             if (!metrics) {
-                                console.error('[ULTRA_V2] ❌ CRÍTICO: analysis.data.metrics não encontrado');
+                                debugError('[ULTRA_V2] ❌ CRÍTICO: analysis.data.metrics não encontrado');
                                 throw new Error('NO_METRICS_FROM_BACKEND');
                             }
                             
                             if (!correctTargets) {
-                                console.error('[ULTRA_V2] ❌ CRÍTICO: analysis.data.genreTargets não encontrado (Postgres)');
+                                debugError('[ULTRA_V2] ❌ CRÍTICO: analysis.data.genreTargets não encontrado (Postgres)');
                                 throw new Error('NO_TARGETS_FROM_POSTGRES');
                             }
                             
@@ -19414,7 +19414,7 @@ async function displayModalResults(analysis) {
                         }
                         
                     } catch (error) {
-                        console.error('❌ [ULTRA_V2] Erro no sistema ultra-avançado V2:', error);
+                        debugError('❌ [ULTRA_V2] Erro no sistema ultra-avançado V2:', error);
                         // Manter sugestões originais em caso de erro
                     }
                 } else {
@@ -20192,12 +20192,12 @@ async function displayModalResults(analysis) {
          * @param {Object} scores - Objeto contendo todos os scores
          */
         function renderFinalScoreAtTop(scores) {
-            console.log("STEP 5 - entrou renderFinalScoreAtTop", scores);
+            debugLog("STEP 5 - entrou renderFinalScoreAtTop", scores);
             log('[RENDER_FINAL_SCORE] ✅ Iniciada');
             log('[RENDER_FINAL_SCORE] scores:', scores);
             
             if (!scores || !Number.isFinite(scores.final)) {
-                console.warn('[SAFE RENDER] score inválido, aplicando fallback');
+                debugWarn('[SAFE RENDER] score inválido, aplicando fallback');
 
                 scores = {
                     final: 50,
@@ -20207,7 +20207,7 @@ async function displayModalResults(analysis) {
             
             const container = document.getElementById('final-score-display');
             if (!container) {
-                console.error('[RENDER_FINAL_SCORE] ⚠️ Retorno antecipado - Container #final-score-display não encontrado');
+                debugError('[RENDER_FINAL_SCORE] ⚠️ Retorno antecipado - Container #final-score-display não encontrado');
                 warn('[AUDITORIA_CONDICAO] ⚠️ Retorno antecipado em: renderFinalScoreAtTop - !container');
                 return;
             }
@@ -20535,7 +20535,7 @@ async function displayModalResults(analysis) {
 
         log('[RENDER_SCORE_TOP] ✅ Chamando renderFinalScoreAtTop');
         log('[RENDER_SCORE_TOP] analysis.scores:', analysis?.scores);
-        console.log("STEP 4 - antes renderFinalScoreAtTop");
+        debugLog("STEP 4 - antes renderFinalScoreAtTop");
         
         // 🎯 RENDERIZAR SCORE FINAL NO TOPO (ISOLADO)
         renderFinalScoreAtTop(analysis.scores);
@@ -20801,8 +20801,8 @@ async function displayModalResults(analysis) {
                 warn('[BANDS-FIX] ⚠️ Objetos ausentes para comparação A/B, pulando render de referência');
             }
         } catch(e){ 
-            console.error('❌ [RENDER-FLOW] ERRO em renderReferenceComparisons:', e);
-            console.error('❌ Stack trace:', e.stack);
+            debugError('❌ [RENDER-FLOW] ERRO em renderReferenceComparisons:', e);
+            debugError('❌ Stack trace:', e.stack);
         }
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ warn('validation controls fail', e); }
         
@@ -20831,7 +20831,7 @@ async function displayModalResults(analysis) {
 const originalDisplay = displayModalResults;
 
 window.displayModalResults = function (...args) {
-    console.log('[TRACE] displayModalResults chamado por:', new Error().stack);
+    debugLog('[TRACE] displayModalResults chamado por:', new Error().stack);
     return originalDisplay.apply(this, args);
 };
 
@@ -21172,11 +21172,11 @@ function getActiveReferenceComparisonMetrics(normalizedResult) {
             return normalizedResult.referenceComparisonMetrics;
         }
         
-        console.error('❌ [GENRE-FIX] CRÍTICO: Nenhum target de gênero encontrado!');
-        console.error('   - analysis.data.genreTargets:', !!normalizedResult?.data?.genreTargets);
-        console.error('   - window.__activeRefData:', !!window.__activeRefData);
-        console.error('   - window.PROD_AI_REF_DATA:', !!window.PROD_AI_REF_DATA);
-        console.error('   - Genre:', genre);
+        debugError('❌ [GENRE-FIX] CRÍTICO: Nenhum target de gênero encontrado!');
+        debugError('   - analysis.data.genreTargets:', !!normalizedResult?.data?.genreTargets);
+        debugError('   - window.__activeRefData:', !!window.__activeRefData);
+        debugError('   - window.PROD_AI_REF_DATA:', !!window.PROD_AI_REF_DATA);
+        debugError('   - Genre:', genre);
         console.groupEnd();
         return null;
     }
@@ -21373,7 +21373,7 @@ function buildComparisonRows(metricsA, metricsB) {
     log('[AB-TABLE] 🔨 Construindo tabela de comparação A vs B');
     
     if (!metricsA || !metricsB) {
-        console.error('[AB-TABLE] ❌ Métricas ausentes:', { hasA: !!metricsA, hasB: !!metricsB });
+        debugError('[AB-TABLE] ❌ Métricas ausentes:', { hasA: !!metricsA, hasB: !!metricsB });
         return [];
     }
     
@@ -21393,7 +21393,7 @@ function buildComparisonRows(metricsA, metricsB) {
     const refHasMetrics = Object.values(refMetrics).some(v => v != null);
     
     if (!userHasMetrics || !refHasMetrics) {
-        console.error('[AB-TABLE] ❌ Nenhuma métrica válida encontrada:', { userHasMetrics, refHasMetrics });
+        debugError('[AB-TABLE] ❌ Nenhuma métrica válida encontrada:', { userHasMetrics, refHasMetrics });
         return [];
     }
     
@@ -21617,8 +21617,8 @@ function renderReferenceComparisons(ctx) {
             
             // 🚨 VALIDAÇÃO CRÍTICA: Store NÃO pode ter jobIds iguais
             if (window.SoundyAI_Store.first?.jobId === window.SoundyAI_Store.second?.jobId) {
-                console.error('🚨 [STORE-ERROR] STORE CONTAMINADO!');
-                console.error('   - Store tem jobIds idênticos');
+                debugError('🚨 [STORE-ERROR] STORE CONTAMINADO!');
+                debugError('   - Store tem jobIds idênticos');
                 console.trace();
                 console.groupEnd();
                 alert('ERRO: Store contaminado detectado. Por favor, recarregue a página.');
@@ -21650,8 +21650,8 @@ function renderReferenceComparisons(ctx) {
     
     // Se recebeu jobIds iguais, TENTA RECUPERAR os corretos
     if (userJobId && refJobId && userJobId === refJobId) {
-        console.error('❌ [RENDER-REF] ERRO: Recebeu jobIds iguais!');
-        console.error('   Tentando recuperar jobIds corretos com getCorrectJobId()...');
+        debugError('❌ [RENDER-REF] ERRO: Recebeu jobIds iguais!');
+        debugError('   Tentando recuperar jobIds corretos com getCorrectJobId()...');
         
         // RECUPERA os jobIds corretos
         const recoveredCurrentJobId = getCorrectJobId('current');
@@ -21664,8 +21664,8 @@ function renderReferenceComparisons(ctx) {
         
         // Se AINDA forem iguais, ABORTA
         if (recoveredCurrentJobId === recoveredReferenceJobId) {
-            console.error('❌ [RENDER-REF] FALHA NA RECUPERAÇÃO!');
-            console.error('   Mesmo após getCorrectJobId(), os jobIds são iguais');
+            debugError('❌ [RENDER-REF] FALHA NA RECUPERAÇÃO!');
+            debugError('   Mesmo após getCorrectJobId(), os jobIds são iguais');
             console.trace();
             console.groupEnd();
             alert('ERRO: Não foi possível carregar a comparação. Os jobIds são iguais. Recarregue a página.');
@@ -21700,9 +21700,9 @@ function renderReferenceComparisons(ctx) {
     
     // VALIDAÇÃO CRÍTICA: Se jobIds são iguais, ABORTAR renderização
     if (userJobId && refJobId && userJobId === refJobId) {
-        console.error('❌ [RENDER] ERRO CRÍTICO: Tentando comparar mesma música!');
-        console.error('   userJobId:', userJobId);
-        console.error('   refJobId:', refJobId);
+        debugError('❌ [RENDER] ERRO CRÍTICO: Tentando comparar mesma música!');
+        debugError('   userJobId:', userJobId);
+        debugError('   refJobId:', refJobId);
         console.trace();
         
         // Tenta recuperar o jobId correto da segunda música
@@ -21721,7 +21721,7 @@ function renderReferenceComparisons(ctx) {
             console.groupEnd();
             return;
         } else {
-            console.error('❌ [RENDER] Não foi possível recuperar jobIds corretos');
+            debugError('❌ [RENDER] Não foi possível recuperar jobIds corretos');
             alert('ERRO CRÍTICO: Comparação inválida detectada. Recarregue a página.');
             console.groupEnd();
             return;
@@ -21830,9 +21830,9 @@ function renderReferenceComparisons(ctx) {
         const reCheckRefMetrics = extractABMetrics(reCheckRef);
         
         if (!reCheckUserMetrics.ok || !reCheckRefMetrics.ok) {
-            console.error('[AB-BLOCK] ❌ Hidratação falhou - abortando A/B');
-            console.error('[AB-DATA] user recheck:', reCheckUserMetrics.debugShape);
-            console.error('[AB-DATA] ref recheck:', reCheckRefMetrics.debugShape);
+            debugError('[AB-BLOCK] ❌ Hidratação falhou - abortando A/B');
+            debugError('[AB-DATA] user recheck:', reCheckUserMetrics.debugShape);
+            debugError('[AB-DATA] ref recheck:', reCheckRefMetrics.debugShape);
             return;
         }
         
@@ -21848,7 +21848,7 @@ function renderReferenceComparisons(ctx) {
                      userFromStore.objectId.hash === refFromStore.objectId.hash;
     
     if (samePointer || sameJobId || sameFile || sameHash) {
-        console.error('[AB-BLOCK] ❌ Self-compare detectado - abortando tabela A/B:', {
+        debugError('[AB-BLOCK] ❌ Self-compare detectado - abortando tabela A/B:', {
             samePointer,
             sameJobId: sameJobId ? `${userFromStore.jobId}` : false,
             sameFile: sameFile ? `${userFromStore.metadata.fileKey}` : false,
@@ -21963,7 +21963,7 @@ function renderReferenceComparisons(ctx) {
         const s = window.__soundyState || {};
         
         if (!opts.userAnalysis || !opts.referenceAnalysis) {
-            console.error("[REF-PATCH] Faltam dados pra A/B");
+            debugError("[REF-PATCH] Faltam dados pra A/B");
             return { abort: true, reason: 'missing-data' };
         }
 
@@ -22006,7 +22006,7 @@ function renderReferenceComparisons(ctx) {
     // �🔒 PROTEÇÃO ANTI-DUPLICAÇÃO: Detectar se faixas são idênticas
     if (opts.userAnalysis?.fileName && opts.referenceAnalysis?.fileName &&
         opts.userAnalysis.fileName === opts.referenceAnalysis.fileName) {
-        console.error("❌ [REF-DUPE] Detecção de duplicação — referência sobrescrita!");
+        debugError("❌ [REF-DUPE] Detecção de duplicação — referência sobrescrita!");
         console.table({
             userTrack: opts.userAnalysis?.fileName,
             refTrack: opts.referenceAnalysis?.fileName,
@@ -22081,7 +22081,7 @@ function renderReferenceComparisons(ctx) {
     // 🎯 GARANTIR QUE CONTAINER EXISTE ANTES DE RENDERIZAR
     const container = ensureReferenceContainer();
     if (!container) {
-        console.error('[RENDER-REF] ❌ Não foi possível criar/localizar container #referenceComparisons');
+        debugError('[RENDER-REF] ❌ Não foi possível criar/localizar container #referenceComparisons');
         window.comparisonLock = false;
         log("[LOCK] comparisonLock liberado (container indisponível)");
         
@@ -22125,9 +22125,9 @@ function renderReferenceComparisons(ctx) {
     });
 
     if (!refBandsReal || !userBandsReal) {
-        console.error('[VALIDATION-FIX] ❌ Falha crítica: bandas não detectadas no momento do render.');
-        console.error('comparisonData:', comparisonData);
-        console.error('window.__soundyState:', window.__soundyState);
+        debugError('[VALIDATION-FIX] ❌ Falha crítica: bandas não detectadas no momento do render.');
+        debugError('comparisonData:', comparisonData);
+        debugError('window.__soundyState:', window.__soundyState);
         window.comparisonLock = false;
         if (typeof displayModalResultsError === 'function') {
             return displayModalResultsError('Erro na análise por referência (bandas não detectadas).');
@@ -22359,7 +22359,7 @@ function renderReferenceComparisons(ctx) {
 
         //  Abortagem segura se algo vier undefined
         if (!referenceTrack || !userTrack) {
-            console.error(" [REF_FIX_V5] referenceTrack ou userTrack ausentes!");
+            debugError(" [REF_FIX_V5] referenceTrack ou userTrack ausentes!");
             window.comparisonLock = false;
             log("[LOCK] comparisonLock liberado (track ausente)");
             console.groupEnd();
@@ -22372,7 +22372,7 @@ function renderReferenceComparisons(ctx) {
         comparisonData.referenceTrack = referenceTrack;
         comparisonData.userTrack = userTrack;
     } catch (err) {
-        console.error(" [REF_FIX_V5] Erro crítico de escopo:", err);
+        debugError(" [REF_FIX_V5] Erro crítico de escopo:", err);
         window.comparisonLock = false;
         log("[LOCK] comparisonLock liberado (erro crítico)");
         console.groupEnd();
@@ -22419,7 +22419,7 @@ function renderReferenceComparisons(ctx) {
     
     // Evita leitura em escopos errados - ABORT se referenceTrack undefined
     if (!referenceTrack) {
-        console.error("🚨 [SAFE_REF_V3] referenceTrack ainda undefined! Abortando render seguro.");
+        debugError("🚨 [SAFE_REF_V3] referenceTrack ainda undefined! Abortando render seguro.");
         window.comparisonLock = false;
         log("[LOCK] comparisonLock liberado (referenceTrack undefined)");
         return;
@@ -22514,7 +22514,7 @@ function renderReferenceComparisons(ctx) {
         });
         
         if (!hasGlobalUser || !hasGlobalRef) {
-            console.error("[REF-COMP] ❌ Nenhum dado válido encontrado - abortando render");
+            debugError("[REF-COMP] ❌ Nenhum dado válido encontrado - abortando render");
             console.table({
                 userBandsLocal: userBandsLocal ? (Array.isArray(userBandsLocal) ? userBandsLocal.length : Object.keys(userBandsLocal).length) : 0,
                 refBandsLocal: refBandsLocal ? (Array.isArray(refBandsLocal) ? refBandsLocal.length : Object.keys(refBandsLocal).length) : 0,
@@ -22660,10 +22660,10 @@ function renderReferenceComparisons(ctx) {
     
     // 🛡️ [AUDIT-FIX] VALIDAÇÃO CRÍTICA: garantir que renderMode seja válido
     if (renderMode !== 'reference' && renderMode !== 'genre') {
-        console.error('🚨 [AUDIT-FIX] renderMode INVÁLIDO detectado:', renderMode);
-        console.error('🚨 [AUDIT-FIX] explicitMode:', explicitMode);
-        console.error('🚨 [AUDIT-FIX] opts.mode:', opts.mode);
-        console.error('🚨 [AUDIT-FIX] stateV3.render.mode:', stateV3?.render?.mode);
+        debugError('🚨 [AUDIT-FIX] renderMode INVÁLIDO detectado:', renderMode);
+        debugError('🚨 [AUDIT-FIX] explicitMode:', explicitMode);
+        debugError('🚨 [AUDIT-FIX] opts.mode:', opts.mode);
+        debugError('🚨 [AUDIT-FIX] stateV3.render.mode:', stateV3?.render?.mode);
         
         // Tentar recuperar modo correto
         if (opts.mode === 'reference' || stateV3?.render?.mode === 'reference' || stateV3?.reference?.isSecondTrack) {
@@ -22915,7 +22915,7 @@ function renderReferenceComparisons(ctx) {
 
                 // Se ainda não tiver bandas, abortar render seguro
                 if (!refBandsLock || Object.keys(refBandsLock).length === 0) {
-                    console.error(
+                    debugError(
                         "🚨 [REF_SCOPE_LOCK] refBands ausente, abortando renderização segura."
                     );
                     window.__REF_RENDER_LOCK__ = false;
@@ -22928,7 +22928,7 @@ function renderReferenceComparisons(ctx) {
                 opts.comparisonData = comparisonLock;
                 window.comparisonData = comparisonLock;
             } catch (err) {
-                console.error("💥 [REF_SCOPE_LOCK] Erro crítico ao reestabelecer escopo:", err);
+                debugError("💥 [REF_SCOPE_LOCK] Erro crítico ao reestabelecer escopo:", err);
                 window.comparisonLock = false;
                 log("[LOCK] comparisonLock liberado (erro escopo)");
                 return;
@@ -22961,7 +22961,7 @@ function renderReferenceComparisons(ctx) {
             const userAnalysisData = opts?.userAnalysis || stateV3?.reference?.userAnalysis;
             
             if (!refAnalysis || !userAnalysisData) {
-                console.error("💥 [REF-FIX-FINAL] Análises não encontradas, abortando");
+                debugError("💥 [REF-FIX-FINAL] Análises não encontradas, abortando");
                 window.comparisonLock = false;
                 log("[LOCK] comparisonLock liberado (análises não encontradas)");
                 return;
@@ -23057,8 +23057,8 @@ function renderReferenceComparisons(ctx) {
         
         // Tentativa 3: Criar estrutura mínima
         if (!__activeRefData || !__activeRefData.bands) {
-            console.error('❌ [GENRE-MODE] NENHUMA FONTE DE DADOS DE GÊNERO ENCONTRADA!');
-            console.error('❌ Debug:', {
+            debugError('❌ [GENRE-MODE] NENHUMA FONTE DE DADOS DE GÊNERO ENCONTRADA!');
+            debugError('❌ Debug:', {
                 hasWindowActiveRefData: !!window.__activeRefData,
                 hasProdAiRefData: !!window.PROD_AI_REF_DATA,
                 hasAnalysisRefComparison: !!analysis?.referenceComparison,
@@ -23087,8 +23087,8 @@ function renderReferenceComparisons(ctx) {
         });
     } else {
         // 🛡️ [AUDIT-FIX] FALLBACK SEGURO: não destruir conteúdo válido existente
-        console.error('🚨 [AUDIT-FIX] MODO INDETERMINADO - renderMode:', renderMode);
-        console.error('🚨 [AUDIT-FIX] Dados de diagnóstico:', {
+        debugError('🚨 [AUDIT-FIX] MODO INDETERMINADO - renderMode:', renderMode);
+        debugError('🚨 [AUDIT-FIX] Dados de diagnóstico:', {
             explicitMode,
             'opts.mode': opts.mode,
             'stateV3.render.mode': stateV3?.render?.mode,
@@ -23146,8 +23146,8 @@ function renderReferenceComparisons(ctx) {
         // 🎯 ASSERT CRÍTICO: Verificar se bands estão disponíveis no modo reference
         log('[ASSERT_REF_DATA]', ref.bands ? '✅ Reference bands loaded' : '❌ Missing bands');
         if (!ref.bands) {
-            console.error('🚨 [CRITICAL] Modo reference sem bandas! Bloqueando fallback de gênero.');
-            console.error('🚨 Debug:', {
+            debugError('🚨 [CRITICAL] Modo reference sem bandas! Bloqueando fallback de gênero.');
+            debugError('🚨 Debug:', {
                 hasTargetMetrics: !!targetMetrics,
                 targetMetricsKeys: targetMetrics ? Object.keys(targetMetrics) : [],
                 hasSpectralBalance: !!targetMetrics?.spectral_balance,
@@ -23793,9 +23793,9 @@ function renderReferenceComparisons(ctx) {
                 });
                 
                 if (!refBands) {
-                    console.error("🚨 [REF-ERROR] Nenhum dado de bandas encontrado na referência.");
-                    console.error('[CRITICAL] Reference mode sem bandas da 2ª faixa! Abortando render.');
-                    console.error('[CRITICAL] Proibido fallback de gênero no reference mode');
+                    debugError("🚨 [REF-ERROR] Nenhum dado de bandas encontrado na referência.");
+                    debugError('[CRITICAL] Reference mode sem bandas da 2ª faixa! Abortando render.');
+                    debugError('[CRITICAL] Proibido fallback de gênero no reference mode');
                     if (container) {
                         container.innerHTML = '<div style="color:red;">❌ Erro: bandas de referência não disponíveis</div>';
                     }
@@ -23911,7 +23911,7 @@ function renderReferenceComparisons(ctx) {
         if (userTech.lufsIntegrated === refTech.lufsIntegrated &&
             userTech.dynamicRange === refTech.dynamicRange &&
             userTech.truePeakDbtp === refTech.truePeakDbtp) {
-            console.error('❌ [A/B-TABLE-FIX] ERRO CRÍTICO: user/ref metrics IDÊNTICAS - DOM duplicado ou fonte errada!');
+            debugError('❌ [A/B-TABLE-FIX] ERRO CRÍTICO: user/ref metrics IDÊNTICAS - DOM duplicado ou fonte errada!');
             console.table({
                 'User LUFS': userTech.lufsIntegrated,
                 'Ref LUFS': refTech.lufsIntegrated,
@@ -24162,7 +24162,7 @@ function renderReferenceComparisons(ctx) {
             rowsGenerated: rows.length
         });
     } catch (err) {
-        console.error('[RENDER-REF] ❌ Erro ao inserir HTML da tabela A/B:', err);
+        debugError('[RENDER-REF] ❌ Erro ao inserir HTML da tabela A/B:', err);
         log('[AB-RENDER] inserted?', false);
         container.innerHTML = `<div class="error-message" style="padding: 20px; color: #ff4444; background: #1a1a1f; border-radius: 8px;">
             ❌ Erro ao renderizar tabela de comparação A/B: ${err.message}
@@ -24193,9 +24193,9 @@ function renderReferenceComparisons(ctx) {
                 log('Ref LUFS innerHTML:', refLufsEl?.innerHTML);
                 
                 if (userLufsEl === refLufsEl) {
-                    console.error('❌ [DOM-VALIDATION] ERRO CRÍTICO: Elementos .ab-user e .ab-ref são o MESMO objeto!');
+                    debugError('❌ [DOM-VALIDATION] ERRO CRÍTICO: Elementos .ab-user e .ab-ref são o MESMO objeto!');
                 } else if (!userLufsEl || !refLufsEl) {
-                    console.error('❌ [DOM-VALIDATION] ERRO: Elementos não encontrados no DOM!');
+                    debugError('❌ [DOM-VALIDATION] ERRO: Elementos não encontrados no DOM!');
                 } else {
                     log('✅ [DOM-VALIDATION] Elementos A/B são DISTINTOS e independentes');
                 }
@@ -24230,7 +24230,7 @@ function renderReferenceComparisons(ctx) {
                     finalCheck.style.opacity = '1';
                 }
             } else {
-                console.error('[DOM-FINAL-CHECK] ❌ #referenceComparisons NÃO EXISTE NO DOM!');
+                debugError('[DOM-FINAL-CHECK] ❌ #referenceComparisons NÃO EXISTE NO DOM!');
                 
                 // 🚨 DIAGNÓSTICO COMPLETO
                 console.group('[DOM-DIAGNOSTIC] 🔬 Diagnóstico completo do DOM');
@@ -24246,7 +24246,7 @@ function renderReferenceComparisons(ctx) {
         }, 500);
 
     } else {
-        console.error('❌ [RENDER-REF] Elemento #referenceComparisons NÃO encontrado no DOM!');
+        debugError('❌ [RENDER-REF] Elemento #referenceComparisons NÃO encontrado no DOM!');
     }
     
     // 🎯 Verificar se wrapper/parent também está visível
@@ -24518,7 +24518,7 @@ function renderReferenceComparisons(ctx) {
     
     // ==== PATCH 2 FINAL: Validação e limpeza ====
     if (opts.usedReferenceAnalysis !== true) {
-        console.error("[REF-PATCH] usedReferenceAnalysis caiu pra false — bug de wiring");
+        debugError("[REF-PATCH] usedReferenceAnalysis caiu pra false — bug de wiring");
         throw new Error("Reference not used");
     }
     window.__refRenderInProgress = false;
@@ -24527,8 +24527,8 @@ function renderReferenceComparisons(ctx) {
     // 🛡️ FIM DO TRY/CATCH WRAPPER
     // ========================================
     } catch (error) {
-        console.error('❌ [REF-RENDER-ERROR] Erro durante renderização:', error);
-        console.error('❌ [REF-RENDER-ERROR] Stack:', error.stack);
+        debugError('❌ [REF-RENDER-ERROR] Erro durante renderização:', error);
+        debugError('❌ [REF-RENDER-ERROR] Stack:', error.stack);
         
         // Liberar locks para evitar travamento
         window.comparisonLock = false;
@@ -24596,7 +24596,7 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
     
     const container = document.getElementById('referenceComparisons');
     if (!container) {
-        console.error('❌ Container referenceComparisons não encontrado');
+        debugError('❌ Container referenceComparisons não encontrado');
         return;
     }
     
@@ -26502,10 +26502,10 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     const soundDest = analysis?.soundDestination || 'pista';
     
     if (soundDest === 'streaming') {
-        console.error('\n╔═══════════════════════════════════════════════════════════╗');
-        console.error('║  📡 FRONTEND: APLICANDO OVERRIDE STREAMING FINAL         ║');
-        console.error('╚═══════════════════════════════════════════════════════════╝');
-        console.error('[STREAMING-OVERRIDE] ANTES: lufs.target =', finalTargets.lufs?.target);
+        debugError('\n╔═══════════════════════════════════════════════════════════╗');
+        debugError('║  📡 FRONTEND: APLICANDO OVERRIDE STREAMING FINAL         ║');
+        debugError('╚═══════════════════════════════════════════════════════════╝');
+        debugError('[STREAMING-OVERRIDE] ANTES: lufs.target =', finalTargets.lufs?.target);
         
         // Override LUFS para padrão de streaming
         finalTargets.lufs = {
@@ -26524,9 +26524,9 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
             type: 'CEILING'
         };
         
-        console.error('[STREAMING-OVERRIDE] DEPOIS: lufs.target =', finalTargets.lufs.target);
-        console.error('[STREAMING-OVERRIDE] soundDestination:', soundDest);
-        console.error('\n');
+        debugError('[STREAMING-OVERRIDE] DEPOIS: lufs.target =', finalTargets.lufs.target);
+        debugError('[STREAMING-OVERRIDE] soundDestination:', soundDest);
+        debugError('\n');
     }
     
     // 🔍 DEBUG: Log para verificar targets usados vs tabela
@@ -26551,14 +26551,14 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     const metricEvaluations = {};
     
     // 🎯 LOG CRÍTICO: Verificar target usado na avaliação de LUFS
-    console.error('╔═══════════════════════════════════════════════════════════╗');
-    console.error('║  🎯 AVALIANDO LUFS PARA SUBSCORE                         ║');
-    console.error('╚═══════════════════════════════════════════════════════════╝');
-    console.error('[LUFS-EVAL] LUFS medido:', measured.lufs);
-    console.error('[LUFS-EVAL] Target usado:', finalTargets.lufs.target);
-    console.error('[LUFS-EVAL] Diff (LU):', Math.abs(measured.lufs - finalTargets.lufs.target).toFixed(2));
-    console.error('[LUFS-EVAL] soundDestination:', soundDest);
-    console.error('\n');
+    debugError('╔═══════════════════════════════════════════════════════════╗');
+    debugError('║  🎯 AVALIANDO LUFS PARA SUBSCORE                         ║');
+    debugError('╚═══════════════════════════════════════════════════════════╝');
+    debugError('[LUFS-EVAL] LUFS medido:', measured.lufs);
+    debugError('[LUFS-EVAL] Target usado:', finalTargets.lufs.target);
+    debugError('[LUFS-EVAL] Diff (LU):', Math.abs(measured.lufs - finalTargets.lufs.target).toFixed(2));
+    debugError('[LUFS-EVAL] soundDestination:', soundDest);
+    debugError('\n');
     
     // Loudness
     metricEvaluations.lufs = window.evaluateMetric('lufs', measured.lufs, finalTargets.lufs);
@@ -26721,7 +26721,7 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
 
         // Prova de uso — log sempre visível para facilitar validação em DevTools
         try {
-            console.log('[FREQ-RANGE-SCORE v1] usando calculateFrequencySubscore em public/audio-analyzer-integration.js');
+            debugLog('[FREQ-RANGE-SCORE v1] usando calculateFrequencySubscore em public/audio-analyzer-integration.js');
         } catch (e) {
             // noop
         }
@@ -26787,7 +26787,7 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
 
             // Log detalhado por banda (formato de prova solicitado)
             try {
-                console.log(`[FREQ-RANGE-SCORE v1] band=${bandKey} value=${measuredVal} min=${minVal} max=${maxVal} severity=${sev} points=${points.toFixed(3)}`);
+                debugLog(`[FREQ-RANGE-SCORE v1] band=${bandKey} value=${measuredVal} min=${minVal} max=${maxVal} severity=${sev} points=${points.toFixed(3)}`);
             } catch (e) {
                 // noop
             }
@@ -26795,7 +26795,7 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
 
         // Se nenhuma banda foi processada, retornar null
         if (processedBands === 0) {
-            console.warn('[FREQ-RANGE-SCORE v1] Nenhuma banda válida para calcular subscore');
+            debugWarn('[FREQ-RANGE-SCORE v1] Nenhuma banda válida para calcular subscore');
             return null;
         }
 
@@ -26811,7 +26811,7 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         const capReason = null;
 
         // Sumário
-        console.log('[FREQ-RANGE-SCORE v1] resumo', {
+        debugLog('[FREQ-RANGE-SCORE v1] resumo', {
             method: 'RANGE-ONLY-7-BANDS-v1',
             finalScore,
             greenBands,
@@ -26856,29 +26856,29 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     let technicalSubscore = null;
     
     if (analysisMode === 'streaming') {
-        console.error('╔═══════════════════════════════════════════════════════════╗');
-        console.error('║  🎯 STREAMING MODE — SUBSCORES DIRETOS                   ║');
-        console.error('╚═══════════════════════════════════════════════════════════╝');
+        debugError('╔═══════════════════════════════════════════════════════════╗');
+        debugError('║  🎯 STREAMING MODE — SUBSCORES DIRETOS                   ║');
+        debugError('╚═══════════════════════════════════════════════════════════╝');
         
         // LOUDNESS: usar SOMENTE LUFS score (sem média com RMS)
         loudnessSubscore = metricEvaluations.lufs?.score ?? null;
         
-        console.error('[STREAMING-SUBSCORE] Loudness subscore DIRETO:', loudnessSubscore);
-        console.error('[STREAMING-SUBSCORE] LUFS score usado:', metricEvaluations.lufs?.score);
-        console.error('[STREAMING-SUBSCORE] LUFS severity:', metricEvaluations.lufs?.severity);
-        console.error('[STREAMING-SUBSCORE] LUFS zone:', metricEvaluations.lufs?.streamingZone);
-        console.error('[STREAMING-SUBSCORE] LUFS conformance:', metricEvaluations.lufs?.conformance);
-        console.error('\n');
+        debugError('[STREAMING-SUBSCORE] Loudness subscore DIRETO:', loudnessSubscore);
+        debugError('[STREAMING-SUBSCORE] LUFS score usado:', metricEvaluations.lufs?.score);
+        debugError('[STREAMING-SUBSCORE] LUFS severity:', metricEvaluations.lufs?.severity);
+        debugError('[STREAMING-SUBSCORE] LUFS zone:', metricEvaluations.lufs?.streamingZone);
+        debugError('[STREAMING-SUBSCORE] LUFS conformance:', metricEvaluations.lufs?.conformance);
+        debugError('\n');
         
         // TECHNICAL: usar SOMENTE TRUE PEAK score (sem média com outras métricas)
         technicalSubscore = metricEvaluations.truePeak?.score ?? null;
         
-        console.error('[STREAMING-SUBSCORE] Technical subscore DIRETO:', technicalSubscore);
-        console.error('[STREAMING-SUBSCORE] True Peak score usado:', metricEvaluations.truePeak?.score);
-        console.error('[STREAMING-SUBSCORE] True Peak severity:', metricEvaluations.truePeak?.severity);
-        console.error('[STREAMING-SUBSCORE] True Peak zone:', metricEvaluations.truePeak?.streamingZone);
-        console.error('[STREAMING-SUBSCORE] True Peak conformance:', metricEvaluations.truePeak?.conformance);
-        console.error('\n');
+        debugError('[STREAMING-SUBSCORE] Technical subscore DIRETO:', technicalSubscore);
+        debugError('[STREAMING-SUBSCORE] True Peak score usado:', metricEvaluations.truePeak?.score);
+        debugError('[STREAMING-SUBSCORE] True Peak severity:', metricEvaluations.truePeak?.severity);
+        debugError('[STREAMING-SUBSCORE] True Peak zone:', metricEvaluations.truePeak?.streamingZone);
+        debugError('[STREAMING-SUBSCORE] True Peak conformance:', metricEvaluations.truePeak?.conformance);
+        debugError('\n');
     } else {
         // OUTROS MODOS: usar média como sempre foi
         loudnessSubscore = avgValidScores(['lufs', 'rms']);
@@ -26896,18 +26896,18 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     };
     
     // 🚨 LOG CRÍTICO: Subscore RAW de loudness ANTES dos gates
-    console.error('╔═══════════════════════════════════════════════════════════╗');
-    console.error('║  📊 SUBSCORE RAW DE LOUDNESS CALCULADO                   ║');
-    console.error('╚═══════════════════════════════════════════════════════════╝');
-    console.error('[LOUDNESS-SUBSCORE] Analysis mode:', analysisMode);
-    console.error('[LOUDNESS-SUBSCORE] Subscore RAW:', subScoresRaw.loudness);
-    console.error('[LOUDNESS-SUBSCORE] LUFS score:', metricEvaluations.lufs?.score);
-    console.error('[LOUDNESS-SUBSCORE] RMS score:', metricEvaluations.rms?.score);
-    console.error('[LOUDNESS-SUBSCORE] LUFS medido:', measured.lufs);
-    console.error('[LOUDNESS-SUBSCORE] LUFS target:', finalTargets.lufs.target);
-    console.error('[LOUDNESS-SUBSCORE] Diff (LU):', Math.abs(measured.lufs - finalTargets.lufs.target).toFixed(2));
-    console.error('[LOUDNESS-SUBSCORE] soundDestination:', soundDest);
-    console.error('\n');
+    debugError('╔═══════════════════════════════════════════════════════════╗');
+    debugError('║  📊 SUBSCORE RAW DE LOUDNESS CALCULADO                   ║');
+    debugError('╚═══════════════════════════════════════════════════════════╝');
+    debugError('[LOUDNESS-SUBSCORE] Analysis mode:', analysisMode);
+    debugError('[LOUDNESS-SUBSCORE] Subscore RAW:', subScoresRaw.loudness);
+    debugError('[LOUDNESS-SUBSCORE] LUFS score:', metricEvaluations.lufs?.score);
+    debugError('[LOUDNESS-SUBSCORE] RMS score:', metricEvaluations.rms?.score);
+    debugError('[LOUDNESS-SUBSCORE] LUFS medido:', measured.lufs);
+    debugError('[LOUDNESS-SUBSCORE] LUFS target:', finalTargets.lufs.target);
+    debugError('[LOUDNESS-SUBSCORE] Diff (LU):', Math.abs(measured.lufs - finalTargets.lufs.target).toFixed(2));
+    debugError('[LOUDNESS-SUBSCORE] soundDestination:', soundDest);
+    debugError('\n');
     
     if (DEBUG) {
         log('📊 SubScores RAW:', subScoresRaw);
@@ -26974,14 +26974,14 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     const lufsEval = metricEvaluations.lufs;
     
     if (lufsEval && lufsEval.severity === 'CRÍTICA' && analysisMode !== 'streaming') {
-        console.error('╔═══════════════════════════════════════════════════════════╗');
-        console.error('║  🚫 LUFS_GATE: Aplicando penalização (modo pista)        ║');
-        console.error('╚═══════════════════════════════════════════════════════════╝');
-        console.error('[LUFS_GATE] Analysis mode:', analysisMode);
-        console.error('[LUFS_GATE] LUFS medido:', measured.lufs);
-        console.error('[LUFS_GATE] Target:', finalTargets.lufs.target);
-        console.error('[LUFS_GATE] Severidade:', lufsEval.severity);
-        console.error('\n');
+        debugError('╔═══════════════════════════════════════════════════════════╗');
+        debugError('║  🚫 LUFS_GATE: Aplicando penalização (modo pista)        ║');
+        debugError('╚═══════════════════════════════════════════════════════════╝');
+        debugError('[LUFS_GATE] Analysis mode:', analysisMode);
+        debugError('[LUFS_GATE] LUFS medido:', measured.lufs);
+        debugError('[LUFS_GATE] Target:', finalTargets.lufs.target);
+        debugError('[LUFS_GATE] Severidade:', lufsEval.severity);
+        debugError('\n');
         
         const cap = Math.min(lufsEval.score + 5, 67);
         
@@ -27003,15 +27003,15 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         }
     } else if (lufsEval && lufsEval.severity === 'CRÍTICA' && analysisMode === 'streaming') {
         // 🎯 Log quando gate é BLOQUEADO em streaming
-        console.error('╔═══════════════════════════════════════════════════════════╗');
-        console.error('║  ✅ LUFS_GATE: BLOQUEADO (modo streaming)                ║');
-        console.error('╚═══════════════════════════════════════════════════════════╝');
-        console.error('[LUFS_GATE] Analysis mode:', analysisMode);
-        console.error('[LUFS_GATE] LUFS medido:', measured.lufs);
-        console.error('[LUFS_GATE] Target streaming:', finalTargets.lufs.target);
-        console.error('[LUFS_GATE] Subscore mantido:', subscores.loudness);
-        console.error('[LUFS_GATE] Gate NÃO aplicado - target streaming já é adequado');
-        console.error('\n');
+        debugError('╔═══════════════════════════════════════════════════════════╗');
+        debugError('║  ✅ LUFS_GATE: BLOQUEADO (modo streaming)                ║');
+        debugError('╚═══════════════════════════════════════════════════════════╝');
+        debugError('[LUFS_GATE] Analysis mode:', analysisMode);
+        debugError('[LUFS_GATE] LUFS medido:', measured.lufs);
+        debugError('[LUFS_GATE] Target streaming:', finalTargets.lufs.target);
+        debugError('[LUFS_GATE] Subscore mantido:', subscores.loudness);
+        debugError('[LUFS_GATE] Gate NÃO aplicado - target streaming já é adequado');
+        debugError('\n');
     }
     
     // 🎯 Gate #4: FREQUENCY - Bandas com severidade alta
@@ -28429,8 +28429,8 @@ function calculateFrequencyScore(analysis, refData) {
         
         // 🛡️ GUARDRAILS
         if (!userBandsA || !refBandsB) {
-            console.error('[FREQ-SCORE] ❌ ERRO: Bandas ausentes após extração!');
-            console.error('[FREQ-SCORE] userBandsA:', !!userBandsA, 'refBandsB:', !!refBandsB);
+            debugError('[FREQ-SCORE] ❌ ERRO: Bandas ausentes após extração!');
+            debugError('[FREQ-SCORE] userBandsA:', !!userBandsA, 'refBandsB:', !!refBandsB);
             return null;
         }
         
@@ -28441,14 +28441,14 @@ function calculateFrequencyScore(analysis, refData) {
         });
         
         if (anchorKeysB.length === 0) {
-            console.error('[FREQ-SCORE] ❌ ERRO: refBands B sem âncoras válidas (sub/bass/mid)!');
-            console.error('[FREQ-SCORE] refBands B keys:', Object.keys(refBandsB));
+            debugError('[FREQ-SCORE] ❌ ERRO: refBands B sem âncoras válidas (sub/bass/mid)!');
+            debugError('[FREQ-SCORE] refBands B keys:', Object.keys(refBandsB));
             return null;
         }
         
         // 🛡️ GUARDRAIL: Detectar same reference
         if (userBandsA === refBandsB) {
-            console.error('[FREQ-SCORE] ❌ ERRO: userBands === refBands (same object reference)!');
+            debugError('[FREQ-SCORE] ❌ ERRO: userBands === refBands (same object reference)!');
             return null;
         }
         
@@ -28973,13 +28973,13 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         || getSoundDestinationMode?.() 
         || 'pista';
     
-    console.error('╔═══════════════════════════════════════════════════════════╗');
-    console.error('║  🎯 CALCULANDO SCORES - soundDestination                  ║');
-    console.error('╚═══════════════════════════════════════════════════════════╝');
-    console.error('[SCORE-CALC] analysis.soundDestination:', analysis?.soundDestination);
-    console.error('[SCORE-CALC] window.__SOUNDY_ANALYSIS_MODE__:', window.__SOUNDY_ANALYSIS_MODE__);
-    console.error('[SCORE-CALC] effectiveSoundDestination:', effectiveSoundDestination);
-    console.error('\n');
+    debugError('╔═══════════════════════════════════════════════════════════╗');
+    debugError('║  🎯 CALCULANDO SCORES - soundDestination                  ║');
+    debugError('╚═══════════════════════════════════════════════════════════╝');
+    debugError('[SCORE-CALC] analysis.soundDestination:', analysis?.soundDestination);
+    debugError('[SCORE-CALC] window.__SOUNDY_ANALYSIS_MODE__:', window.__SOUNDY_ANALYSIS_MODE__);
+    debugError('[SCORE-CALC] effectiveSoundDestination:', effectiveSoundDestination);
+    debugError('\n');
     
     // 🚨 INJETAR soundDestination NO ANALYSIS ANTES DE PASSAR PARA computeScoreV3
     // Isso garante que a função de scoring use o valor correto
@@ -29241,7 +29241,7 @@ function updateReferenceSuggestions(analysis) {
                 log('✅ [DEBUG-REF] Dados carregados, reprocessando sugestões');
                 updateReferenceSuggestions(analysis);
             }).catch(err => {
-                console.error('❌ [DEBUG-REF] Erro ao carregar dados:', err);
+                debugError('❌ [DEBUG-REF] Erro ao carregar dados:', err);
             });
         } else {
             // Tentar com dados de referência padrão embutidos
@@ -29595,7 +29595,7 @@ function calculateFallbackScores(technicalData, referenceData) {
         return scores;
         
     } catch (error) {
-        console.error('❌ [FALLBACK] Erro ao calcular scores:', error);
+        debugError('❌ [FALLBACK] Erro ao calcular scores:', error);
         return {};
     }
 }
@@ -30016,7 +30016,7 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
             }
             log('✅ [PREMIUM-GUARD] Modal de upgrade aberto (AI)');
         } else {
-            console.error('❌ [PREMIUM-GUARD] Modal upgradeModal não encontrado no DOM');
+            debugError('❌ [PREMIUM-GUARD] Modal upgradeModal não encontrado no DOM');
         }
         return; // ✅ BLOQUEIO: Não executa função real
     }
@@ -30039,7 +30039,7 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
             }
             log('✅ [PREMIUM-GUARD] Modal de upgrade aberto (AI - fallback)');
         } else {
-            console.error('❌ [PREMIUM-GUARD] Modal upgradeModal não encontrado no DOM');
+            debugError('❌ [PREMIUM-GUARD] Modal upgradeModal não encontrado no DOM');
         }
         return; // ✅ BLOQUEIO: Não executa função real
     }
@@ -30131,7 +30131,7 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
         }
         
     } catch (error) {
-        console.error('❌ Erro ao enviar análise para chat:', error);
+        debugError('❌ Erro ao enviar análise para chat:', error);
         showTemporaryFeedback('❌ Erro ao enviar análise. Tente novamente.');
     }
 }
@@ -30158,7 +30158,7 @@ async function generateReferenceReportPDF() {
         
         if (!firstAnalysis || !secondAnalysis) {
             alert('❌ Dados de comparação não encontrados.\n\nAs duas faixas precisam estar analisadas.');
-            console.error('[REF-PDF] Dados insuficientes:', { 
+            debugError('[REF-PDF] Dados insuficientes:', { 
                 hasFirst: !!firstAnalysis, 
                 hasSecond: !!secondAnalysis 
             });
@@ -30581,7 +30581,7 @@ async function generateReferenceReportPDF() {
         showTemporaryFeedback('✅ Relatório Premium (2 páginas) baixado!');
         
     } catch (error) {
-        console.error('[REF-PDF] ❌ Erro ao gerar relatório:', error);
+        debugError('[REF-PDF] ❌ Erro ao gerar relatório:', error);
         showTemporaryFeedback('❌ Erro ao gerar PDF');
         alert(`Erro ao gerar relatório:\n\n${error.message}`);
     }
@@ -30612,7 +30612,7 @@ async function downloadModalAnalysis() {
             }
             log('✅ [PREMIUM-GUARD] Modal de upgrade aberto (PDF)');
         } else {
-            console.error('❌ [PREMIUM-GUARD] Modal upgradeModal não encontrado no DOM');
+            debugError('❌ [PREMIUM-GUARD] Modal upgradeModal não encontrado no DOM');
         }
         return; // ✅ BLOQUEIO: Não executa função real
     }
@@ -30635,7 +30635,7 @@ async function downloadModalAnalysis() {
             }
             log('✅ [PREMIUM-GUARD] Modal de upgrade aberto (PDF - fallback)');
         } else {
-            console.error('❌ [PREMIUM-GUARD] Modal upgradeModal não encontrado no DOM');
+            debugError('❌ [PREMIUM-GUARD] Modal upgradeModal não encontrado no DOM');
         }
         return; // ✅ BLOQUEIO: Não executa função real
     }
@@ -30653,7 +30653,7 @@ async function downloadModalAnalysis() {
     
     if (!analysis) {
         alert('❌ Nenhuma análise disponível.\n\nFaça uma análise antes de gerar o relatório.');
-        console.error('[PDF-ERROR] Análise não encontrada em window.__soundyAI.analysis ou currentModalAnalysis');
+        debugError('[PDF-ERROR] Análise não encontrada em window.__soundyAI.analysis ou currentModalAnalysis');
         return;
     }
     
@@ -30975,8 +30975,8 @@ async function downloadModalAnalysis() {
         }
         
     } catch (error) {
-        console.error('❌ [PDF-ERROR] Erro ao gerar relatório:', error);
-        console.error('❌ [PDF-ERROR] Stack:', error.stack);
+        debugError('❌ [PDF-ERROR] Erro ao gerar relatório:', error);
+        debugError('❌ [PDF-ERROR] Stack:', error.stack);
         showTemporaryFeedback('❌ Erro ao gerar PDF');
         alert(`Erro ao gerar relatório PDF:\n\n${error.message}\n\nVerifique o console para mais detalhes.`);
     }
@@ -31064,7 +31064,7 @@ function validateAnalysisDataAgainstUI(analysis) {
         const validScores = scoreSources.filter(s => Number.isFinite(s.value) && s.value >= 0 && s.value <= 100);
         
         if (validScores.length === 0) {
-            console.error('❌ [PDF-VALIDATE-SCORE] NENHUM score válido encontrado!');
+            debugError('❌ [PDF-VALIDATE-SCORE] NENHUM score válido encontrado!');
         } else if (validScores.length === 1) {
             log('✅ [PDF-VALIDATE-SCORE] Apenas 1 fonte de score disponível:', validScores[0].name, '=', validScores[0].value);
         } else {
@@ -31078,12 +31078,12 @@ function validateAnalysisDataAgainstUI(analysis) {
                     log(`  ✅ ${s.name}: ${s.value}`);
                 });
             } else {
-                console.error('🚨 [PDF-VALIDATE-SCORE] DIVERGÊNCIA DETECTADA ENTRE FONTES:');
+                debugError('🚨 [PDF-VALIDATE-SCORE] DIVERGÊNCIA DETECTADA ENTRE FONTES:');
                 validScores.forEach(s => {
-                    console.error(`  ⚠️ ${s.name}: ${s.value}`);
+                    debugError(`  ⚠️ ${s.name}: ${s.value}`);
                 });
-                console.error('🚨 [PDF-VALIDATE-SCORE] Scores únicos encontrados:', uniqueScores);
-                console.error('🚨 [PDF-VALIDATE-SCORE] ATENÇÃO: Esta divergência pode causar relatórios incorretos!');
+                debugError('🚨 [PDF-VALIDATE-SCORE] Scores únicos encontrados:', uniqueScores);
+                debugError('🚨 [PDF-VALIDATE-SCORE] ATENÇÃO: Esta divergência pode causar relatórios incorretos!');
             }
         }
         
@@ -31091,7 +31091,7 @@ function validateAnalysisDataAgainstUI(analysis) {
         
         log('✅ [PDF-VALIDATE] Validação concluída');
     } catch (error) {
-        console.error('❌ [PDF-VALIDATE] Erro na validação:', error);
+        debugError('❌ [PDF-VALIDATE] Erro na validação:', error);
     }
 }
 
@@ -32026,7 +32026,7 @@ window.displayReferenceResults = function(referenceResults) {
         window.logReferenceEvent('reference_results_displayed_successfully');
         
     } catch (error) {
-        console.error('Error displaying reference results:', error);
+        debugError('Error displaying reference results:', error);
         window.logReferenceEvent('reference_display_error', { 
             error: error.message,
             baseline_source: referenceResults.baseline_source 
@@ -32289,7 +32289,7 @@ function normalizeBackendAnalysisData(result) {
     const src = data.metrics || data.technicalData || data.loudness || data.spectral || data;
 
     if (!src) {
-        console.error("[NORMALIZE] ❌ Nenhuma fonte de dados encontrada:", result);
+        debugError("[NORMALIZE] ❌ Nenhuma fonte de dados encontrada:", result);
         throw new Error("source is not defined");
     }
 
@@ -32838,10 +32838,10 @@ function testScoreV37Parity() {
             log(`   score=${result.score.toFixed(1)}, severity=${result.severity}`);
         } else {
             failed++;
-            console.error(`❌ ${tc.name} FALHOU!`);
-            console.error(`   value=${tc.measuredValue}, target=${tc.targetSpec.target}`);
-            console.error(`   score=${result.score.toFixed(1)} (esperado: ${tc.expectedScoreMin ?? '?'}-${tc.expectedScoreMax ?? '?'})`);
-            console.error(`   severity=${result.severity} (esperado: ${tc.expectedSeverity})`);
+            debugError(`❌ ${tc.name} FALHOU!`);
+            debugError(`   value=${tc.measuredValue}, target=${tc.targetSpec.target}`);
+            debugError(`   score=${result.score.toFixed(1)} (esperado: ${tc.expectedScoreMin ?? '?'}-${tc.expectedScoreMax ?? '?'})`);
+            debugError(`   severity=${result.severity} (esperado: ${tc.expectedSeverity})`);
         }
         
         results.push({
@@ -32855,7 +32855,7 @@ function testScoreV37Parity() {
     log('═══════════════════════════════════════════════════════════');
     log(`🧪 RESULTADO: ${passed}/${testCases.length} testes passaram`);
     if (failed > 0) {
-        console.error(`❌ ${failed} testes FALHARAM - VERIFICAR evaluateMetric V3.7!`);
+        debugError(`❌ ${failed} testes FALHARAM - VERIFICAR evaluateMetric V3.7!`);
     } else {
         log('✅ Todos os testes passaram - CEILING/BANDPASS funcionando!');
     }
@@ -33039,10 +33039,10 @@ function testFrequencySubscoreV371() {
             if (tc.expectedCap) log(`   Cap: ${freqDetails?.appliedCap} (esperado: ${tc.expectedCap})`);
         } else {
             failed++;
-            console.error(`❌ ${tc.name} FALHOU!`);
-            console.error(`   Score: ${freqScore} (esperado: ${tc.expectedScoreMin}-${tc.expectedScoreMax})`);
-            console.error(`   Cap: ${freqDetails?.appliedCap} (esperado: ${tc.expectedCap})`);
-            console.error(`   Details:`, freqDetails);
+            debugError(`❌ ${tc.name} FALHOU!`);
+            debugError(`   Score: ${freqScore} (esperado: ${tc.expectedScoreMin}-${tc.expectedScoreMax})`);
+            debugError(`   Cap: ${freqDetails?.appliedCap} (esperado: ${tc.expectedCap})`);
+            debugError(`   Details:`, freqDetails);
         }
         
         results.push({
@@ -33056,7 +33056,7 @@ function testFrequencySubscoreV371() {
     log('═══════════════════════════════════════════════════════════');
     log(`🧪 RESULTADO FREQ V3.7.1: ${passed}/${testCases.length} testes passaram`);
     if (failed > 0) {
-        console.error(`❌ ${failed} testes FALHARAM!`);
+        debugError(`❌ ${failed} testes FALHARAM!`);
     } else {
         log('✅ Todos os testes passaram - Sistema de frequência validado!');
     }
@@ -33156,12 +33156,12 @@ function testNormalizationCompatibility() {
             log("✅ [TEST] Sistema de normalização está funcionando corretamente");
             return true;
         } else {
-            console.error("❌ [TEST] Falha na validação de estrutura");
+            debugError("❌ [TEST] Falha na validação de estrutura");
             return false;
         }
         
     } catch (error) {
-        console.error("❌ [TEST] Erro no teste de normalização:", error);
+        debugError("❌ [TEST] Erro no teste de normalização:", error);
         return false;
     }
 }
@@ -33992,10 +33992,10 @@ log("%c[SYSTEM CHECK] 🔍 Debug ativo para validação de fluxos genre/referenc
             
             // Validação crítica
             if (current && reference && current === reference) {
-                console.error('🚨 [MONITOR] CONTAMINAÇÃO DETECTADA!');
-                console.error('   currentJobId:', current);
-                console.error('   referenceJobId:', reference);
-                console.error('   Ambos são IGUAIS - isso NÃO deveria acontecer!');
+                debugError('🚨 [MONITOR] CONTAMINAÇÃO DETECTADA!');
+                debugError('   currentJobId:', current);
+                debugError('   referenceJobId:', reference);
+                debugError('   Ambos são IGUAIS - isso NÃO deveria acontecer!');
                 console.trace();
                 
                 // Tenta recuperar do sessionStorage
@@ -34005,8 +34005,8 @@ log("%c[SYSTEM CHECK] 🔍 Debug ativo para validação de fluxos genre/referenc
                     log('✅ [MONITOR] JobId recuperado do sessionStorage:', recoveredJobId);
                     log('✅ [MONITOR] Contaminação corrigida automaticamente');
                 } else {
-                    console.error('❌ [MONITOR] Não foi possível recuperar currentJobId do sessionStorage');
-                    console.error('❌ [MONITOR] Sistema pode estar em estado inconsistente');
+                    debugError('❌ [MONITOR] Não foi possível recuperar currentJobId do sessionStorage');
+                    debugError('❌ [MONITOR] Sistema pode estar em estado inconsistente');
                 }
             }
         }
@@ -34174,7 +34174,7 @@ window.__testV34GatesProportional = function() {
     if (failed === 0) {
         log('🎉 TODOS OS TESTES PASSARAM! V3.4 funcionando corretamente.');
     } else {
-        console.error(`⚠️ ${failed} teste(s) falharam. Verifique a implementação.`);
+        debugError(`⚠️ ${failed} teste(s) falharam. Verifique a implementação.`);
     }
     
     log('═══════════════════════════════════════════════════════════════');
@@ -34443,7 +34443,7 @@ async function handleGenerateCorrectionPlan() {
     const btn = document.getElementById('btnGenerateCorrectionPlan');
     
     if (!btn) {
-        console.error('[CORRECTION-PLAN] ❌ Botão não encontrado');
+        debugError('[CORRECTION-PLAN] ❌ Botão não encontrado');
         return;
     }
     
@@ -34655,10 +34655,10 @@ async function handleGenerateCorrectionPlan() {
         
         // 🎯 ASSERT FINAL: Confirmar que temos problemas suficientes
         if (problemsToSend.length === 0) {
-            console.error('[CORRECTION-PLAN] ❌ ERRO CRÍTICO: Nenhum problema encontrado!');
-            console.error('[CORRECTION-PLAN] analysis.problems:', analysis.problems?.length || 0);
-            console.error('[CORRECTION-PLAN] analysis.suggestions:', analysis.suggestions?.length || 0);
-            console.error('[CORRECTION-PLAN] technicalData:', !!analysis.technicalData);
+            debugError('[CORRECTION-PLAN] ❌ ERRO CRÍTICO: Nenhum problema encontrado!');
+            debugError('[CORRECTION-PLAN] analysis.problems:', analysis.problems?.length || 0);
+            debugError('[CORRECTION-PLAN] analysis.suggestions:', analysis.suggestions?.length || 0);
+            debugError('[CORRECTION-PLAN] technicalData:', !!analysis.technicalData);
             
             showCorrectionPlanError('Nenhum problema detectado na análise. Analise novamente.');
             btn.disabled = false;
@@ -34712,7 +34712,7 @@ async function handleGenerateCorrectionPlan() {
         
         // Verificar se é HTML (erro do servidor)
         if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
-            console.error('[CORRECTION-PLAN] ❌ Servidor retornou HTML em vez de JSON!');
+            debugError('[CORRECTION-PLAN] ❌ Servidor retornou HTML em vez de JSON!');
             throw new Error('Servidor retornou página de erro. A rota /api/correction-plan pode não existir.');
         }
         
@@ -34721,8 +34721,8 @@ async function handleGenerateCorrectionPlan() {
         try {
             result = JSON.parse(responseText);
         } catch (parseError) {
-            console.error('[CORRECTION-PLAN] ❌ Erro ao parsear JSON:', parseError);
-            console.error('[CORRECTION-PLAN] Resposta completa:', responseText);
+            debugError('[CORRECTION-PLAN] ❌ Erro ao parsear JSON:', parseError);
+            debugError('[CORRECTION-PLAN] Resposta completa:', responseText);
             throw new Error('Resposta inválida do servidor (não é JSON válido)');
         }
         
@@ -34776,7 +34776,7 @@ async function handleGenerateCorrectionPlan() {
         }
         
     } catch (error) {
-        console.error('[CORRECTION-PLAN] ❌ Erro:', error);
+        debugError('[CORRECTION-PLAN] ❌ Erro:', error);
         
         // Restaurar botão
         btn.disabled = false;

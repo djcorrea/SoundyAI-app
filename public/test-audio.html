@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teste de Áudio</title>
+    <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
+    <script src="logger.js"></script>
+    
+
     <style>
         body {
             background: #000;
@@ -126,7 +130,7 @@
             });
             
             audio.addEventListener('canplay', () => {
-                console.log(`Player ${i} pronto para tocar`);
+                debugLog(`Player ${i} pronto para tocar`);
             });
         }
     </script>

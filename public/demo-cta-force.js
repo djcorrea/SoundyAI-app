@@ -15,18 +15,18 @@
 (function() {
     'use strict';
     
-    console.log('🔥 [CTA-DEMO-V3] Módulo profissional carregado');
+    debugLog('🔥 [CTA-DEMO-V3] Módulo profissional carregado');
     
     // Verificar se é modo demo
     const isDemo = window.location.pathname.includes('/demo') || 
                    window.location.search.includes('mode=demo');
     
     if (!isDemo) {
-        console.log('⚠️ [CTA-DEMO-V3] Não é modo demo, encerrando');
+        debugLog('⚠️ [CTA-DEMO-V3] Não é modo demo, encerrando');
         return;
     }
     
-    console.log('✅ [CTA-DEMO-V3] Modo demo confirmado');
+    debugLog('✅ [CTA-DEMO-V3] Modo demo confirmado');
     
     let ctaInjected = false;
     
@@ -35,13 +35,13 @@
      */
     function injectCTAIntoModal() {
         if (ctaInjected) {
-            console.log('ℹ️ [CTA-DEMO-V3] CTA já foi injetado');
+            debugLog('ℹ️ [CTA-DEMO-V3] CTA já foi injetado');
             return;
         }
         
         // Verificar se já existe
         if (document.querySelector('.soundy-demo-cta-professional')) {
-            console.log('ℹ️ [CTA-DEMO-V3] CTA já existe no DOM');
+            debugLog('ℹ️ [CTA-DEMO-V3] CTA já existe no DOM');
             ctaInjected = true;
             return;
         }
@@ -52,11 +52,11 @@
                                        document.querySelector('.cards-grid');
         
         if (!technicalDataContainer) {
-            console.warn('⚠️ [CTA-DEMO-V3] Container de métricas não encontrado');
+            debugWarn('⚠️ [CTA-DEMO-V3] Container de métricas não encontrado');
             return;
         }
         
-        console.log('🎯 [CTA-DEMO-V3] Container encontrado, injetando CTA...');
+        debugLog('🎯 [CTA-DEMO-V3] Container encontrado, injetando CTA...');
         
         // Criar CTA profissional
         const ctaContainer = document.createElement('div');
@@ -90,7 +90,7 @@
         }, 100);
         
         ctaInjected = true;
-        console.log('✅ [CTA-DEMO-V3] CTA injetado com sucesso!');
+        debugLog('✅ [CTA-DEMO-V3] CTA injetado com sucesso!');
     }
     
     /**
@@ -220,10 +220,10 @@
     
     // 📡 Escuta evento central de render (substituiu interceptação de window.displayModalResults)
     document.addEventListener('analysis:rendered', function() {
-        console.log('🎯 [CTA-DEMO-V3] analysis:rendered recebido, injetando CTA...');
+        debugLog('🎯 [CTA-DEMO-V3] analysis:rendered recebido, injetando CTA...');
         injectCTAIntoModal();
     });
     
-    console.log('✅ [CTA-DEMO-V3] Sistema profissional inicializado');
+    debugLog('✅ [CTA-DEMO-V3] Sistema profissional inicializado');
     
 })();

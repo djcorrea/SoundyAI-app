@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teste CTA Demo</title>
+    <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
+    <script src="logger.js"></script>
+    
+
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -163,57 +167,57 @@
         }
         
         function testShowCTA() {
-            console.log('\n🧪 TESTE: Chamando showFirstAnalysisCTA() diretamente...\n');
+            debugLog('\n🧪 TESTE: Chamando showFirstAnalysisCTA() diretamente...\n');
             
             if (!window.SoundyDemo) {
-                console.error('window.SoundyDemo não encontrado!');
+                debugError('window.SoundyDemo não encontrado!');
                 return;
             }
             
             if (typeof window.SoundyDemo.showFirstAnalysisCTA !== 'function') {
-                console.error('showFirstAnalysisCTA() não é uma função!');
+                debugError('showFirstAnalysisCTA() não é uma função!');
                 return;
             }
             
             try {
                 window.SoundyDemo.showFirstAnalysisCTA();
-                console.log('✅ Função executada sem erros');
+                debugLog('✅ Função executada sem erros');
                 setTimeout(refreshState, 1000);
             } catch (e) {
-                console.error('Erro ao executar:', e);
+                debugError('Erro ao executar:', e);
             }
         }
         
         function simulateFirstAnalysis() {
-            console.log('\n🧪 TESTE: Simulando primeira análise...\n');
+            debugLog('\n🧪 TESTE: Simulando primeira análise...\n');
             
             if (!window.SoundyDemo) {
-                console.error('window.SoundyDemo não encontrado!');
+                debugError('window.SoundyDemo não encontrado!');
                 return;
             }
             
             // Garantir que está em modo demo
             if (!window.SoundyDemo.isActive) {
-                console.warn('Modo demo não está ativo. Ativando...');
+                debugWarn('Modo demo não está ativo. Ativando...');
                 window.SoundyDemo.isActive = true;
             }
             
             // Resetar contador se necessário
             if (window.SoundyDemo.data) {
                 window.SoundyDemo.data.analyses_used = 0;
-                console.log('Contador resetado para 0');
+                debugLog('Contador resetado para 0');
             }
             
             // Simular registerAnalysis
-            console.log('Chamando registerAnalysis()...');
+            debugLog('Chamando registerAnalysis()...');
             window.SoundyDemo.registerAnalysis().then(() => {
-                console.log('✅ registerAnalysis() concluído');
+                debugLog('✅ registerAnalysis() concluído');
                 setTimeout(refreshState, 3000);
             });
         }
         
         function resetDemo() {
-            console.log('\n🔄 Resetando demo...\n');
+            debugLog('\n🔄 Resetando demo...\n');
             
             // Limpar storage
             localStorage.removeItem('soundy_demo_data');
@@ -222,7 +226,7 @@
             // Remover banners
             document.querySelectorAll('.demo-first-analysis-banner').forEach(el => el.remove());
             
-            console.log('✅ Demo resetado. Recarregue a página para reinicializar.');
+            debugLog('✅ Demo resetado. Recarregue a página para reinicializar.');
             refreshState();
         }
         

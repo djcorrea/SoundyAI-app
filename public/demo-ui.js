@@ -373,21 +373,21 @@
     DEMO.showFirstAnalysisCTA = function() {
         // � DEBUG: Log completo do estado
         console.group('🎉 [DEMO-UI] Tentando exibir CTA de primeira análise');
-        console.log('DEMO.isActive:', DEMO.isActive);
-        console.log('DEMO.data:', DEMO.data);
-        console.log('analyses_used:', DEMO.data?.analyses_used);
-        console.log('Banner já existe?', !!document.querySelector('.demo-first-analysis-banner'));
+        debugLog('DEMO.isActive:', DEMO.isActive);
+        debugLog('DEMO.data:', DEMO.data);
+        debugLog('analyses_used:', DEMO.data?.analyses_used);
+        debugLog('Banner já existe?', !!document.querySelector('.demo-first-analysis-banner'));
         
         // 🔴 CRÍTICO: Verificar se está realmente em modo demo
         if (!DEMO.isActive) {
-            console.warn('⚠️ [DEMO-UI] Não está em modo demo, CTA não será exibido');
+            debugWarn('⚠️ [DEMO-UI] Não está em modo demo, CTA não será exibido');
             console.groupEnd();
             return;
         }
         
         // 🔴 CRÍTICO: Evitar duplicação DOM (se já existe, não criar novamente)
         if (document.querySelector('.demo-first-analysis-banner')) {
-            console.log('ℹ️ [DEMO-UI] CTA de primeira análise já está no DOM');
+            debugLog('ℹ️ [DEMO-UI] CTA de primeira análise já está no DOM');
             console.groupEnd();
             return;
         }
@@ -396,12 +396,12 @@
         // Isso garante exibição mesmo se houver race condition
         const analysesUsed = DEMO.data?.analyses_used || 0;
         if (analysesUsed !== 1 && analysesUsed > 1) {
-            console.warn('⚠️ [DEMO-UI] Não é a primeira análise, CTA não será exibido. analyses_used:', analysesUsed);
+            debugWarn('⚠️ [DEMO-UI] Não é a primeira análise, CTA não será exibido. analyses_used:', analysesUsed);
             console.groupEnd();
             return;
         }
         
-        console.log('✅ [DEMO-UI] Todas validações passaram! Exibindo CTA...');
+        debugLog('✅ [DEMO-UI] Todas validações passaram! Exibindo CTA...');
         console.groupEnd();
         
         log('🎉 [DEMO-UI] Exibindo CTA não-bloqueante de primeira análise');

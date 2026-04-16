@@ -29,7 +29,7 @@
         
         // Debug mode: ?debug_tracking=1
         window.TRACKING_DEBUG = window.location.search.includes('debug_tracking=1');
-        if (window.TRACKING_DEBUG) console.log('🎯 [TRACKING] Debug mode ativado');
+        if (window.TRACKING_DEBUG) debugLog('🎯 [TRACKING] Debug mode ativado');
     </script>
     
     <!-- Firebase SDK v11 (Modular) -->
@@ -1785,7 +1785,7 @@
                 // Fail-safe: se gtag não existir, apenas retorna
                 if (typeof gtag !== 'function') {
                     if (window.TRACKING_DEBUG) {
-                        console.log('[TRACKING] gtag não disponível, tracking ignorado');
+                        debugLog('[TRACKING] gtag não disponível, tracking ignorado');
                     }
                     return;
                 }
@@ -1796,7 +1796,7 @@
                 // Deduplicação por sessionStorage
                 if (sessionStorage.getItem(dedupKey)) {
                     if (window.TRACKING_DEBUG) {
-                        console.log('[TRACKING] lead dedup skip:', emailLower);
+                        debugLog('[TRACKING] lead dedup skip:', emailLower);
                     }
                     return;
                 }
@@ -1814,11 +1814,11 @@
                     sessionStorage.setItem(dedupKey, Date.now());
                     
                     if (window.TRACKING_DEBUG) {
-                        console.log('[TRACKING] lead fired:', emailLower);
+                        debugLog('[TRACKING] lead fired:', emailLower);
                     }
                 } catch (error) {
                     if (window.TRACKING_DEBUG) {
-                        console.error('[TRACKING] erro ao disparar conversão:', error);
+                        debugError('[TRACKING] erro ao disparar conversão:', error);
                     }
                 }
             }

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
@@ -2553,7 +2553,7 @@
     bar._clearTimer = setTimeout(function () {
       bar.classList.remove('visible');
     }, 5000);
-    console.error('[home.html] Error:', msg);
+    debugError('[home.html] Error:', msg);
   }
 
   // ── updateUI — aplica o estado atual no DOM (sem innerHTML) ──
@@ -2739,7 +2739,7 @@
           hideProgress();
           var msg = (err && err.message) ? err.message : 'Upload falhou. Por favor, tente novamente.';
           showError(msg);
-          console.error('[home.html] Upload error:', err);
+          debugError('[home.html] Upload error:', err);
           setState('idle');
         });
     });
@@ -2917,18 +2917,18 @@
 
     // ── PARTE 5: Validação de métricas ──────────────────────────────
     var m = data.metrics || {};
-    console.log('[FRONT-RAW-RESULT] status:', data.status,
+    debugLog('[FRONT-RAW-RESULT] status:', data.status,
       '| metrics:', JSON.stringify(m),
       '| mixNotApt_raw:', m.mixNotApt,
       '| typeof:', typeof m.mixNotApt,
       '| tp_before:', m.truePeakBefore,
       '| lufs_before:', m.lufsBefore);
-    console.log('[AUTOMASTER] BEFORE METRICS:', JSON.stringify({ lufs: m.lufsBefore, truePeak: m.truePeakBefore, dr: m.drBefore, headroom: m.headroomBefore }));
-    console.log('[AUTOMASTER] AFTER METRICS:', JSON.stringify({ lufs: m.lufsAfter, truePeak: m.truePeakAfter, dr: m.drAfter, headroom: m.headroomAfter }));
+    debugLog('[AUTOMASTER] BEFORE METRICS:', JSON.stringify({ lufs: m.lufsBefore, truePeak: m.truePeakBefore, dr: m.drBefore, headroom: m.headroomBefore }));
+    debugLog('[AUTOMASTER] AFTER METRICS:', JSON.stringify({ lufs: m.lufsAfter, truePeak: m.truePeakAfter, dr: m.drAfter, headroom: m.headroomAfter }));
     var hasMetrics = (m.lufsAfter !== undefined && m.lufsAfter !== null)
                   || (m.lufsBefore !== undefined && m.lufsBefore !== null);
     if (!hasMetrics) {
-      console.warn('[HOME-MASTER] metrics incompletas ou ausentes:', m);
+      debugWarn('[HOME-MASTER] metrics incompletas ou ausentes:', m);
     }
 
     // mix_not_apt: flag do backend OU fallback por métricas brutas (defense-in-depth)
@@ -2938,7 +2938,7 @@
     var _mixNotAptMetrics = (_tpRaw   != null && !isNaN(_tpRaw)   && _tpRaw   >= -1.0) ||
                            (_lufsRaw != null && !isNaN(_lufsRaw) && _lufsRaw >= -10.0);
     var _mixNotApt = _mixNotAptFlag || _mixNotAptMetrics;
-    console.log('[FRONT-MIXNOTAPT] state_flag:', _mixNotAptFlag,
+    debugLog('[FRONT-MIXNOTAPT] state_flag:', _mixNotAptFlag,
       '| tp_before:', _tpRaw,
       '| lufs_before:', _lufsRaw,
       '| from_metrics:', _mixNotAptMetrics,
@@ -3096,14 +3096,14 @@
       if (_abCtx) return true; // singleton: já inicializado, reutiliza
       var AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) {
-        console.warn('[AM-AB] Web Audio API indisponível — usando fallback de volume.');
+        debugWarn('[AM-AB] Web Audio API indisponível — usando fallback de volume.');
         return false;
       }
       try {
         var elB = document.getElementById('amAudioBefore');
         var elA = document.getElementById('amAudioAfter');
         if (!elB || !elA) {
-          console.error('[AM-AB] Elementos <audio> não encontrados no DOM.');
+          debugError('[AM-AB] Elementos <audio> não encontrados no DOM.');
           return false;
         }
 
@@ -3112,22 +3112,22 @@
         // um reload com crossOrigin para evitar o erro "outputs zeros".
         [elB, elA].forEach(function (el) {
           if (el.crossOrigin !== 'anonymous') {
-            console.warn('[AM-AB] crossOrigin ausente em', el.id, '— forçando reload com CORS.');
+            debugWarn('[AM-AB] crossOrigin ausente em', el.id, '— forçando reload com CORS.');
             el.crossOrigin = 'anonymous';
             var s = el.src; el.src = ''; el.src = s; // re-dispara fetch com CORS
           }
         });
 
-        console.log('[AM-AB] Inicializando AudioContext…');
+        debugLog('[AM-AB] Inicializando AudioContext…');
         _abCtx = new AudioCtx();
-        console.log('[AM-AB] AudioContext state:', _abCtx.state);
+        debugLog('[AM-AB] AudioContext state:', _abCtx.state);
 
         // MediaElementSource: conecta cada <audio> ao grafo de áudio.
         // IMPORTANTE: cada elemento só pode ter UM MediaElementSource vinculado.
         // Chamar createMediaElementSource() duas vezes no mesmo elemento lança erro.
         var srcB = _abCtx.createMediaElementSource(elB);
         var srcA = _abCtx.createMediaElementSource(elA);
-        console.log('[AM-AB] MediaElementSources criados:', elB.src, elA.src);
+        debugLog('[AM-AB] MediaElementSources criados:', elB.src, elA.src);
 
         _abGainBefore = _abCtx.createGain();
         _abGainAfter  = _abCtx.createGain();
@@ -3135,14 +3135,14 @@
         // Estado inicial: "after" (masterizado) audível; "before" silenciado.
         _abGainBefore.gain.value = 0;
         _abGainAfter.gain.value  = 1;
-        console.log('[AM-AB] Gains iniciais → before:', _abGainBefore.gain.value, '| after:', _abGainAfter.gain.value);
+        debugLog('[AM-AB] Gains iniciais → before:', _abGainBefore.gain.value, '| after:', _abGainAfter.gain.value);
 
         srcB.connect(_abGainBefore); _abGainBefore.connect(_abCtx.destination);
         srcA.connect(_abGainAfter);  _abGainAfter.connect(_abCtx.destination);
-        console.log('[AM-AB] Grafo de áudio montado. Crossfade ativo.');
+        debugLog('[AM-AB] Grafo de áudio montado. Crossfade ativo.');
         return true;
       } catch (e) {
-        console.error('[AM-AB] AudioContext init falhou:', e.name, e.message);
+        debugError('[AM-AB] AudioContext init falhou:', e.name, e.message);
         _abCtx = null;
         return false;
       }
@@ -3244,7 +3244,7 @@
       [elBefore, elAfter].forEach(function (el) {
         var p = el.play();
         if (p && typeof p.catch === 'function') {
-          p.catch(function (e) { console.warn('[AM-AB] play() rejeitado:', e.message); });
+          p.catch(function (e) { debugWarn('[AM-AB] play() rejeitado:', e.message); });
         }
       });
 
@@ -3417,16 +3417,16 @@
    * Chamado pelo botão "Masterizar" inline (fase 2+).
    */
   window.startMasterFlow = function startMasterFlow() {
-    console.log('FLOW: usando AutoMaster embutido');
+    debugLog('FLOW: usando AutoMaster embutido');
     var fileKey = resolveFileKey();
 
     if (!fileKey) {
-      console.error('[HOME-MASTER] fileKey não encontrado — envie um arquivo primeiro.');
+      debugError('[HOME-MASTER] fileKey não encontrado — envie um arquivo primeiro.');
       showError('Nenhum arquivo disponível para masterizar. Por favor, envie uma faixa primeiro.');
       return;
     }
 
-    console.log('[HOME-MASTER] Iniciando fluxo de master no home. fileKey:', fileKey);
+    debugLog('[HOME-MASTER] Iniciando fluxo de master no home. fileKey:', fileKey);
     _state.masterMode      = null;
     _state.masterJobId     = null;
     _state.creditConsumed  = false;
@@ -3455,7 +3455,7 @@
 
 function renderModeSelection() {
     var container = document.getElementById('uploadHub');
-    if (!container) { console.error('[HOME-MASTER] #uploadHub não encontrado'); return; }
+    if (!container) { debugError('[HOME-MASTER] #uploadHub não encontrado'); return; }
     container.__originalHTML__ = container.innerHTML;
     // Salva e limpa classe de estado para garantir renderização consistente
     // independente de qual fluxo (direto ou pós-análise) acionou o master.
@@ -3498,11 +3498,11 @@ function renderModeSelection() {
   window.selectMasterMode = function selectMasterMode(mode) {
     var allowed = ['STREAMING','LOW','MEDIUM','HIGH','EXTREME'];
     if (!allowed.indexOf || allowed.indexOf(mode) === -1) {
-      console.error('[HOME-MASTER] Modo inválido:', mode);
+      debugError('[HOME-MASTER] Modo inválido:', mode);
       return;
     }
     _state.masterMode = mode;
-    console.log('[HOME-MASTER] Modo selecionado:', mode, '| fileKey:', resolveFileKey());
+    debugLog('[HOME-MASTER] Modo selecionado:', mode, '| fileKey:', resolveFileKey());
 
     // Feedback visual: marca card selecionado
     var btns = document.querySelectorAll('.am-mode-card');
@@ -3644,7 +3644,7 @@ function renderModeSelection() {
       if (!document.getElementById('uploadHub')) {
         clearInterval(_state._masterPollTimer);
         _state._masterPollTimer = null;
-        console.warn('[HOME-POLL] #uploadHub não encontrado no DOM — polling cancelado.');
+        debugWarn('[HOME-POLL] #uploadHub não encontrado no DOM — polling cancelado.');
         return;
       }
 
@@ -3713,7 +3713,7 @@ function renderModeSelection() {
           openLoginModal();
           return;
         }
-        console.warn('[HOME-POLL] Erro de rede (tentativa ' + attempt + '):', err.message);
+        debugWarn('[HOME-POLL] Erro de rede (tentativa ' + attempt + '):', err.message);
         // Erro de rede não fatal — continua polling
       }
     }, INT);
@@ -3837,7 +3837,7 @@ function renderModeSelection() {
         }
       }
     } catch (e) {
-      console.warn('[HOME-MASTER] Firestore check falhou, usando fallback de sessão:', e.message);
+      debugWarn('[HOME-MASTER] Firestore check falhou, usando fallback de sessão:', e.message);
     }
     // Fallback: se há job na sessão, o backend já verificou o acesso
     if (_state.masterJobId) return { allowed: true, reason: 'session_job_fallback' };
@@ -3852,7 +3852,7 @@ function renderModeSelection() {
    * @param {boolean} liked
    */
   window.__homeSubmitFeedback = async function __homeSubmitFeedback(liked) {
-    console.log('[HOME-FEEDBACK] Bot\u00e3o clicado', { liked: liked, jobId: _state.masterJobId });
+    debugLog('[HOME-FEEDBACK] Bot\u00e3o clicado', { liked: liked, jobId: _state.masterJobId });
 
     var likeBtn    = document.getElementById('homeFeedbackLike');
     var dislikeBtn = document.getElementById('homeFeedbackDislike');
@@ -3863,7 +3863,7 @@ function renderModeSelection() {
 
     var jobId = _state.masterJobId;
     if (!jobId) {
-      console.warn('[HOME-FEEDBACK] jobId ausente \u2014 feedback n\u00e3o enviado ao servidor');
+      debugWarn('[HOME-FEEDBACK] jobId ausente \u2014 feedback n\u00e3o enviado ao servidor');
       if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
       return;
     }
@@ -3872,14 +3872,14 @@ function renderModeSelection() {
       var auth  = window.__firebaseAuth || null;
       var user  = auth ? auth.currentUser : null;
       if (!user) {
-        console.warn('[HOME-FEEDBACK] Usu\u00e1rio n\u00e3o autenticado \u2014 feedback n\u00e3o enviado');
+        debugWarn('[HOME-FEEDBACK] Usu\u00e1rio n\u00e3o autenticado \u2014 feedback n\u00e3o enviado');
         if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
         return;
       }
       var token = await user.getIdToken(false);
       var genreEl = document.getElementById('homeGenreSelect');
       var genre = (genreEl && genreEl.value) ? genreEl.value : null;
-      console.log('[HOME-FEEDBACK] Enviando para /api/automaster/feedback...');
+      debugLog('[HOME-FEEDBACK] Enviando para /api/automaster/feedback...');
       var res = await fetch('/api/automaster/feedback', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -3888,12 +3888,12 @@ function renderModeSelection() {
       var resData;
       try { resData = await res.json(); } catch (_) { resData = {}; }
       if (!res.ok) {
-        console.error('[HOME-FEEDBACK] Servidor retornou erro', res.status, resData);
+        debugError('[HOME-FEEDBACK] Servidor retornou erro', res.status, resData);
       } else {
-        console.log('[HOME-FEEDBACK] Feedback salvo com sucesso', resData);
+        debugLog('[HOME-FEEDBACK] Feedback salvo com sucesso', resData);
       }
     } catch (err) {
-      console.error('[HOME-FEEDBACK] Erro ao enviar feedback:', err.message);
+      debugError('[HOME-FEEDBACK] Erro ao enviar feedback:', err.message);
     }
 
     if (msgEl) { msgEl.textContent = 'Obrigado pelo feedback!'; msgEl.style.display = 'block'; }
@@ -3914,25 +3914,25 @@ function renderModeSelection() {
     }
 
     if (!url && !_state.masterJobId) {
-      console.error('[HOME-MASTER] URL de download ausente em _state.downloadUrl.');
+      debugError('[HOME-MASTER] URL de download ausente em _state.downloadUrl.');
       return;
     }
 
     // Guard 1: flag em memória (anti-duplo-clique na sessão)
     if (_state.creditConsumed) {
-      console.warn('[HOME-MASTER] Download já realizado para este job (creditConsumed). Bloqueado.');
+      debugWarn('[HOME-MASTER] Download já realizado para este job (creditConsumed). Bloqueado.');
       return;
     }
     // Guard 2: localStorage (anti-replay após refresh de página com mesmo jobId)
     var lastJob = localStorage.getItem('lastDownloadJob');
     if (_state.masterJobId && lastJob === String(_state.masterJobId)) {
-      console.warn('[HOME-MASTER] Download bloqueado por localStorage. jobId:', _state.masterJobId);
+      debugWarn('[HOME-MASTER] Download bloqueado por localStorage. jobId:', _state.masterJobId);
       return;
     }
 
     // ── CONTROLE DE ACESSO ─────────────────────────────────────────────────────
     var access = await checkMasterDownloadAccess();
-    console.log('[HOME-MASTER] Acesso ao download:', access);
+    debugLog('[HOME-MASTER] Acesso ao download:', access);
     if (!access.allowed) {
       if (access.reason === 'NOT_AUTHENTICATED') {
         _state.pendingAction = true;
@@ -3953,7 +3953,7 @@ function renderModeSelection() {
     // ── RESOLVE NOME ORIGINAL E MONTA NOME DO DOWNLOAD ───────────────────────
     var resolvedOriginalName = resolveOriginalTrackName();
     var downloadName = buildMasterDownloadName(resolvedOriginalName);
-    console.log('[DOWNLOAD] originalFileName=' + resolvedOriginalName +
+    debugLog('[DOWNLOAD] originalFileName=' + resolvedOriginalName +
       ' | finalDownloadName=' + downloadName +
       ' | sources: originalFileName=' + _state.originalFileName +
       ', lastUploaded=' + window.lastUploadedFileName +
@@ -4001,17 +4001,17 @@ function renderModeSelection() {
               return;
             }
           } catch (_) {}
-          console.warn('[HOME-MASTER] Download bloqueado (403).');
+          debugWarn('[HOME-MASTER] Download bloqueado (403).');
           _state.creditConsumed = false;
         };
         _reader.readAsText(xhr.response);
       } else {
-        console.warn('[HOME-MASTER] Erro no download: HTTP ' + xhr.status);
+        debugWarn('[HOME-MASTER] Erro no download: HTTP ' + xhr.status);
         _state.creditConsumed = false; // permite nova tentativa
       }
     };
     xhr.onerror = function () {
-      console.warn('[HOME-MASTER] Erro no download: falha de rede (XHR)');
+      debugWarn('[HOME-MASTER] Erro no download: falha de rede (XHR)');
       _state.creditConsumed = false; // permite nova tentativa
     };
     xhr.send();
@@ -4028,7 +4028,7 @@ function renderModeSelection() {
           body: JSON.stringify({ jobId: _state.masterJobId })
         });
       }).catch(function(e) {
-        console.warn('[HISTORY] Falha ao salvar histórico (não crítico):', e.message);
+        debugWarn('[HISTORY] Falha ao salvar histórico (não crítico):', e.message);
       });
     }
   };
@@ -4250,11 +4250,11 @@ function renderModeSelection() {
     // Prioridade 2: master pendente
     if (_state.pendingAction && _state.masterMode) {
       _state.pendingAction = false;
-      console.log('[HOME-MASTER] Login concluído. Retomando master com modo:', _state.masterMode);
+      debugLog('[HOME-MASTER] Login concluído. Retomando master com modo:', _state.masterMode);
       window.runMasterInHome(_state.masterMode);
     } else {
       _state.pendingAction = false;
-      console.log('[HOME-MASTER] Login concluído. Nenhuma ação pendente — aguardando interação do usuário.');
+      debugLog('[HOME-MASTER] Login concluído. Nenhuma ação pendente — aguardando interação do usuário.');
     }
   }
 
@@ -4530,7 +4530,7 @@ function renderModeSelection() {
           auth.signOut().then(function () {
             window.location.href = '/home.html';
           }).catch(function (e) {
-            console.error('[DRAWER] Erro ao fazer logout:', e.message);
+            debugError('[DRAWER] Erro ao fazer logout:', e.message);
           });
         }
       });
@@ -4643,7 +4643,7 @@ function renderModeSelection() {
 
       renderHistoryList(data.masters);
     } catch (err) {
-      console.error('[HISTORY] Erro ao carregar:', err.message);
+      debugError('[HISTORY] Erro ao carregar:', err.message);
       renderHistoryError(err.message);
     }
   }
@@ -4680,7 +4680,7 @@ function renderModeSelection() {
         btn.textContent = '↓ Baixar';
       }, 3000);
     } catch (err) {
-      console.error('[HISTORY-DL]', err.message);
+      debugError('[HISTORY-DL]', err.message);
       btn.disabled    = false;
       btn.textContent = '↓ Baixar';
     }

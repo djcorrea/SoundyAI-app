@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SoundyAI - Transforme Sua Produção Musical</title>
+    <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
+    <script src="logger.js"></script>
+    
+
     <!-- DEPLOY_VERSION: 2026-01-21 23:30 -->
     
     <!-- Google tag (gtag.js) - GA4 + Google Ads -->
@@ -17,7 +21,7 @@
         
         // Debug mode: ?debug_tracking=1
         window.TRACKING_DEBUG = window.location.search.includes('debug_tracking=1');
-        if (window.TRACKING_DEBUG) console.log('🎯 [TRACKING] Debug mode ativado');
+        if (window.TRACKING_DEBUG) debugLog('🎯 [TRACKING] Debug mode ativado');
     </script>
     
     <style>
@@ -168,7 +172,7 @@
             function trackGA4Event(eventName, params = {}) {
                 if (typeof gtag === 'function') {
                     gtag('event', eventName, params);
-                    console.log('🎯 [GA4] Evento enviado:', eventName, params);
+                    debugLog('🎯 [GA4] Evento enviado:', eventName, params);
                 }
             }
             
@@ -185,21 +189,21 @@
                 const ctaButton = document.getElementById('checkout-cta');
                 
                 if (!ctaButton) {
-                    console.warn('⚠️ Botão de checkout não encontrado');
+                    debugWarn('⚠️ Botão de checkout não encontrado');
                     return;
                 }
                 
                 const checkoutUrl = ctaButton.href;
                 
                 if (!checkoutUrl || checkoutUrl.includes('SEU_LINK_HOTMART')) {
-                    console.warn('⚠️ URL do checkout Hotmart não configurada!');
+                    debugWarn('⚠️ URL do checkout Hotmart não configurada!');
                 }
                 
                 ctaButton.addEventListener('click', function(e) {
                     e.preventDefault();
                     
                     if (window.TRACKING_DEBUG) {
-                        console.log('🎯 [TRACKING] Click detectado no CTA de checkout');
+                        debugLog('🎯 [TRACKING] Click detectado no CTA de checkout');
                     }
                     
                     // Deduplicação por sessionStorage
@@ -218,10 +222,10 @@
                                 });
                                 
                                 if (window.TRACKING_DEBUG) {
-                                    console.log('🎯 [TRACKING] Conversão CHECKOUT_CLICK enviada');
+                                    debugLog('🎯 [TRACKING] Conversão CHECKOUT_CLICK enviada');
                                 }
                             } catch (trackingError) {
-                                console.warn('⚠️ Erro no tracking Google Ads:', trackingError);
+                                debugWarn('⚠️ Erro no tracking Google Ads:', trackingError);
                             }
                         }
                         
@@ -241,7 +245,7 @@
                         sessionStorage.setItem(trackingKey, Date.now());
                     } else if (alreadyTracked) {
                         if (window.TRACKING_DEBUG) {
-                            console.log('🎯 [TRACKING] Checkout já rastreado (deduplicado)');
+                            debugLog('🎯 [TRACKING] Checkout já rastreado (deduplicado)');
                         }
                     }
                     
@@ -252,7 +256,7 @@
                 });
                 
                 if (window.TRACKING_DEBUG) {
-                    console.log('✅ [TRACKING] Sistema de checkout tracking ativo');
+                    debugLog('✅ [TRACKING] Sistema de checkout tracking ativo');
                 }
             }
             

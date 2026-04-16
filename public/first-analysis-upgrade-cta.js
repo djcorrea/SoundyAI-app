@@ -24,7 +24,7 @@
             this.active = true;
             this.reason = reason;
             this.appliedAt = new Date().toISOString();
-            console.log('%c[FIRST-ANALYSIS-LOCK] aplicado', 
+            debugLog('%c[FIRST-ANALYSIS-LOCK] aplicado', 
                 'color:#FF0000;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;',
                 `Razão: ${reason}`);
         },
@@ -33,7 +33,7 @@
             // ⚠️ Lock só pode ser removido por upgrade de plano
             if (reason !== 'UPGRADE_TO_PAID_PLAN') {
                 const stack = new Error().stack;
-                console.warn('%c[FIRST-ANALYSIS-LOCK] tentativa de remover bloqueio IGNORADA', 
+                debugWarn('%c[FIRST-ANALYSIS-LOCK] tentativa de remover bloqueio IGNORADA', 
                     'color:#FF0000;font-weight:bold;background:#FFFF00;padding:4px 8px;border-radius:4px;',
                     `Tentativa: ${reason}`,
                     `Stack:`, stack);
@@ -42,7 +42,7 @@
             
             this.active = false;
             this.reason = '';
-            console.log('%c[FIRST-ANALYSIS-LOCK] removido (UPGRADE)', 
+            debugLog('%c[FIRST-ANALYSIS-LOCK] removido (UPGRADE)', 
                 'color:#00FF00;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
             return true;
         },
@@ -109,19 +109,19 @@
     function logAction(action, details = '') {
         const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
         const message = `[FIRST-ANALYSIS-CTA] ${action}`;
-        console.log(`%c${message}${details ? ' → ' + details : ''}`, 
+        debugLog(`%c${message}${details ? ' → ' + details : ''}`, 
             'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
     }
     
     function logLockReapplied(reason = '') {
-        console.log('%c[FIRST-ANALYSIS-LOCK] reaplicado', 
+        debugLog('%c[FIRST-ANALYSIS-LOCK] reaplicado', 
             'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;',
             reason ? `Razão: ${reason}` : '');
     }
     
     function debugLog(...args) {
         if (CONFIG.DEBUG) {
-            console.log('%c[FIRST-CTA-V4]', 'color:#FF6B35;font-weight:bold;', ...args);
+            debugLog('%c[FIRST-CTA-V4]', 'color:#FF6B35;font-weight:bold;', ...args);
         }
     }
     
@@ -820,10 +820,10 @@
                 if (window.FIRST_ANALYSIS_LOCK.isLocked() || ContextDetector.isFirstFreeFullAnalysisSync()) {
                     // ✅ LOG CLARO
                     if (funcName === 'sendModalAnalysisToChat') {
-                        console.log('%c[FIRST-ANALYSIS-CTA] intercept IA click -> CTA', 
+                        debugLog('%c[FIRST-ANALYSIS-CTA] intercept IA click -> CTA', 
                             'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
                     } else if (funcName === 'downloadModalAnalysis') {
-                        console.log('%c[FIRST-ANALYSIS-CTA] intercept PDF click -> CTA', 
+                        debugLog('%c[FIRST-ANALYSIS-CTA] intercept PDF click -> CTA', 
                             'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
                     }
                     logAction(`Botão ${label.toUpperCase()} bloqueado`, 'CTA exibido');
@@ -864,7 +864,7 @@
                     e.stopPropagation();
                     e.stopImmediatePropagation();
                     
-                    console.log('%c[FIRST-ANALYSIS-CTA] intercept IA click -> CTA', 
+                    debugLog('%c[FIRST-ANALYSIS-CTA] intercept IA click -> CTA', 
                         'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
                     logAction('Botão IA bloqueado via capture', 'CTA exibido');
                     UpgradeCtaModal.show('Botão IA');
@@ -883,7 +883,7 @@
                     e.stopPropagation();
                     e.stopImmediatePropagation();
                     
-                    console.log('%c[FIRST-ANALYSIS-CTA] intercept PDF click -> CTA', 
+                    debugLog('%c[FIRST-ANALYSIS-CTA] intercept PDF click -> CTA', 
                         'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
                     logAction('Botão PDF bloqueado via capture', 'CTA exibido');
                     UpgradeCtaModal.show('Botão PDF');

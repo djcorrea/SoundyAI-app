@@ -1,16 +1,16 @@
 // auth.js - Versão 2026-02-17 23:48 - Sistema de fallback triplo + emergency mode
-console.log('🚨🚨🚨 AUTH.JS INICIANDO - v2026-02-17 23:48 🚨🚨🚨');
-console.log('🔍 [DEBUG] Script auth.js carregado e executando...');
+debugLog('🚨🚨🚨 AUTH.JS INICIANDO - v2026-02-17 23:48 🚨🚨🚨');
+debugLog('🔍 [DEBUG] Script auth.js carregado e executando...');
 log('🚀 Carregando auth.js...');
 
 (async () => {
   try {
-    console.log('🔍 [DEBUG] Iniciando importação do firebase.js...');
+    debugLog('🔍 [DEBUG] Iniciando importação do firebase.js...');
     // Importações corretas com URLs válidas
     const { auth, db } = await import('./firebase.js');
-    console.log('✅ [DEBUG] Firebase importado:', { auth: !!auth, db: !!db });
+    debugLog('✅ [DEBUG] Firebase importado:', { auth: !!auth, db: !!db });
     
-    console.log('🔍 [DEBUG] Iniciando importação do Firebase Auth...');
+    debugLog('🔍 [DEBUG] Iniciando importação do Firebase Auth...');
     // Importações Firebase Auth com URLs corretas
     const { 
       RecaptchaVerifier, 
@@ -25,12 +25,12 @@ log('🚀 Carregando auth.js...');
       GoogleAuthProvider,
       signInWithPopup
     } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
-    console.log('✅ [DEBUG] Firebase Auth importado com sucesso');
+    debugLog('✅ [DEBUG] Firebase Auth importado com sucesso');
     
-    console.log('🔍 [DEBUG] Iniciando importação do Firestore...');
+    debugLog('🔍 [DEBUG] Iniciando importação do Firestore...');
     // Importações Firestore
     const { doc, getDoc, setDoc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
-    console.log('✅ [DEBUG] Firestore importado com sucesso');
+    debugLog('✅ [DEBUG] Firestore importado com sucesso');
 
     log('✅ Todas as importações carregadas com sucesso');
 
@@ -1144,11 +1144,11 @@ log('🚀 Carregando auth.js...');
         };
         
         // 🔍 AUDITORIA
-        console.log('[FIRESTORE-WRITE usuarios] auth.js confirmSMSCode() V2 - Criação determinística');
-        console.log('[FIRESTORE-WRITE usuarios] UID:', user.uid);
-        console.log('[FIRESTORE-WRITE usuarios] phoneNumber:', formattedPhone);
-        console.log('[FIRESTORE-WRITE usuarios] verified:', true);
-        console.log('[FIRESTORE-WRITE usuarios] bypassSMS:', true);
+        debugLog('[FIRESTORE-WRITE usuarios] auth.js confirmSMSCode() V2 - Criação determinística');
+        debugLog('[FIRESTORE-WRITE usuarios] UID:', user.uid);
+        debugLog('[FIRESTORE-WRITE usuarios] phoneNumber:', formattedPhone);
+        debugLog('[FIRESTORE-WRITE usuarios] verified:', true);
+        debugLog('[FIRESTORE-WRITE usuarios] bypassSMS:', true);
         
         // ✅ CRIAR DOCUMENTO (setDoc para garantir criação completa)
         await setDoc(userRef, newUserDoc);
@@ -1434,9 +1434,9 @@ log('🚀 Carregando auth.js...');
           }
           
           // 🔍 AUDITORIA: ESCRITA NO FIRESTORE
-          console.log('[FIRESTORE-WRITE usuarios] auth.js ensureUserDocument() linha ~1507');
-          console.log('[FIRESTORE-WRITE usuarios] Operação: updateDoc (preserva campos)');
-          console.log('[FIRESTORE-WRITE usuarios] Updates:', updates);
+          debugLog('[FIRESTORE-WRITE usuarios] auth.js ensureUserDocument() linha ~1507');
+          debugLog('[FIRESTORE-WRITE usuarios] Operação: updateDoc (preserva campos)');
+          debugLog('[FIRESTORE-WRITE usuarios] Updates:', updates);
           
           await updateDoc(userRef, updates);
           log('✅ [ENSURE-USER] Documento atualizado (plan preservado)');
@@ -1826,7 +1826,7 @@ log('🚀 Carregando auth.js...');
                              window.location.search.includes("mode=demo");
           // 🏠 HOME: Acesso livre — login apenas no modal de masterização
           const isHomePage = window.location.pathname.includes('home.html');
-          console.log('AUTH CHECK:', user ? user.uid : null, '| page:', window.location.pathname);
+          debugLog('AUTH CHECK:', user ? user.uid : null, '| page:', window.location.pathname);
 
           // ✅ BUG #2 FIX: Proteger cadastro em progresso
           if (window.isNewUserRegistering && isEntrevistaPage) {
@@ -2040,12 +2040,12 @@ log('🚀 Carregando auth.js...');
         loginBtn.style.cursor = 'pointer';
         loginBtn.addEventListener("click", (e) => {
           e.preventDefault();
-          console.log('🔵 [ENTRAR] Botão clicado!');
+          debugLog('🔵 [ENTRAR] Botão clicado!');
           if (typeof window.login === 'function') {
-            console.log('✅ Chamando window.login()');
+            debugLog('✅ Chamando window.login()');
             window.login();
           } else {
-            console.error('❌ window.login não está disponível!');
+            debugError('❌ window.login não está disponível!');
             alert('Erro: Sistema de login não carregado. Recarregue a página.');
           }
         });
@@ -2059,13 +2059,13 @@ log('🚀 Carregando auth.js...');
         signUpBtn.style.cursor = 'pointer';
         signUpBtn.addEventListener("click", (e) => {
           e.preventDefault();
-          console.log('🔵 [CADASTRAR] Botão clicado!');
+          debugLog('🔵 [CADASTRAR] Botão clicado!');
           // Chamar via window para garantir que usa a função exposta globalmente
           if (typeof window.directEmailSignUp === 'function') {
-            console.log('✅ Chamando window.directEmailSignUp()');
+            debugLog('✅ Chamando window.directEmailSignUp()');
             window.directEmailSignUp();
           } else {
-            console.error('❌ window.directEmailSignUp não está disponível!');
+            debugError('❌ window.directEmailSignUp não está disponível!');
             alert('Erro: Sistema de cadastro não carregado. Recarregue a página.');
           }
         });
@@ -2293,22 +2293,22 @@ log('🚀 Carregando auth.js...');
     // Expor signUp apontando ao fluxo de e-mail para evitar caminhos SMS
     window.signUp = directEmailSignUp;
 
-    console.log('🚀 [EXPORT] Funções expostas no window:');
-    console.log('  - window.login:', typeof window.login);
-    console.log('  - window.directEmailSignUp:', typeof window.directEmailSignUp);
-    console.log('  - window.signUp:', typeof window.signUp);
-    console.log('  - window.resetPassword:', typeof window.resetPassword);
-    console.log('  - window.loginWithGoogle:', typeof window.loginWithGoogle);
+    debugLog('🚀 [EXPORT] Funções expostas no window:');
+    debugLog('  - window.login:', typeof window.login);
+    debugLog('  - window.directEmailSignUp:', typeof window.directEmailSignUp);
+    debugLog('  - window.signUp:', typeof window.signUp);
+    debugLog('  - window.resetPassword:', typeof window.resetPassword);
+    debugLog('  - window.loginWithGoogle:', typeof window.loginWithGoogle);
 
     log('✅ Sistema de autenticação carregado - Modo:', SMS_VERIFICATION_ENABLED ? 'SMS' : 'Email Direto');
 
   } catch (err) {
     error('❌ Erro crítico ao carregar auth.js:', err);
-    console.error('❌ Stack:', err.stack);
-    console.error('❌ Mensagem:', err.message);
+    debugError('❌ Stack:', err.stack);
+    debugError('❌ Mensagem:', err.message);
     
     // ✅ FALLBACK DE EMERGÊNCIA: Habilitar botões mesmo com erro
-    console.warn('⚡ Ativando modo de emergência - habilitando botões localmente');
+    debugWarn('⚡ Ativando modo de emergência - habilitando botões localmente');
     
     setTimeout(() => {
       const loginBtn = document.getElementById('loginBtn');
@@ -2320,7 +2320,7 @@ log('🚀 Carregando auth.js...');
         loginBtn.textContent = 'Entrar';
         loginBtn.style.opacity = '1';
         loginBtn.style.cursor = 'pointer';
-        console.log('⚡ [EMERGENCY] Botão Entrar habilitado');
+        debugLog('⚡ [EMERGENCY] Botão Entrar habilitado');
       }
       
       if (signUpBtn) {
@@ -2328,14 +2328,14 @@ log('🚀 Carregando auth.js...');
         signUpBtn.textContent = 'Cadastrar';
         signUpBtn.style.opacity = '1';
         signUpBtn.style.cursor = 'pointer';
-        console.log('⚡ [EMERGENCY] Botão Cadastrar habilitado');
+        debugLog('⚡ [EMERGENCY] Botão Cadastrar habilitado');
       }
       
       if (googleBtn) {
         googleBtn.disabled = false;
         googleBtn.style.opacity = '1';
         googleBtn.style.cursor = 'pointer';
-        console.log('⚡ [EMERGENCY] Botão Google habilitado');
+        debugLog('⚡ [EMERGENCY] Botão Google habilitado');
       }
       
       alert('Erro ao carregar sistema. Recarregue a página (Ctrl+Shift+R).\n\nSe o problema persistir, limpe o cache do navegador.');

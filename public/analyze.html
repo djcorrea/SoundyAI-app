@@ -421,14 +421,14 @@
             if (!res.ok) throw new Error('HTTP ' + res.status);
             window.__CURRENT_GENRE_TARGETS = await res.json();
           } catch (err) {
-            console.warn('[analyze.html] Erro ao pré-carregar targets:', err);
+            debugWarn('[analyze.html] Erro ao pré-carregar targets:', err);
           }
         }
 
         return _originalHMFS.call(this, file);
       };
 
-      console.log('[analyze.html] patches aplicados ✓');
+      debugLog('[analyze.html] patches aplicados ✓');
     });
 
     // ----------------------------------------------------------------

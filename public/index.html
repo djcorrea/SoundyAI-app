@@ -20,7 +20,7 @@
         
         // Debug mode: ?debug_tracking=1
         window.TRACKING_DEBUG = window.location.search.includes('debug_tracking=1');
-        if (window.TRACKING_DEBUG) console.log('🎯 [TRACKING] Debug mode ativado');
+        if (window.TRACKING_DEBUG) debugLog('🎯 [TRACKING] Debug mode ativado');
     </script>
     
     <!-- 📊 Google Analytics 4 Tracking Module -->
@@ -1682,7 +1682,7 @@
                                 if (referralCode) {
                                     localStorage.setItem('soundy_referral_code', referralCode);
                                     localStorage.setItem('soundy_referral_timestamp', referralTimestamp);
-                                    console.log('🔗 [REFERRAL] Código preservado após logout:', referralCode);
+                                    debugLog('🔗 [REFERRAL] Código preservado após logout:', referralCode);
                                 }
                                 
                                 window.location.href = 'login.html';
@@ -1712,9 +1712,9 @@
             function sendGA4Event(eventName, params = {}) {
                 if (typeof gtag === 'function') {
                     gtag('event', eventName, params);
-                    console.log('🎯 [GA4] Evento disparado:', eventName, params);
+                    debugLog('🎯 [GA4] Evento disparado:', eventName, params);
                 } else {
-                    console.warn('⚠️ [GA4] gtag não está disponível');
+                    debugWarn('⚠️ [GA4] gtag não está disponível');
                 }
             }
             
@@ -1791,7 +1791,7 @@
                 });
             });
             
-            console.log('✅ [GA4] Event tracking inicializado no app');
+            debugLog('✅ [GA4] Event tracking inicializado no app');
         });
     </script>
     
@@ -1806,7 +1806,7 @@
                 
                 // Detectar se veio do HUB com intenção de iniciar análise
                 if (urlParams.get('startAnalysis') === 'true') {
-                    console.log('🎯 [HUB-REDIRECT] Parâmetro startAnalysis detectado, abrindo modal de análise...');
+                    debugLog('🎯 [HUB-REDIRECT] Parâmetro startAnalysis detectado, abrindo modal de análise...');
                     
                     // Limpar parâmetro da URL sem recarregar página
                     const cleanUrl = window.location.pathname;
@@ -1815,10 +1815,10 @@
                     // Aguardar modal estar pronto e abrir
                     setTimeout(() => {
                         if (typeof window.openAudioModal === 'function') {
-                            console.log('✅ [HUB-REDIRECT] Abrindo modal de análise...');
+                            debugLog('✅ [HUB-REDIRECT] Abrindo modal de análise...');
                             window.openAudioModal();
                         } else {
-                            console.error('❌ [HUB-REDIRECT] window.openAudioModal não disponível');
+                            debugError('❌ [HUB-REDIRECT] window.openAudioModal não disponível');
                         }
                     }, 500);
                 }

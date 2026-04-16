@@ -1048,15 +1048,15 @@ class AISuggestionsIntegration {
         // no MESMO elemento (#aiExpandedGrid). Se o controller já renderizou (flag=true),
         // esta função NÃO deve sobrescrever — seria reintroduzir sugestões sem filtro.
         const alreadyRendered = window.__AI_RENDER_COMPLETED__ === true;
-        console.log('[TRACE_INTEGRATION_ENTER] função=displaySuggestions count=' + (suggestions?.length ?? 0)
+        debugLog('[TRACE_INTEGRATION_ENTER] função=displaySuggestions count=' + (suggestions?.length ?? 0)
             + ' source=' + source
             + ' __AI_RENDER_COMPLETED__=' + alreadyRendered
             + ' t=' + Date.now());
-        console.log('[TRACE_INTEGRATION_METRICS] função=displaySuggestions metrics='
+        debugLog('[TRACE_INTEGRATION_METRICS] função=displaySuggestions metrics='
             + JSON.stringify(suggestions?.slice(0, 6)?.map(s => s.metric || s.category || s.type || s.key)));
 
         if (alreadyRendered) {
-            console.warn('[TRACE_OVERWRITE] ⛔ displaySuggestions BLOQUEADO:'
+            debugWarn('[TRACE_OVERWRITE] ⛔ displaySuggestions BLOQUEADO:'
                 + ' __AI_RENDER_COMPLETED__=true — aiUIController já renderizou #aiExpandedGrid.'
                 + ' Ignorando sobrescrita de ' + (suggestions?.length ?? 0) + ' sugestões.');
             return;
@@ -1067,7 +1067,7 @@ class AISuggestionsIntegration {
         if (typeof applyPremasterFilter === 'function') {
             const before = suggestions?.length ?? 0;
             suggestions = applyPremasterFilter(suggestions || []);
-            console.log('[TRACE_INTEGRATION_SOURCE] função=displaySuggestions filtro premaster='
+            debugLog('[TRACE_INTEGRATION_SOURCE] função=displaySuggestions filtro premaster='
                 + before + '→' + suggestions.length);
         }
         // ── FIM GUARD ────────────────────────────────────────────────────────────────

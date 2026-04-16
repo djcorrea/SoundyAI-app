@@ -2265,9 +2265,9 @@
             function sendGA4Event(eventName, params = {}) {
                 if (typeof gtag === 'function') {
                     gtag('event', eventName, params);
-                    console.log('🎯 [GA4] Evento disparado:', eventName, params);
+                    debugLog('🎯 [GA4] Evento disparado:', eventName, params);
                 } else {
-                    console.warn('⚠️ [GA4] gtag não está disponível');
+                    debugWarn('⚠️ [GA4] gtag não está disponível');
                 }
             }
             
@@ -2351,7 +2351,7 @@
                             canvas.style.pointerEvents = 'none';
                             canvas.style.setProperty('pointer-events', 'none', 'important');
                         });
-                        console.log('✅ [AUDIO-FIX] Pointer-events:none aplicado em', vantaCanvases.length, 'canvas Vanta');
+                        debugLog('✅ [AUDIO-FIX] Pointer-events:none aplicado em', vantaCanvases.length, 'canvas Vanta');
                     }, 500);
 
                     // ✅ FIX: MutationObserver para garantir que novos canvas não capturem cliques
@@ -2363,7 +2363,7 @@
                                     canvases.forEach(canvas => {
                                         canvas.style.pointerEvents = 'none';
                                         canvas.style.setProperty('pointer-events', 'none', 'important');
-                                        console.log('✅ [AUDIO-FIX] Canvas dinâmico detectado e bloqueado');
+                                        debugLog('✅ [AUDIO-FIX] Canvas dinâmico detectado e bloqueado');
                                     });
                                 }
                             });
@@ -2373,7 +2373,7 @@
                     const vantaBg = document.querySelector('#vanta-bg');
                     if (vantaBg) {
                         observer.observe(vantaBg, { childList: true, subtree: true });
-                        console.log('✅ [AUDIO-FIX] MutationObserver ativo no #vanta-bg');
+                        debugLog('✅ [AUDIO-FIX] MutationObserver ativo no #vanta-bg');
                     }
                 }
             } catch (e) {

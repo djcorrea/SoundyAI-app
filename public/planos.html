@@ -19,7 +19,7 @@
         
         // Debug mode: ?debug_tracking=1
         window.TRACKING_DEBUG = window.location.search.includes('debug_tracking=1');
-        if (window.TRACKING_DEBUG) console.log('🎯 [TRACKING] Debug mode ativado');
+        if (window.TRACKING_DEBUG) debugLog('🎯 [TRACKING] Debug mode ativado');
     </script>
     
     <!-- 📊 Google Analytics 4 Tracking Module -->
@@ -366,9 +366,9 @@
             function sendGA4Event(eventName, params = {}) {
                 if (typeof gtag === 'function') {
                     gtag('event', eventName, params);
-                    console.log('🎯 [GA4] Evento disparado:', eventName, params);
+                    debugLog('🎯 [GA4] Evento disparado:', eventName, params);
                 } else {
-                    console.warn('⚠️ [GA4] gtag não está disponível');
+                    debugWarn('⚠️ [GA4] gtag não está disponível');
                 }
             }
             

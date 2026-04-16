@@ -32,7 +32,7 @@
      */
     function log(...args) {
         if (DEBUG_MODE) {
-            console.log('%c[GA4-TRACKING]', 'color:#4285F4;font-weight:bold', ...args);
+            debugLog('%c[GA4-TRACKING]', 'color:#4285F4;font-weight:bold', ...args);
         }
     }
 
@@ -40,7 +40,7 @@
      * Logger de erros
      */
     function error(...args) {
-        console.error('%c[GA4-TRACKING-ERROR]', 'color:#EA4335;font-weight:bold', ...args);
+        debugError('%c[GA4-TRACKING-ERROR]', 'color:#EA4335;font-weight:bold', ...args);
     }
 
     /**

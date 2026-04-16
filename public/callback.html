@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SoundyAI - Redirecionando...</title>
+    <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
+    <script src="logger.js"></script>
+    
+
   
   <style>
     * {
@@ -113,13 +117,13 @@
     // ✅ Detecta destino salvo e redireciona
     // ✅ Fallback seguro para index.html
 
-    console.log('🔗 [CALLBACK] Página de callback carregada');
+    debugLog('🔗 [CALLBACK] Página de callback carregada');
 
     function redirectAfterLogin() {
       // Buscar destino salvo antes do login
       const destination = localStorage.getItem('postLoginRedirect');
       
-      console.log('🔍 [CALLBACK] Destino detectado:', destination);
+      debugLog('🔍 [CALLBACK] Destino detectado:', destination);
 
       if (destination) {
         // Mapear destino para URL
@@ -131,7 +135,7 @@
 
         const targetUrl = urlMap[destination] || '/index.html';
         
-        console.log('✅ [CALLBACK] Redirecionando para:', targetUrl);
+        debugLog('✅ [CALLBACK] Redirecionando para:', targetUrl);
         
         // Limpar flag
         localStorage.removeItem('postLoginRedirect');
@@ -147,7 +151,7 @@
         const fromLogin = urlParams.get('from');
         
         if (fromLogin) {
-          console.log('🔍 [CALLBACK] Origem detectada via URL:', fromLogin);
+          debugLog('🔍 [CALLBACK] Origem detectada via URL:', fromLogin);
           
           // Redirecionar para index.html (painel principal)
           setTimeout(() => {
@@ -155,7 +159,7 @@
           }, 1000);
         } else {
           // Fallback: mostrar erro e link manual
-          console.warn('⚠️ [CALLBACK] Nenhum destino encontrado, mostrando fallback');
+          debugWarn('⚠️ [CALLBACK] Nenhum destino encontrado, mostrando fallback');
           
           const errorMsg = document.getElementById('error-message');
           const fallbackBtn = document.getElementById('fallback-btn');

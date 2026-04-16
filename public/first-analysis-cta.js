@@ -30,9 +30,9 @@
 (function() {
     'use strict';
     
-    const log = (...args) => console.log('[FIRST-ANALYSIS-CTA]', ...args);
-    const warn = (...args) => console.warn('[FIRST-ANALYSIS-CTA]', ...args);
-    const error = (...args) => console.error('[FIRST-ANALYSIS-CTA]', ...args);
+    const log = (...args) => debugLog('[FIRST-ANALYSIS-CTA]', ...args);
+    const warn = (...args) => debugWarn('[FIRST-ANALYSIS-CTA]', ...args);
+    const error = (...args) => debugError('[FIRST-ANALYSIS-CTA]', ...args);
     
     // ═══════════════════════════════════════════════════════════════════════════
     // ESTADO GLOBAL DO MÓDULO

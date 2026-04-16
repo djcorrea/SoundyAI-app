@@ -25,10 +25,10 @@ function applyPremasterFilter(suggestions) {
     const filtered = suggestions.filter(s => {
         const m = s.metric || s.metricKey || s.category || '';
         const ok = isPremasterMetric(m);
-        if (!ok) console.warn('[PREMASTER-FILTER] Bloqueado metric=' + m + ' categoria=' + (s.categoria || s.category || ''));
+        if (!ok) debugWarn('[PREMASTER-FILTER] Bloqueado metric=' + m + ' categoria=' + (s.categoria || s.category || ''));
         return ok;
     });
-    console.log('[PREMASTER-FILTER]', filtered.length + '/' + suggestions.length, 'sugestoes passaram');
+    debugLog('[PREMASTER-FILTER]', filtered.length + '/' + suggestions.length, 'sugestoes passaram');
     return filtered;
 }
 
@@ -681,7 +681,7 @@ class AISuggestionUIController {
     __runCheckForAISuggestions(analysis, retryCount = 0) {
         // ── TRACE ──────────────────────────────────────────────────────────────
         // [TRACE_RENDER_ENTER] ponto de entrada: __runCheckForAISuggestions
-        console.log('[TRACE_RENDER_ENTER] função=__runCheckForAISuggestions retryCount=' + retryCount
+        debugLog('[TRACE_RENDER_ENTER] função=__runCheckForAISuggestions retryCount=' + retryCount
             + ' count=' + (analysis?.aiSuggestions?.length ?? '?')
             + ' t=' + Date.now());
 
@@ -690,7 +690,7 @@ class AISuggestionUIController {
         // Se passado como wrapper, analysis.aiSuggestions não existe mas analysis.user existe
         if (analysis && analysis.user && !analysis.aiSuggestions && !analysis.suggestions
                 && !analysis.data && !analysis.userAnalysis && !analysis.referenceAnalysis) {
-            console.warn('[TRACE_RENDER_ENTER] Wrapper {mode,user} detectado — usando analysis.user diretamente');
+            debugWarn('[TRACE_RENDER_ENTER] Wrapper {mode,user} detectado — usando analysis.user diretamente');
             analysis = analysis.user;
         }
         // ── FIM TRACE ──────────────────────────────────────────────────────────
@@ -1388,18 +1388,18 @@ class AISuggestionUIController {
      */
     renderAISuggestions(suggestions, genreTargets = null, metrics = null) {
         // ── TRACE AI SOURCE ────────────────────────────────────────────────────
-        console.log('[TRACE_AI_SOURCE]', Array.isArray(suggestions)
+        debugLog('[TRACE_AI_SOURCE]', Array.isArray(suggestions)
             ? suggestions.map(s => s.metric || s.metricKey || s.type || s.category)
             : 'não é array');
         // ── TRACE ──────────────────────────────────────────────────────────────
-        console.log('[TRACE_RENDER_ENTER] função=renderAISuggestions count=' + suggestions?.length
+        debugLog('[TRACE_RENDER_ENTER] função=renderAISuggestions count=' + suggestions?.length
             + ' metrics=' + JSON.stringify(suggestions?.slice(0,5)?.map(s=>s.metric||s.category))
             + ' renderLock=' + window.__AI_RENDER_COMPLETED__
             + ' t=' + Date.now());
         // ── FIM TRACE ──────────────────────────────────────────────────────────────
         // -- LOCK SUPERIOR: impede qualquer render duplicado ----------------------
         if (window.__AI_RENDER_COMPLETED__ === true) {
-            console.warn('[AI] Ja renderizado -- renderAISuggestions bloqueado', Date.now());
+            debugWarn('[AI] Ja renderizado -- renderAISuggestions bloqueado', Date.now());
             return;
         }
         window.__AI_RENDER_COMPLETED__ = true;
@@ -1867,21 +1867,21 @@ class AISuggestionUIController {
         if (!this.elements.aiContent) return;
 
         // ── TRACE ──────────────────────────────────────────────────────────────
-        console.log('[TRACE_RENDER_ENTER] função=renderSuggestionCards count=' + suggestions?.length
+        debugLog('[TRACE_RENDER_ENTER] função=renderSuggestionCards count=' + suggestions?.length
             + ' renderJobId=' + renderJobId
             + ' suggestionsLock=' + window.__suggestionsRendered
             + ' t=' + Date.now());
-        console.log('[TRACE_RENDER_METRICS] função=renderSuggestionCards metrics='
+        debugLog('[TRACE_RENDER_METRICS] função=renderSuggestionCards metrics='
             + JSON.stringify(suggestions?.slice(0,6)?.map(s=>s.metric||s.category||s.key)));
         // ── FIM TRACE ──────────────────────────────────────────────────────────────
 
         // ── LOCK GLOBAL: impede duplo render (timer retry + MutationObserver) ──
         if (window.__suggestionsRendered === true) {
-            console.warn('[SUGGESTIONS RENDER] 🔒 Bloqueado: já renderizado. jobId:', renderJobId, Date.now());
+            debugWarn('[SUGGESTIONS RENDER] 🔒 Bloqueado: já renderizado. jobId:', renderJobId, Date.now());
             return;
         }
         window.__suggestionsRendered = true;
-        console.log('[SUGGESTIONS RENDER]', Date.now(), '| isAIEnriched:', isAIEnriched, '| count:', suggestions?.length);
+        debugLog('[SUGGESTIONS RENDER]', Date.now(), '| isAIEnriched:', isAIEnriched, '| count:', suggestions?.length);
 
         // Limpar container antes de qualquer render para evitar HTML obsoleto
         this.elements.aiContent.innerHTML = '';
@@ -1934,7 +1934,7 @@ class AISuggestionUIController {
                 // substitua o parâmetro 'suggestions' (que já vinha filtrado).
                 const rawSource = analysis?.aiSuggestions || analysis?.suggestions || suggestions || [];
                 const originalSuggestions = applyPremasterFilter(rawSource);
-                console.log('[TRACE_STATE_SOURCE] função=renderSuggestionCards MODAL_VS_TABLE'
+                debugLog('[TRACE_STATE_SOURCE] função=renderSuggestionCards MODAL_VS_TABLE'
                     + ' raw=' + rawSource.length
                     + ' afterFilter=' + originalSuggestions.length
                     + ' t=' + Date.now());
@@ -2082,9 +2082,9 @@ class AISuggestionUIController {
                           (userPlan === 'free' ? 'free' : 'paid');
         
         // 🔍 LOG DIAGNÓSTICO COMPLETO
-        console.log('%c[AI-UI][RENDER] 🔍 DIAGNÓSTICO DE RENDERIZAÇÃO', 'color:#FF6B35;font-weight:bold;font-size:14px;');
-        console.log('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[AI-UI][RENDER] 📊 Estado:', {
+        debugLog('%c[AI-UI][RENDER] 🔍 DIAGNÓSTICO DE RENDERIZAÇÃO', 'color:#FF6B35;font-weight:bold;font-size:14px;');
+        debugLog('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugLog('[AI-UI][RENDER] 📊 Estado:', {
             planStatus: planStatus,
             userPlan: userPlan,
             rawSuggestionsCount: suggestions.length,
@@ -2100,7 +2100,7 @@ class AISuggestionUIController {
             
             if (planStatus === 'paid') {
                 // ✅ USUÁRIO PAGO: Mostrar empty state premium (não upsell)
-                console.log('%c[AI-UI][RENDER] ✅ PAID USER - Renderizando empty state premium', 'color:#4CAF50;font-weight:bold;');
+                debugLog('%c[AI-UI][RENDER] ✅ PAID USER - Renderizando empty state premium', 'color:#4CAF50;font-weight:bold;');
                 this.elements.aiContent.innerHTML = `
                     <div class="ai-premium-empty" style="
                         padding: 32px;
@@ -2125,12 +2125,12 @@ class AISuggestionUIController {
                 `;
                 
                 // 🔒 VALIDAÇÃO: Garantir que não mostramos upsell para usuário pago
-                console.error('[AI-UI][RENDER] ❌ ERRO EVITADO: Usuário PAID quase viu card de upsell!');
+                debugError('[AI-UI][RENDER] ❌ ERRO EVITADO: Usuário PAID quase viu card de upsell!');
                 return;
                 
             } else if (planStatus === 'free') {
                 // ⚠️ USUÁRIO FREE: Mostrar card de upsell
-                console.log('%c[AI-UI][RENDER] 🔒 FREE USER - Renderizando upsell', 'color:#FF9800;font-weight:bold;');
+                debugLog('%c[AI-UI][RENDER] 🔒 FREE USER - Renderizando upsell', 'color:#FF9800;font-weight:bold;');
                 this.elements.aiContent.innerHTML = `
                     <div class="ai-reduced-notice" style="
                         padding: 24px;
@@ -2164,7 +2164,7 @@ class AISuggestionUIController {
                 
             } else {
                 // 🕐 PLANO LOADING: Mostrar skeleton (não upsell)
-                console.log('%c[AI-UI][RENDER] ⏳ LOADING - Renderizando skeleton', 'color:#2196F3;font-weight:bold;');
+                debugLog('%c[AI-UI][RENDER] ⏳ LOADING - Renderizando skeleton', 'color:#2196F3;font-weight:bold;');
                 this.elements.aiContent.innerHTML = `
                     <div class="ai-loading-skeleton" style="
                         padding: 24px;
@@ -2182,8 +2182,8 @@ class AISuggestionUIController {
         }
         
         // ✅ TEM SUGESTÕES: Renderizar normalmente
-        console.log('%c[AI-UI][RENDER] ✅ Renderizando ' + filteredSuggestions.length + ' sugestões', 'color:#4CAF50;font-weight:bold;');
-        console.log('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugLog('%c[AI-UI][RENDER] ✅ Renderizando ' + filteredSuggestions.length + ' sugestões', 'color:#4CAF50;font-weight:bold;');
+        debugLog('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         // ✅ VALIDAR SUGESTÕES CONTRA TARGETS REAIS
         const validatedSuggestions = this.validateAndCorrectSuggestions(filteredSuggestions, genreTargets);

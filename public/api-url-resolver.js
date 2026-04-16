@@ -42,36 +42,36 @@
         
         // 🧪 TESTE: Railway TEST
         if (host === 'soundyai-app-soundyai-teste.up.railway.app') {
-            console.log('🧪 [API-RESOLVER] Ambiente: Railway TEST (relativo)');
+            debugLog('🧪 [API-RESOLVER] Ambiente: Railway TEST (relativo)');
             return '/api';
         }
         
         // 🧪 TESTE: Vercel
         if (host === 'soundyai-teste.vercel.app') {
-            console.log('🧪 [API-RESOLVER] Ambiente: Vercel TEST → API Railway TEST');
+            debugLog('🧪 [API-RESOLVER] Ambiente: Vercel TEST → API Railway TEST');
             return 'https://soundyai-app-soundyai-teste.up.railway.app/api';
         }
         
         // 🚀 PRODUÇÃO: Domínio principal
         if (host === 'soundyai.com.br' || host === 'www.soundyai.com.br') {
-            console.log('🚀 [API-RESOLVER] Ambiente: Produção (relativo)');
+            debugLog('🚀 [API-RESOLVER] Ambiente: Produção (relativo)');
             return '/api';
         }
         
         // 🚀 PRODUÇÃO: Railway direto
         if (host === 'soundyai-app-production.up.railway.app') {
-            console.log('🚀 [API-RESOLVER] Ambiente: Railway PROD (relativo)');
+            debugLog('🚀 [API-RESOLVER] Ambiente: Railway PROD (relativo)');
             return '/api';
         }
         
         // 🔧 LOCAL: Chamar Railway PROD
         if (env === 'local') {
-            console.log('🔧 [API-RESOLVER] Ambiente: Local → API Railway PROD');
+            debugLog('🔧 [API-RESOLVER] Ambiente: Local → API Railway PROD');
             return 'https://soundyai-app-production.up.railway.app/api';
         }
         
         // ⚠️ Fallback: Railway PROD
-        console.warn('⚠️ [API-RESOLVER] Ambiente desconhecido, usando PROD');
+        debugWarn('⚠️ [API-RESOLVER] Ambiente desconhecido, usando PROD');
         return 'https://soundyai-app-production.up.railway.app/api';
     }
 
@@ -154,12 +154,12 @@
     window.getAPIUrl = getAPIUrl;
 
     // Log de inicialização
-    console.log('🌐 [API-RESOLVER] ═══════════════════════════════════════');
-    console.log('🌐 [API-RESOLVER] Módulo carregado');
-    console.log('🌐 [API-RESOLVER] Ambiente:', detectEnvironment());
-    console.log('🌐 [API-RESOLVER] Base URL:', getApiBaseUrl());
-    console.log('🌐 [API-RESOLVER] Chat:', getChatEndpoint());
-    console.log('🌐 [API-RESOLVER] Analyze:', getAnalyzeEndpoint());
-    console.log('🌐 [API-RESOLVER] ═══════════════════════════════════════');
+    debugLog('🌐 [API-RESOLVER] ═══════════════════════════════════════');
+    debugLog('🌐 [API-RESOLVER] Módulo carregado');
+    debugLog('🌐 [API-RESOLVER] Ambiente:', detectEnvironment());
+    debugLog('🌐 [API-RESOLVER] Base URL:', getApiBaseUrl());
+    debugLog('🌐 [API-RESOLVER] Chat:', getChatEndpoint());
+    debugLog('🌐 [API-RESOLVER] Analyze:', getAnalyzeEndpoint());
+    debugLog('🌐 [API-RESOLVER] ═══════════════════════════════════════');
 
 })();

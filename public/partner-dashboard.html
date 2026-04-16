@@ -394,7 +394,7 @@
                     await loadDashboard(partnerId, partnerData);
                 }
             } catch (error) {
-                console.error('❌ [PARTNER] Erro ao carregar dados:', error);
+                debugError('❌ [PARTNER] Erro ao carregar dados:', error);
                 content.innerHTML = `<div class="error">❌ Erro ao carregar painel: ${error.message}</div>`;
             }
         });
@@ -482,9 +482,9 @@
                     });
                 });
                 
-                console.log(`📊 [PARTNER-V2] Métricas brutas:`);
-                console.log(`   Visitantes: ${totalVisitors}`);
-                console.log(`   Cadastros: ${totalSignups}`);
+                debugLog(`📊 [PARTNER-V2] Métricas brutas:`);
+                debugLog(`   Visitantes: ${totalVisitors}`);
+                debugLog(`   Cadastros: ${totalSignups}`);
                 
                 // ═══════════════════════════════════════════════════════════════════
                 // 🎯 ETAPA 2: Buscar dados de assinatura em usuarios (MRR)
@@ -514,12 +514,12 @@
                             });
                         }
                     } catch (error) {
-                        console.warn(`⚠️ [PARTNER-V2] Erro ao buscar usuário ${uid}:`, error.message);
+                        debugWarn(`⚠️ [PARTNER-V2] Erro ao buscar usuário ${uid}:`, error.message);
                     }
                 }
                 
-                console.log(`   Assinaturas ativas: ${activeSubscribers}`);
-                console.log(`   MRR total: R$ ${mrr.toFixed(2)}`);
+                debugLog(`   Assinaturas ativas: ${activeSubscribers}`);
+                debugLog(`   MRR total: R$ ${mrr.toFixed(2)}`);
 
                 const commission = (mrr * (partnerData.commissionPercent / 100)).toFixed(2);
                 
@@ -620,7 +620,7 @@
                     </div>
                 `;
             } catch (error) {
-                console.error('❌ [PARTNER-V2] Erro ao carregar dados:', error);
+                debugError('❌ [PARTNER-V2] Erro ao carregar dados:', error);
                 content.innerHTML = `<div class="error">❌ Erro: ${error.message}</div>`;
             }
         }
@@ -647,7 +647,7 @@
                 await signOut(auth);
                 content.innerHTML = '<div class="loading">Saindo...</div>';
             } catch (error) {
-                console.error('❌ [PARTNER] Erro ao sair:', error);
+                debugError('❌ [PARTNER] Erro ao sair:', error);
                 alert('Erro ao sair: ' + error.message);
             }
         };

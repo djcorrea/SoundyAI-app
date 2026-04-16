@@ -516,7 +516,7 @@
                     }
                     
                 } catch (err) {
-                    console.error('❌ Erro ao buscar dados do plano:', err);
+                    debugError('❌ Erro ao buscar dados do plano:', err);
                     
                     // Em caso de erro, mostrar como gratuito por segurança
                     const planTypeElement = document.getElementById('plan-type');
@@ -673,9 +673,9 @@
                         }
                         
                     } catch (err) {
-                        console.error('❌ Erro ao confirmar o novo e-mail:', err);
-                        console.error('[EMAIL VERIFY] Código do erro:', err.code);
-                        console.error('[EMAIL VERIFY] Mensagem:', err.message);
+                        debugError('❌ Erro ao confirmar o novo e-mail:', err);
+                        debugError('[EMAIL VERIFY] Código do erro:', err.code);
+                        debugError('[EMAIL VERIFY] Mensagem:', err.message);
                         
                         let errorMessage = 'Erro ao confirmar o novo e-mail. Tente novamente.';
                         
@@ -777,14 +777,14 @@
                             // Redirecionar para home
                             window.location.href = 'home.html';
                         } catch (logoutError) {
-                            console.error('❌ Erro ao fazer logout:', logoutError);
+                            debugError('❌ Erro ao fazer logout:', logoutError);
                             // Mesmo com erro no logout, redirecionar para home
                             window.location.href = 'home.html';
                         }
                     }, 2000); // 2 segundos para o usuário ler a mensagem
                     
                 } catch (err) {
-                    console.error('❌ Erro ao atualizar senha:', err);
+                    debugError('❌ Erro ao atualizar senha:', err);
                     
                     // Tratamento de erros específicos
                     let errorMessage = 'Erro ao atualizar senha. Tente novamente.';
@@ -885,7 +885,7 @@
                     newEmailInput.value = '';
                     
                 } catch (err) {
-                    console.error('❌ Erro ao enviar verificação de e-mail:', err);
+                    debugError('❌ Erro ao enviar verificação de e-mail:', err);
                     
                     // Limpar localStorage em caso de erro
                     localStorage.removeItem('novoEmailTemp');
@@ -912,7 +912,7 @@
                             break;
                         case 'auth/unauthorized-continue-uri':
                             errorMessage = '🚫 Erro de configuração do domínio. Entre em contato com o suporte.';
-                            console.error('[EMAIL CHANGE] Domínio não autorizado no Firebase. Verifique Authorized Domains.');
+                            debugError('[EMAIL CHANGE] Domínio não autorizado no Firebase. Verifique Authorized Domains.');
                             break;
                         case 'auth/email-already-in-use':
                             errorMessage = '📧 Este e-mail já está sendo usado por outra conta.';
@@ -1053,7 +1053,7 @@
                     }
                     
                 } catch (err) {
-                    console.error('❌ Erro completo ao excluir conta:', err);
+                    debugError('❌ Erro completo ao excluir conta:', err);
                     
                     // Esconder modal
                     hideDeleteAccountConfirmationModal();
@@ -1117,7 +1117,7 @@
                         
                         log('📅 Data de expiração formatada:', formattedDate);
                     } catch (err) {
-                        console.error('❌ Erro ao formatar data de expiração:', err);
+                        debugError('❌ Erro ao formatar data de expiração:', err);
                         message = 'Sua assinatura foi cancelada com sucesso. Você continuará com acesso ao Plus até o fim do período atual.';
                     }
                 } else {
@@ -1293,7 +1293,7 @@
                     }
                     
                 } catch (err) {
-                    console.error('❌ Erro completo ao cancelar assinatura:', err);
+                    debugError('❌ Erro completo ao cancelar assinatura:', err);
                     
                     // Esconder modal
                     hideCancelConfirmationModal();
