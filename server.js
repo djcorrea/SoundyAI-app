@@ -175,9 +175,9 @@ app.use(cors({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// 👉 ROTA RAIZ PRIMEIRO: abre a landing
+// 👉 ROTA RAIZ PRIMEIRO: abre a home
 app.get("/", (req, res) => {
-  res.sendFile(path.join(publicPath, "landing.html"));
+  res.sendFile(path.join(publicPath, "home.html"));
 });
 
 // 👉 Aliases para o app (index)
