@@ -124,6 +124,8 @@ console.log("🔗 REDIS_URL:", process.env.REDIS_URL ? "✅ Configurada" : "❌ 
 console.log("🎯 FILA BULLMQ: 'audio-analyzer' (API com BullMQ ativada)");
 
 const app = express();
+// Confiar no proxy reverso (Railway/Vercel) para obter o IP real do cliente
+app.set('trust proxy', 1);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -262,6 +264,9 @@ import { verifyFirebaseToken } from './work/lib/auth/verify-token-middleware.js'
 import { checkAndConsumeCredit } from './work/lib/automaster/credits.js'; // legado — mantido p/ compat
 import { createJobWithTransaction, consumeJobCredit, releaseUserLock } from './work/lib/automaster/jobs.js';
 import { getFirestore, getAuth } from './firebase/admin.js';
+
+// 🛡️ ANTI-ABUSE: Fingerprint + IP rate limiting para free users
+import { getUserPlan, hasPaidPlan, checkFreeUsage, registerFreeUsage, isIPAllowed } from './services/usage-control.js';
 
 // 🎓 HOTMART: Webhook para combo Curso + PLUS 1 mês
 import hotmartWebhookRouter from "./api/webhook/hotmart.js";
@@ -538,6 +543,50 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
   const SAFE_FILEKEY_RE = /^[a-zA-Z0-9/_\-.]+$/;
 
   try {
+    // ─── ANTI-ABUSE: Fingerprint + IP check para usuários free ───────────────
+    // Executado ANTES de qualquer I/O para falhar rapidamente.
+    // Usuários com plano pago ignoram este bloco.
+    const _usageUid  = req.user.uid;
+    const _userPlan  = await getUserPlan(_usageUid).catch(() => 'free');
+    if (_userPlan === 'free') {
+      const _ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+               || req.ip
+               || '0.0.0.0';
+      const _fp = (typeof req.body.fingerprintId === 'string')
+                  ? req.body.fingerprintId.trim().substring(0, 128)
+                  : '';
+
+      if (!_fp) {
+        // Sem fingerprintId: pode ser falha no carregamento do script — aplica apenas IP check
+        console.warn('[AUTOMASTER] fingerprintId ausente para usuário free (aplicando apenas IP check):', _usageUid);
+        if (!isIPAllowed(_ip)) {
+          return res.status(403).json({
+            error:   'FREE_LIMIT_REACHED',
+            code:    'FREE_LIMIT_REACHED',
+            message: 'Limite gratuito atingido. Aguarde 24h ou faça upgrade para continuar.',
+            reason:  'IP_LIMIT_REACHED',
+          });
+        }
+        // IP OK e sem fingerprint → permitir mas registrar IP
+        req._freeUsageContext = { userId: _usageUid, fingerprintId: '', ip: _ip };
+      } else {
+        const _usageCheck = await checkFreeUsage({ userId: _usageUid, fingerprintId: _fp, ip: _ip });
+        if (!_usageCheck.allowed) {
+          console.warn('[AUTOMASTER] FREE_LIMIT_REACHED uid:', _usageUid, 'reason:', _usageCheck.reason);
+          return res.status(403).json({
+            error:   'FREE_LIMIT_REACHED',
+            code:    'FREE_LIMIT_REACHED',
+            message: 'Limite gratuito atingido. Aguarde 24h ou faça upgrade para continuar.',
+            reason:  _usageCheck.reason,
+          });
+        }
+
+        // Salvar referências para registerFreeUsage após enfileirar com sucesso
+        req._freeUsageContext = { userId: _usageUid, fingerprintId: _fp, ip: _ip };
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     // 1. Resolver o buffer de áudio: fileKey (fluxo contínuo) ou arquivo direto (fluxo manual)
     let fileBuffer = null;
     let fileLabel  = null; // apenas para logs
@@ -696,6 +745,13 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
     }
 
     // 9. Responder imediatamente (NÃO esperar processamento)
+    // Registrar uso free antes de responder (fire-and-forget, não bloqueia)
+    if (req._freeUsageContext) {
+      registerFreeUsage(req._freeUsageContext).catch(err =>
+        console.warn('[AUTOMASTER] registerFreeUsage error (non-fatal):', err.message)
+      );
+    }
+
     return res.status(202).json({
       success: true,
       jobId,
@@ -773,18 +829,33 @@ app.get('/api/automaster/status/:jobId', verifyFirebaseToken, async (req, res) =
       response.finishedAt = job.finished_at;
       response.processingMs = job.processing_ms;
       response.outputKey = job.output_key;
-      
-      // Gerar URL assinada para download (30 minutos — tempo suficiente para download)
-      // Filename passado para forçar Content-Disposition: attachment no B2 —
-      // sem isso, browser tenta reproduzir o WAV inline ao usar <a href> diretamente.
-      if (job.output_key) {
-        const originalName = job.original_filename || jobId;
-        const safeName = originalName
-          .replace(/\.[^/.]+$/, '')            // remove extensão
-          .replace(/[^a-zA-Z0-9\-]/g, '_');   // chars inválidos → _
-        const dlFilename = `Master SoundyAI_${safeName}.wav`;
-        response.downloadUrl = await storageServiceModule.generateSignedUrl(job.output_key, 1800, dlFilename);
+
+      // ── PAYWALL: Verificar plano antes de gerar URL de download ─────────────
+      // Usuários free recebem downloadBlocked=true — download exige upgrade.
+      // Usuários pagos recebem downloadUrl normalmente.
+      const _statusUserPlan = await getUserPlan(req.user.uid).catch(() => 'free');
+      const _statusIsPaid   = ['plus', 'pro', 'dj', 'studio'].includes(_statusUserPlan);
+
+      if (_statusIsPaid) {
+        // Gerar URL assinada para download (30 minutos — tempo suficiente para download)
+        // Filename passado para forçar Content-Disposition: attachment no B2 —
+        // sem isso, browser tenta reproduzir o WAV inline ao usar <a href> diretamente.
+        if (job.output_key) {
+          const originalName = job.original_filename || jobId;
+          const safeName = originalName
+            .replace(/\.[^/.]+$/, '')            // remove extensão
+            .replace(/[^a-zA-Z0-9\-]/g, '_');   // chars inválidos → _
+          const dlFilename = `Master SoundyAI_${safeName}.wav`;
+          response.downloadUrl = await storageServiceModule.generateSignedUrl(job.output_key, 1800, dlFilename);
+        }
+      } else {
+        // Free: bloquear download — não gerar URL assinada
+        response.downloadBlocked     = true;
+        response.downloadBlockedCode = 'FREE_PLAN';
+        response.downloadUrl         = null;
+        console.log('[AUTOMASTER-STATUS] Download bloqueado (plano free) — uid:', req.user.uid, 'jobId:', jobId);
       }
+      // ────────────────────────────────────────────────────────────────────────
 
       // Preview URLs: antes = input original, depois = preview 60s gerado no worker
       if (job.input_key) {
@@ -1018,6 +1089,18 @@ app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res)
     if (job.user_id && job.user_id !== 'anonymous' && job.user_id !== req.user.uid) {
       return res.status(403).json({ error: 'Acesso negado' });
     }
+
+    // ── PAYWALL: Bloquear download para usuários com plano free ──────────────
+    const _dlUserPaid = await hasPaidPlan(req.user.uid).catch(() => false);
+    if (!_dlUserPaid) {
+      console.log('[AUTOMASTER-DOWNLOAD] Bloqueado (plano free) — uid:', req.user.uid, 'jobId:', jobId);
+      return res.status(403).json({
+        error:   'FREE_USED',
+        code:    'FREE_USED',
+        message: 'Download disponível apenas para planos pagos. Faça upgrade para baixar sua master.',
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     const originalName = job.original_filename || jobId;
     const safeName = originalName

@@ -2079,7 +2079,6 @@
     <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
       <a href="terms.html">Termos de Uso</a>
       <a href="privacy.html">Política de Privacidade</a>
-      <a href="index.html">Interface Clássica</a>
     </div>
   </footer>
 
@@ -2498,7 +2497,9 @@
     pendingAction:    false,  // Fase 3.1: intenção confirmada pelo usuário antes do login
     pendingAnalysis:  false,  // Auth gate: análise pendente aguardando login
     _progressTimer:   null,   // Fase 4: fake progress bar timer
-    _textTimer:       null    // Fase 4: cycling text timer
+    _textTimer:       null,   // Fase 4: cycling text timer
+    fingerprintId:    null,   // Anti-abuso: hash do dispositivo (device-fingerprint.js)
+    downloadBlocked:  false   // Anti-abuso: download bloqueado para free user
   };
 
   var HUB_PANEL_IDS = ['idle', 'uploading', 'uploaded', 'analyzing'];
@@ -2521,6 +2522,13 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    // ── Fingerprint init (anti-abuso) ────────────────────────────────────
+    if (window.SoundyFingerprint) {
+      window.SoundyFingerprint.get().then(function(fp) {
+        if (fp && fp.fingerprint_hash) _state.fingerprintId = fp.fingerprint_hash;
+      }).catch(function() {});
+    }
+
     var homeSel = document.getElementById('homeGenreSelect');
     if (homeSel) {
       syncGenre(homeSel.value);
@@ -2671,6 +2679,7 @@
     _state.creditConsumed   = false;
     _state.pendingAction    = false;
     _state.downloadUrl      = '';
+    _state.downloadBlocked  = false;
 
     // Salvar nome ORIGINAL imediatamente — nunca será sobrescrito pelo servidor
     _state.originalFileName   = file.name;
@@ -3005,7 +3014,8 @@
     }
 
     // Armazena URL no estado — downloadMaster() usa _state.downloadUrl (sem injeção via href)
-    _state.downloadUrl = data.downloadUrl || '';
+    _state.downloadUrl     = data.downloadUrl || '';
+    _state.downloadBlocked = !!(data.downloadBlocked);
 
     var mixNotAptBanner = '';
     if (_mixNotApt) {
@@ -3033,9 +3043,9 @@
       + comparisonHtml
       + playerHtml
       + '<div class="am-result-actions">'
-      +   '<button class="am-download-btn" type="button" onclick="downloadMaster()">'
-      +     '⬇ BAIXAR FAIXA MASTERIZADA'
-      +   '</button>'
+      +   (_state.downloadBlocked
+          ? '<button class="am-download-btn" type="button" onclick="downloadMaster()" style="background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7);opacity:.9;">🔒 DESBLOQUEAR DOWNLOAD</button>'
+          : '<button class="am-download-btn" type="button" onclick="downloadMaster()">⬇ BAIXAR FAIXA MASTERIZADA</button>')
       +   '<button class="am-secondary-btn" type="button" onclick="location.href=\'home.html\'">Masterizar outra faixa</button>'
       + '</div>'
       + '<div id="homeFeedbackBlock" style="margin-top:1.5rem;text-align:center;">'
@@ -3422,6 +3432,7 @@
     _state.creditConsumed  = false;
     _state.pendingAction   = false;
     _state.downloadUrl     = '';
+    _state.downloadBlocked = false;
 
     // ── Fechar o modal de análise ANTES de exibir a seleção de modo ────────────
     // O botão "Masterizar" fica dentro de #audioAnalysisModal. Se o modal estiver
@@ -3525,6 +3536,7 @@ function renderModeSelection() {
     _state.creditConsumed    = false;
     _state.pendingAction     = false;
     _state.downloadUrl       = '';
+    _state.downloadBlocked   = false;
     _state.originalFileName  = null;
     _state.fileName          = null;
     window.lastUploadedFileName = null;
@@ -3579,6 +3591,7 @@ function renderModeSelection() {
     var fd = new FormData();
     fd.append('fileKey', fileKey);
     fd.append('mode', mode);
+    if (_state.fingerprintId) fd.append('fingerprintId', _state.fingerprintId);
     var res = await fetch('/api/automaster', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token },
@@ -3586,6 +3599,14 @@ function renderModeSelection() {
     });
     var data;
     try { data = await res.json(); } catch (e) { throw new Error('Resposta inválida do servidor.'); }
+    // ── PARTE 0: FREE_LIMIT_REACHED / 403 ────────────────────────────────
+    if (res.status === 403
+        || (data && (data.code === 'FREE_LIMIT_REACHED' || data.code === 'FREE_FINGERPRINT'
+                     || data.error === 'FREE_LIMIT_REACHED' || data.error === 'FREE_FINGERPRINT'))) {
+      var _fl = new Error('FREE_LIMIT_REACHED');
+      _fl.code = 'FREE_LIMIT_REACHED';
+      throw _fl;
+    }
     // ── PARTE 1: NO_CREDITS / 402 ─────────────────────────────────────
     if (res.status === 402
         || (data && (data.code === 'NO_CREDITS' || data.error === 'NO_CREDITS'
@@ -3651,7 +3672,7 @@ function renderModeSelection() {
         if (s.status === 'completed') {
           clearInterval(_state._masterPollTimer);
           _state._masterPollTimer = null;
-          if (!s.downloadUrl) {
+          if (!s.downloadUrl && !s.downloadBlocked) {
             renderErrorState('Processamento concluído, mas URL de download ausente. Contate o suporte.');
             return;
           }
@@ -3720,6 +3741,13 @@ function renderModeSelection() {
       startPollingJob(jobId);
     } catch (err) {
       var _runErrMsg = err.message || '';
+      // ── FREE_LIMIT_REACHED: limite diário/fingerprint atingido ──────────
+      if (err.code === 'FREE_LIMIT_REACHED' || _runErrMsg === 'FREE_LIMIT_REACHED') {
+        if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
+        if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
+        renderUpgradeModal();
+        return;
+      }
       // ── NO_CREDITS: abre upgrade modal, não erro genérico ──────────
       if (err.code === 'NO_CREDITS' || _runErrMsg === 'NO_CREDITS') {
         // Para animações antes de mostrar modal
@@ -3878,7 +3906,14 @@ function renderModeSelection() {
    */
   window.downloadMaster = async function downloadMaster() {
     var url = _state.downloadUrl || '';
-    if (!url) {
+
+    // Guard 0: download bloqueado pelo backend (free user esgotou limite)
+    if (_state.downloadBlocked) {
+      renderUpgradeModal();
+      return;
+    }
+
+    if (!url && !_state.masterJobId) {
       console.error('[HOME-MASTER] URL de download ausente em _state.downloadUrl.');
       return;
     }
@@ -3954,6 +3989,22 @@ function renderModeSelection() {
         a.click();
         document.body.removeChild(a);
         setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 15000);
+      } else if (xhr.status === 403) {
+        // Free user: parsear blob para detectar FREE_USED
+        var _reader = new FileReader();
+        _reader.onload = function () {
+          try {
+            var _body = JSON.parse(_reader.result);
+            if (_body && _body.code === 'FREE_USED') {
+              _state.downloadBlocked = true;
+              renderUpgradeModal();
+              return;
+            }
+          } catch (_) {}
+          console.warn('[HOME-MASTER] Download bloqueado (403).');
+          _state.creditConsumed = false;
+        };
+        _reader.readAsText(xhr.response);
       } else {
         console.warn('[HOME-MASTER] Erro no download: HTTP ' + xhr.status);
         _state.creditConsumed = false; // permite nova tentativa

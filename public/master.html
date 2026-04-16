@@ -12,6 +12,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- 🔐 Device fingerprint — identifica device para controle de uso free -->
+  <script src="/device-fingerprint.js" defer></script>
   <style>
 /* ============================================================
    VARIABLES & RESET
@@ -1056,6 +1058,51 @@ body .neon-accent-br{
 
 
 <!-- ================================================================
+     MODAL 9 — DOWNLOAD CTA (Paywall free → pago)
+================================================================ -->
+<div id="downloadCTAModal" class="automaster-modal" style="z-index:1000000;">
+  <div class="am-card" style="max-width:420px;text-align:center;">
+    <div class="am-header">
+      <div class="am-badge" style="background:linear-gradient(135deg,rgba(139,92,246,.18),rgba(79,142,247,.18));color:#a78bfa;border-color:rgba(139,92,246,.35);">Upgrade</div>
+      <h2 class="am-title" id="ctaModalTitle">Sua master está pronta! 🎚️</h2>
+      <p class="am-sub" id="ctaModalMessage">Você já utilizou a versão gratuita.</p>
+    </div>
+
+    <div style="margin:1.5rem 0;">
+      <!-- Ícone de cadeado animado -->
+      <div style="font-size:3rem;margin-bottom:1rem;filter:drop-shadow(0 0 16px rgba(139,92,246,.6));">🔒</div>
+      <p id="ctaModalSub" style="font-size:0.9rem;color:var(--text-2);margin:0 0 1.5rem;">
+        Faça upgrade para desbloquear o download da sua master.
+      </p>
+
+      <!-- Benefícios -->
+      <div style="background:rgba(79,142,247,.05);border:1px solid rgba(79,142,247,.15);border-radius:12px;padding:1rem;text-align:left;margin-bottom:1.5rem;">
+        <div style="font-size:0.8rem;font-weight:600;color:var(--text-2);margin-bottom:.75rem;text-transform:uppercase;letter-spacing:.05em;">Com o plano Plus você terá:</div>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.5rem;">
+          <li style="font-size:.875rem;color:var(--text-1);display:flex;align-items:center;gap:.5rem;"><span style="color:var(--success);">✓</span> Download ilimitado das suas masters</li>
+          <li style="font-size:.875rem;color:var(--text-1);display:flex;align-items:center;gap:.5rem;"><span style="color:var(--success);">✓</span> 20 masters por mês</li>
+          <li style="font-size:.875rem;color:var(--text-1);display:flex;align-items:center;gap:.5rem;"><span style="color:var(--success);">✓</span> Todos os modos (MEDIUM, HIGH, EXTREME)</li>
+          <li style="font-size:.875rem;color:var(--text-1);display:flex;align-items:center;gap:.5rem;"><span style="color:var(--success);">✓</span> Relatórios PDF completos</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="am-actions" style="flex-direction:column;gap:.75rem;">
+      <a href="/planos.html"
+         class="btn btn-primary"
+         style="width:100%;padding:1rem;text-decoration:none;font-weight:700;background:linear-gradient(135deg,#8b5cf6,#4f8ef7);border:none;"
+         onclick="closeDownloadCTAModal()">
+        🚀 Ver Planos e Preços
+      </a>
+      <button class="btn btn-ghost" style="width:100%;" onclick="closeDownloadCTAModal()">
+        Continuar na versão gratuita
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================================
      JAVASCRIPT
 ================================================================ -->
 <script>
@@ -1065,6 +1112,8 @@ body .neon-accent-br{
 const automasterState = {
   mode: null, file: null, fileName: null,
   fileKey: null, fromHomeFlow: false, jobId: null,
+  fingerprintId: null,   // device fingerprint para controle de uso free
+  downloadBlocked: false, // true quando plano free bloqueia download
   preAnalysis: { apt:null, lufs:null, truePeak:null, headroom:null, clipping:null, tonalBalance:null, recommendedMode:null, message:null },
   result: { success:null, masterUrl:null, previewBefore:null, previewAfter:null, metrics:{ lufsBefore:null, truePeakBefore:null, lufsAfter:null, truePeakAfter:null } },
   creditConsumed: false,
@@ -1389,6 +1438,8 @@ async function startProcessing() {
     fd.append('mode', mn);
     if (automasterState.fileKey) fd.append('fileKey', automasterState.fileKey);
     else fd.append('file', automasterState.file);
+    // Enviar fingerprint para controle de uso free no backend
+    if (automasterState.fingerprintId) fd.append('fingerprintId', automasterState.fingerprintId);
 
     document.getElementById('processingLoadingText').textContent = 'PROCESSANDO SUA MASTER';
     document.getElementById('processingSubText').textContent     = 'DSP chain em execução...';
@@ -1413,6 +1464,7 @@ async function startProcessing() {
     automasterState.result = {
       success: true,
       masterUrl:      sd.downloadUrl       || null,
+      downloadBlocked: sd.downloadBlocked  || false,
       previewBefore:  sd.previewBefore     || null,
       previewAfter:   sd.previewAfter      || null,
       mixNotApt:      sd.metrics?.mixNotApt === true,
@@ -1464,6 +1516,13 @@ async function startProcessing() {
       return;
     }
 
+    // Limite gratuito atingido (fingerprint ou IP) — exibir CTA
+    if (err.message && (err.message.includes('FREE_LIMIT_REACHED') || err.message.includes('FREE_FINGERPRINT'))) {
+      document.getElementById('processingLoading').style.display = 'none';
+      showDownloadCTAModal('limit');
+      return;
+    }
+
     // Já existe um job em andamento para este usuário
     if (err.message && (err.message.includes('PROCESS_ALREADY_RUNNING') || err.message.includes('masterização em andamento'))) {
       document.getElementById('processingErrorMsg').textContent = 'Já existe uma masterização em andamento. Aguarde a conclusão antes de iniciar outra.';
@@ -1502,7 +1561,8 @@ async function pollJobStatus(jobId) {
         const s = await apiRequest(`/api/automaster/status/${jobId}`, { method:'GET' }, 10000);
         if (s.status === 'completed') {
           clearInterval(timer);
-          if (!s.downloadUrl) { reject(new Error('Job concluído mas URL de download não gerada.')); return; }
+          // downloadBlocked é o fluxo legítimo para free users — não rejeitar
+          if (!s.downloadUrl && !s.downloadBlocked) { reject(new Error('Job concluído mas URL de download não gerada.')); return; }
           resolve(s);
         } else if (s.status === 'needs_confirmation') {
           clearInterval(timer); const e = new Error('NEEDS_CONFIRMATION'); e.isNeedsConfirmation = true; e.statusData = s; reject(e);
@@ -1555,7 +1615,8 @@ async function confirmSafeMastering() {
     automasterState.jobId  = jobId;
     automasterState.result = {
       success: true,
-      masterUrl: sd.downloadUrl || null, previewBefore: sd.previewBefore || null, previewAfter: sd.previewAfter || null,
+      masterUrl: sd.downloadUrl || null, downloadBlocked: sd.downloadBlocked || false,
+      previewBefore: sd.previewBefore || null, previewAfter: sd.previewAfter || null,
       mixNotApt: sd.metrics?.mixNotApt === true,
       metrics: {
         lufsBefore:     sd.metrics?.lufsBefore     ?? null,
@@ -1629,7 +1690,13 @@ function openPreviewModal() {
   const dBtn    = document.getElementById('previewDownloadBtn');
   if (actDiv)  actDiv.style.display  = 'flex';
   if (doneDiv) doneDiv.style.display = 'none';
-  if (dBtn)    { dBtn.disabled = false; dBtn.innerHTML = '📥 Baixar Master <span style="font-size:0.7rem;opacity:0.75;margin-left:4px;">(1 crédito)</span>'; }
+
+  // Ajustar botão download conforme plano do usuário
+  if (automasterState.result.downloadBlocked) {
+    if (dBtn)  { dBtn.disabled = false; dBtn.innerHTML = '🔒 Desbloquear Download <span style="font-size:0.7rem;opacity:0.75;margin-left:4px;">(upgrade)</span>'; dBtn.style.background='linear-gradient(135deg,#8b5cf6,#6d28d9)'; }
+  } else {
+    if (dBtn)  { dBtn.disabled = false; dBtn.innerHTML = '📥 Baixar Master <span style="font-size:0.7rem;opacity:0.75;margin-left:4px;">(1 crédito)</span>'; dBtn.style.background=''; }
+  }
 
   // Helpers
   const toNum   = v  => (v != null && v !== '') ? (typeof v === 'number' ? v : parseFloat(v)) : null;
@@ -1796,6 +1863,12 @@ function backToPreviewChoice() {
 
 // Download direto do previewModal — blob, sem nova aba, modal permanece aberto
 async function startDownloadFromPreview() {
+  // Se download bloqueado (plano free) → mostrar CTA direto
+  if (automasterState.result.downloadBlocked) {
+    showDownloadCTAModal('download');
+    return;
+  }
+
   const { masterUrl } = automasterState.result;
   const jobId = automasterState.jobId;
   // Proxy URL (mesmo origem) evita CORS e garante download sem abrir player
@@ -1822,7 +1895,14 @@ async function startDownloadFromPreview() {
     if (doneDiv) doneDiv.style.display = 'block';
 
   } catch (err) {
-    if (btn) { btn.disabled = false; btn.innerHTML = '📥 Baixar Master <span style="font-size:0.7rem;opacity:0.75;margin-left:4px;">(1 crédito)</span>'; }
+    // Download bloqueado pelo backend (plano free)
+    if (err.code === 'FREE_USED') {
+      if (btn) { btn.disabled = false; btn.innerHTML = '🔒 Desbloquear Download <span style="font-size:0.7rem;opacity:0.75;margin-left:4px;">(upgrade)</span>'; btn.style.background='linear-gradient(135deg,#8b5cf6,#6d28d9)'; }
+      automasterState.result.downloadBlocked = true;
+      showDownloadCTAModal('download');
+      return;
+    }
+    if (btn) { btn.disabled = false; btn.innerHTML = '📥 Baixar Master <span style="font-size:0.7rem;opacity:0.75;margin-left:4px;">(1 crédito)</span>'; btn.style.background=''; }
     alert('Erro ao baixar: ' + (err.message || 'Tente novamente.'));
   }
 }
@@ -1863,12 +1943,24 @@ function openDeliveryModal() {
 }
 
 async function downloadMaster() {
+  // Se download bloqueado (plano free) → mostrar CTA
+  if (automasterState.result.downloadBlocked) {
+    showDownloadCTAModal('download');
+    return;
+  }
+
   const { masterUrl } = automasterState.result;
   if (!masterUrl) { alert('⚠️ URL de download não disponível. Tente reprocessar.'); return; }
   ['audioBefore','audioAfter'].forEach(id => { const a = document.getElementById(id); if (a) a.pause(); });
 
   if (automasterState.creditConsumed) {
-    triggerBlobDownload(masterUrl); return;
+    try {
+      await triggerBlobDownload(masterUrl);
+    } catch (err) {
+      if (err.code === 'FREE_USED') { automasterState.result.downloadBlocked = true; showDownloadCTAModal('download'); return; }
+      alert('Erro ao baixar: ' + (err.message || 'Tente novamente.'));
+    }
+    return;
   }
 
   try {
@@ -1877,8 +1969,9 @@ async function downloadMaster() {
       body: JSON.stringify({ masterUrl, mode: automasterState.mode, fileName: automasterState.fileName })
     }, 30000);
     automasterState.creditConsumed = true;
-    triggerBlobDownload(masterUrl);
+    await triggerBlobDownload(masterUrl);
   } catch (err) {
+    if (err.code === 'FREE_USED') { automasterState.result.downloadBlocked = true; showDownloadCTAModal('download'); return; }
     alert('Erro ao processar crédito: ' + (err.message || 'Tente novamente.'));
   }
 }
@@ -1926,7 +2019,19 @@ async function triggerBlobDownload(url) {
       }
     }
     const res   = await fetch(url, { headers: hdrs });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      // Detectar bloqueio de download por plano free
+      if (res.status === 403) {
+        let body = {};
+        try { body = await res.clone().json(); } catch (_) {}
+        if (body.code === 'FREE_USED') {
+          const freeErr = new Error('FREE_USED');
+          freeErr.code = 'FREE_USED';
+          throw freeErr;
+        }
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
     const blob  = await res.blob();
     const obj   = URL.createObjectURL(blob);
     const link  = document.createElement('a');
@@ -1934,11 +2039,47 @@ async function triggerBlobDownload(url) {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(obj), 10000);
   } catch (e) {
+    // Propagar erro FREE_USED sem fallback
+    if (e.code === 'FREE_USED') throw e;
     console.warn('[AUTOMASTER] Blob fallback:', e.message);
     const link = document.createElement('a');
     link.href = url; link.download = name;
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   }
+}
+
+// ================================================================
+// DOWNLOAD CTA MODAL — Paywall para plano free
+// ================================================================
+
+/**
+ * Exibe o modal de conversão quando o download é bloqueado para usuários free.
+ * @param {'download'|'limit'} reason  'download'=tentativa de download, 'limit'=limite de geração
+ */
+function showDownloadCTAModal(reason) {
+  const modal = document.getElementById('downloadCTAModal');
+  if (!modal) return;
+
+  const titleEl   = document.getElementById('ctaModalTitle');
+  const msgEl     = document.getElementById('ctaModalMessage');
+  const subEl     = document.getElementById('ctaModalSub');
+
+  if (reason === 'limit') {
+    if (titleEl)  titleEl.textContent  = 'Limite gratuito atingido';
+    if (msgEl)    msgEl.textContent    = 'Você já gerou sua master gratuita hoje neste dispositivo.';
+    if (subEl)    subEl.textContent    = 'Faça upgrade para gerar e baixar masters sem limite.';
+  } else {
+    if (titleEl)  titleEl.textContent  = 'Sua master está pronta! 🎚️';
+    if (msgEl)    msgEl.textContent    = 'Você já utilizou a versão gratuita.';
+    if (subEl)    subEl.textContent    = 'Faça upgrade para desbloquear o download da sua master.';
+  }
+
+  modal.classList.add('visible');
+}
+
+function closeDownloadCTAModal() {
+  const modal = document.getElementById('downloadCTAModal');
+  if (modal) modal.classList.remove('visible');
 }
 
 // ================================================================
@@ -2052,6 +2193,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   console.log('✅ [AUTOMASTER] Usuário autenticado:', user.uid);
   clearPendingMaster(); // limpar qualquer pendência antiga ao entrar autenticado
+
+  // Inicializar fingerprint de dispositivo (não-bloqueante)
+  if (window.SoundyFingerprint) {
+    window.SoundyFingerprint.get().then(fp => {
+      automasterState.fingerprintId = fp?.fingerprint_hash || null;
+      console.log('[AUTOMASTER] Fingerprint pronto:', automasterState.fingerprintId?.substring(0, 8) + '...');
+    }).catch(err => {
+      console.warn('[AUTOMASTER] Fingerprint indisponível:', err.message);
+    });
+  }
 
   // Fluxo contínuo: adaptar UI
   if (automasterState.fromHomeFlow && automasterState.fileKey) {
