@@ -1088,12 +1088,35 @@ app.post('/api/automaster/confirm/:jobId', verifyFirebaseToken, async (req, res)
 //   Causa: buffer completo (50-100 MB) → timeout do proxy antes de terminar de enviar.
 //   Fix:   pipe stream direto do B2 para o browser — dados fluem em paralelo,
 //          sem esperar download completo, sem guardar arquivo inteiro em RAM.
-app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res) => {
+app.get('/api/automaster/download/:jobId', async (req, res) => {
   const { jobId } = req.params;
   try {
     if (!jobId || !/^[a-zA-Z0-9_-]+$/.test(jobId)) {
       return res.status(400).json({ error: 'jobId inválido' });
     }
+
+    // ── AUTENTICAÇÃO: aceitar token via header (XHR) ou query param (navegação direta) ──
+    let rawToken = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      rawToken = authHeader.split('Bearer ')[1].trim();
+    } else if (req.query.token && typeof req.query.token === 'string') {
+      rawToken = req.query.token.trim();
+    }
+    if (!rawToken) {
+      return res.status(401).json({ error: 'unauthorized', message: 'Token de autenticação ausente.' });
+    }
+    let uid;
+    try {
+      const decoded = await getAuth().verifyIdToken(rawToken);
+      uid = decoded.uid;
+    } catch (authErr) {
+      console.error('❌ [PROXY-DOWNLOAD] Token inválido:', authErr.message);
+      return res.status(401).json({ error: 'unauthorized', message: 'Token inválido ou expirado.' });
+    }
+    // ──────────────────────────────────────────────────────────────────────────
+
+    console.log('[PROXY-DOWNLOAD] Iniciando download — uid:', uid, 'jobId:', jobId);
 
     const job = await jobStoreModule.getJob(jobId);
 
@@ -1101,14 +1124,14 @@ app.get('/api/automaster/download/:jobId', verifyFirebaseToken, async (req, res)
       return res.status(404).json({ error: 'Download não disponível' });
     }
 
-    if (job.user_id && job.user_id !== 'anonymous' && job.user_id !== req.user.uid) {
+    if (job.user_id && job.user_id !== 'anonymous' && job.user_id !== uid) {
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
     // ── PAYWALL: Bloquear download para usuários com plano free ──────────────
-    const _dlUserPaid = await hasPaidPlan(req.user.uid).catch(() => false);
+    const _dlUserPaid = await hasPaidPlan(uid).catch(() => false);
     if (!_dlUserPaid) {
-      console.log('[AUTOMASTER-DOWNLOAD] Bloqueado (plano free) — uid:', req.user.uid, 'jobId:', jobId);
+      console.log('[AUTOMASTER-DOWNLOAD] Bloqueado (plano free) — uid:', uid, 'jobId:', jobId);
       return res.status(403).json({
         error:   'FREE_USED',
         code:    'FREE_USED',
