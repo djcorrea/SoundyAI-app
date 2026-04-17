@@ -27,14 +27,16 @@ const B2_ENDPOINT = process.env.B2_ENDPOINT;
 const B2_KEY_ID = process.env.B2_KEY_ID;
 const B2_APP_KEY = process.env.B2_APP_KEY;
 const B2_BUCKET_NAME = process.env.B2_BUCKET_NAME;
+const B2_DOWNLOAD_URL = process.env.B2_DOWNLOAD_URL;
 
 // Validação no boot
-if (!B2_ENDPOINT || !B2_KEY_ID || !B2_APP_KEY || !B2_BUCKET_NAME) {
+if (!B2_ENDPOINT || !B2_KEY_ID || !B2_APP_KEY || !B2_BUCKET_NAME || !B2_DOWNLOAD_URL) {
   const missing = [];
   if (!B2_ENDPOINT) missing.push('B2_ENDPOINT');
   if (!B2_KEY_ID) missing.push('B2_KEY_ID');
   if (!B2_APP_KEY) missing.push('B2_APP_KEY');
   if (!B2_BUCKET_NAME) missing.push('B2_BUCKET_NAME');
+  if (!B2_DOWNLOAD_URL) missing.push('B2_DOWNLOAD_URL');
   
   throw new Error(`Backblaze B2 configuration missing: ${missing.join(', ')}`);
 }
@@ -91,22 +93,22 @@ async function uploadFile(key, buffer, contentType = 'audio/wav') {
  * @returns {Promise<Buffer>} Conteúdo do arquivo
  */
 async function downloadFile(key) {
-  try {
-    const command = new GetObjectCommand({
-      Bucket: B2_BUCKET_NAME,
-      Key: key
-    });
+  const baseUrl = B2_DOWNLOAD_URL.replace(/\/$/, '');
+  const url = `${baseUrl}/file/${B2_BUCKET_NAME}/${key}`;
 
-    const response = await client.send(command);
-    const stream = response.Body;
-    
-    // Converter stream para buffer
-    const chunks = [];
-    for await (const chunk of stream) {
-      chunks.push(chunk);
+  console.log('[B2 URL]', url);
+  console.log('[INPUT KEY]', key);
+
+  if (!url || !url.startsWith('http')) {
+    throw new Error(`Invalid B2 URL: ${url}`);
+  }
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    const buffer = Buffer.concat(chunks);
-    
+    const buffer = Buffer.from(await response.arrayBuffer());
     logger.info({ key, size: buffer.length }, 'File downloaded');
     return buffer;
   } catch (error) {
