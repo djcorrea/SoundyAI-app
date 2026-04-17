@@ -1,42 +1,37 @@
 /**
- * 🔥 WORKER REDIS ROBUSTO - PRODUÇÃO READY
+ * 🔥 WORKER REDIS — ORQUESTRADOR LEVE (v2: Process Isolation)
+ * 
+ * ARQUITETURA: 1 JOB = 1 PROCESSO
+ * 
+ * Este arquivo NÃO executa processamento de áudio.
+ * Ele é um orquestrador leve que:
+ *   1. Consome jobs da fila BullMQ 'audio-analyzer'
+ *   2. Faz fork() de analysis-job.js para CADA job
+ *   3. Recebe o resultado via IPC
+ *   4. Atualiza o status no PostgreSQL
+ *   5. O child process MORRE → memória VOLTA para baseline
+ * 
  * ✅ Conexão Redis com retry/backoff automático
  * ✅ Listeners completos para error, failed, completed
- * ✅ Logs claros para todos os eventos críticos
- * ✅ Inicialização apenas após Redis estabelecido
- * ✅ Tratamento de falhas silenciosas eliminado
- * ✅ Configuração TLS para Upstash/produção
+ * ✅ Process isolation — ZERO memory leak entre jobs
+ * ✅ Timeout e kill de processos órfãos
+ * ✅ Métricas de memória por job
  */
 
 import "dotenv/config";
 import { Worker } from 'bullmq';
 import Redis from 'ioredis';
 import pool from './db.js';
-import AWS from "aws-sdk";
-import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import express from 'express';
-import { enrichSuggestionsWithAI } from './lib/ai/suggestion-enricher.js';
-import { referenceSuggestionEngine } from './lib/audio/features/reference-suggestion-engine.js';
-import { logMemoryDelta, clearMemoryDelta } from './lib/memory-monitor.js';
+import { fork } from 'child_process';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// ---------- Importar pipeline completo para análise REAL ----------
-let processAudioComplete = null;
-let runPipeline = null;
-
-try {
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📦 Carregando pipeline completo...`);
-  const imported = await import("./api/audio/pipeline-complete.js");
-  processAudioComplete = imported.processAudioComplete;
-  runPipeline = imported.runPipeline;
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Pipeline completo carregado com sucesso!`);
-} catch (err) {
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> ❌ CRÍTICO: Falha ao carregar pipeline:`, err.message);
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> Stack trace:`, err.stack);
-  process.exit(1);
-}
+// Caminho absoluto do script de análise isolado
+const ANALYSIS_JOB_SCRIPT = path.join(__dirname, 'analysis-job.js');
 
 // 🏷️ Definir service name para auditoria
 process.env.SERVICE_NAME = 'worker';
@@ -435,11 +430,19 @@ function startHealthCheckServer() {
   const port = process.env.PORT || 8081;
   
   app.get('/health', (req, res) => {
+    const mem = process.memoryUsage();
     const status = {
       status: 'healthy',
       redis: isRedisReady ? 'connected' : 'disconnected',
       worker: worker ? 'active' : 'inactive',
+      architecture: 'process-isolation',
+      activeJobs: activeChildProcesses,
       pid: process.pid,
+      memory: {
+        rssMB: Math.round(mem.rss / 1024 / 1024),
+        heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+        heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+      },
       timestamp: new Date().toISOString(),
       uptime: process.uptime()
     };
@@ -450,197 +453,27 @@ function startHealthCheckServer() {
   app.listen(port, () => {
     console.log(`🏥 [HEALTH] Health check server rodando na porta ${port}`);
   });
+
+  // 📊 MONITORAMENTO DE MEMÓRIA DO ORQUESTRADOR (a cada 60s)
+  const MEM_MONITOR_INTERVAL = 60000;
+  const memInterval = setInterval(() => {
+    const mem = process.memoryUsage();
+    const rssMB = (mem.rss / 1024 / 1024).toFixed(1);
+    const heapMB = (mem.heapUsed / 1024 / 1024).toFixed(1);
+    const heapTotalMB = (mem.heapTotal / 1024 / 1024).toFixed(1);
+    console.log(`[MEM-MONITOR] Orquestrador PID=${process.pid} | RSS=${rssMB}MB | Heap=${heapMB}/${heapTotalMB}MB | Jobs ativos=${activeChildProcesses}`);
+    
+    // Alerta se orquestrador estiver usando mais de 200MB (deveria ficar ~30-80MB)
+    if (mem.rss > 200 * 1024 * 1024) {
+      console.warn(`[MEM-MONITOR] ⚠️ RSS acima de 200MB — investigar possível leak no orquestrador`);
+    }
+  }, MEM_MONITOR_INTERVAL);
+  memInterval.unref(); // Não impedir shutdown
 }
 
 // ===============================================
 // 🎵 AUDIO PROCESSOR FUNCTION
 // ===============================================
-
-/**
- * 🛡️ FIX: Validar se JSON está completo antes de marcar como completed
- * Retorna { valid: boolean, missing: string[] }
- * 
- * IMPORTANTE: suggestions e aiSuggestions SÓ são obrigatórios no SEGUNDO job (comparação A/B)
- * No PRIMEIRO job (análise individual), arrays vazios são VÁLIDOS
- */
-function validateCompleteJSON(finalJSON, mode, referenceJobId) {
-  const missing = [];
-  
-  // 🎯 Detectar referenceStage explícito
-  const referenceStage = finalJSON.referenceStage || null;
-  
-  console.log('[VALIDATION] Validando:', {
-    mode,
-    referenceStage,
-    referenceJobId: referenceJobId ? referenceJobId.substring(0, 8) : 'null'
-  });
-  
-  // ══════════════════════════════════════════════════════════
-  // REFERENCE MODE: Validação por stage
-  // ══════════════════════════════════════════════════════════
-  if (mode === 'reference') {
-    if (referenceStage === 'base') {
-      // BASE: NÃO exigir suggestions/aiSuggestions/referenceComparison
-      console.log('[VALIDATION] Reference BASE - validação mínima');
-      
-      // Validar apenas métricas técnicas
-      if (!finalJSON.technicalData || typeof finalJSON.technicalData !== 'object') {
-        missing.push('technicalData');
-      }
-      if (typeof finalJSON.score !== 'number') {
-        missing.push('score');
-      }
-      if (!finalJSON.metrics) {
-        missing.push('metrics');
-      }
-      
-      // Verificar requiresSecondTrack
-      if (!finalJSON.requiresSecondTrack) {
-        console.warn('[VALIDATION] ⚠️ Base sem requiresSecondTrack - adicionando...');
-        finalJSON.requiresSecondTrack = true;
-      }
-      
-    } else if (referenceStage === 'compare') {
-      // COMPARE: EXIGIR referenceComparison + suggestions (PODE ser array vazio agora que temos fallback)
-      console.log('[VALIDATION] Reference COMPARE - validação completa');
-      
-      if (!finalJSON.technicalData) missing.push('technicalData');
-      if (typeof finalJSON.score !== 'number') missing.push('score');
-      if (!finalJSON.metrics) missing.push('metrics');
-      
-      // Obrigatório: referenceComparison
-      if (!finalJSON.referenceComparison || typeof finalJSON.referenceComparison !== 'object') {
-        missing.push('referenceComparison');
-        console.error('[VALIDATION] ❌ referenceComparison obrigatório para compare');
-      }
-      
-      // ✅ CORREÇÃO: aiSuggestions deve EXISTIR como array, mas pode estar vazio se fallback foi gerado
-      // O fallback no reference-suggestion-engine.js garante que nunca estará realmente vazio
-      if (!Array.isArray(finalJSON.aiSuggestions)) {
-        missing.push('aiSuggestions (deve ser array)');
-        console.error('[VALIDATION] ❌ aiSuggestions deve ser array para compare');
-      } else if (finalJSON.aiSuggestions.length === 0) {
-        // Warn mas NÃO bloquear - o fallback deveria ter preenchido, mas se não preencheu, ainda salvar
-        console.warn('[VALIDATION] ⚠️ aiSuggestions vazio - verificar se fallback foi executado');
-      } else {
-        console.log('[VALIDATION] ✅ aiSuggestions presente com', finalJSON.aiSuggestions.length, 'itens');
-      }
-      
-    } else {
-      console.error('[VALIDATION] ❌ Reference sem referenceStage válido:', referenceStage);
-      missing.push('referenceStage (deve ser "base" ou "compare")');
-    }
-  }
-  
-  // ══════════════════════════════════════════════════════════
-  // GENRE MODE: Validação tradicional (INALTERADA)
-  // ══════════════════════════════════════════════════════════
-  else if (mode === 'genre') {
-    console.log('[VALIDATION] Genre mode - validação tradicional');
-    
-    if (!finalJSON.technicalData) missing.push('technicalData');
-    if (typeof finalJSON.score !== 'number') missing.push('score');
-    if (!finalJSON.spectralBands) missing.push('spectralBands');
-    if (!finalJSON.metrics) missing.push('metrics');
-    if (!finalJSON.scoring) missing.push('scoring');
-    
-    // Genre sempre exige suggestions
-    if (!Array.isArray(finalJSON.suggestions) || finalJSON.suggestions.length === 0) {
-      missing.push('suggestions');
-    }
-    if (!Array.isArray(finalJSON.aiSuggestions) || finalJSON.aiSuggestions.length === 0) {
-      missing.push('aiSuggestions');
-    }
-  }
-  
-  const isValid = missing.length === 0;
-  
-  if (isValid) {
-    console.log('[VALIDATION] ✅ JSON completo - pode marcar COMPLETED');
-  } else {
-    console.error('[VALIDATION] ❌ JSON incompleto:', missing.join(', '));
-  }
-  
-  return { valid: isValid, missing };
-}
-
-/**
- * ═══════════════════════════════════════════════════════════════════
- * 🔐 SANITIZAR SUGESTÕES EM MODO REDUCED
- * ═══════════════════════════════════════════════════════════════════
- * Remove texto sensível mas mantém estrutura compatível com o frontend.
- * 
- * OBJETIVO: Garantir que no modo reduced, NENHUM texto real de sugestões
- * chegue ao browser via DevTools/Network tab.
- * 
- * PRESERVA: Arrays, estrutura, campos não sensíveis (categoria, metricKey)
- * REMOVE: Todos os campos textuais (problema, solucao, causa, plugin, etc)
- * ═══════════════════════════════════════════════════════════════════
- */
-function sanitizeSuggestionsForReduced(analysis) {
-  // ✅ VALIDAÇÃO: Só sanitizar se realmente for modo reduced
-  const isReduced = analysis?.isReduced === true || analysis?.analysisMode === 'reduced';
-  
-  if (!isReduced) {
-    console.log('[SANITIZE] ⏭️ Modo FULL - Sem sanitização necessária');
-    return analysis;
-  }
-  
-  console.log('[SANITIZE] 🔐 Modo REDUCED detectado - Iniciando sanitização de texto');
-  
-  // 🧹 PLACEHOLDER SEGURO: null (ou mensagem genérica)
-  const placeholder = null;
-  
-  // 📋 FUNÇÃO SANITIZADORA DE ITEM INDIVIDUAL
-  const mapItem = (s = {}) => ({
-    ...s,
-    // ✅ PRESERVAR: Campos não sensíveis úteis para UI
-    categoria: s.categoria ?? s.category ?? null,
-    metricKey: s.metricKey ?? s.metric ?? null,
-    severity: s.severity ?? null,
-    type: s.type ?? null,
-    
-    // 🔐 REMOVER: Todo texto sensível
-    problema: placeholder,
-    causa: placeholder,
-    solucao: placeholder,
-    plugin: placeholder,
-    dica: placeholder,
-    texto: placeholder,
-    content: placeholder,
-    details: placeholder,
-    raw: placeholder,
-    description: placeholder,
-    problema_completo: placeholder,
-    causa_raiz: placeholder,
-    solucao_detalhada: placeholder,
-    recommendation: placeholder,
-    explanation: placeholder,
-  });
-  
-  // 🧹 SANITIZAR ARRAYS (mantém estrutura, remove texto)
-  const sanitizedSuggestions = Array.isArray(analysis.suggestions) 
-    ? analysis.suggestions.map(mapItem) 
-    : [];
-    
-  const sanitizedAiSuggestions = Array.isArray(analysis.aiSuggestions) 
-    ? analysis.aiSuggestions.map(mapItem) 
-    : [];
-  
-  console.log('[SANITIZE] ✅ Sanitização completa:', {
-    mode: analysis.analysisMode || 'reduced',
-    originalSuggestions: analysis.suggestions?.length || 0,
-    sanitizedSuggestions: sanitizedSuggestions.length,
-    originalAiSuggestions: analysis.aiSuggestions?.length || 0,
-    sanitizedAiSuggestions: sanitizedAiSuggestions.length,
-  });
-  
-  return {
-    ...analysis,
-    suggestions: sanitizedSuggestions,
-    aiSuggestions: sanitizedAiSuggestions,
-  };
-}
 
 /**
  * Atualizar status do job no PostgreSQL
@@ -659,11 +492,7 @@ async function updateJobStatus(jobId, status, results = null) {
     let params;
 
     if (results) {
-      // 🔐 SANITIZAÇÃO ANTES DE SALVAR (BACKEND DEFENSE)
-      // ────────────────────────────────────────────────────────────────
-      // Se modo reduced: remover texto sensível ANTES de res.json()
-      results = sanitizeSuggestionsForReduced(results);
-      // ────────────────────────────────────────────────────────────────
+      // 🔐 SANITIZAÇÃO: já feita no processo filho (analysis-job.js) antes do IPC
       
       // ✅ LOGS DE AUDITORIA PRÉ-SALVAMENTO - SUGGESTIONS BASE
       console.log(`[AI-AUDIT][SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
@@ -786,876 +615,193 @@ async function updateJobStatus(jobId, status, results = null) {
   }
 }
 
-// 🧹 MEMORY FIX: S3 client singleton — evita recriar connection pool a cada download
-let _s3Client = null;
-function getS3Client() {
-  if (!_s3Client) {
-    _s3Client = new AWS.S3({
-      endpoint: process.env.B2_ENDPOINT,
-      accessKeyId: process.env.B2_KEY_ID,
-      secretAccessKey: process.env.B2_APP_KEY,
-      region: 'us-east-005',
-      s3ForcePathStyle: true
-    });
-  }
-  return _s3Client;
-}
+// ═══════════════════════════════════════════════════════════
+// 🔥 AUDIO PROCESSOR — FORK-BASED (1 JOB = 1 PROCESSO)
+// ═══════════════════════════════════════════════════════════
 
 /**
- * Download arquivo do S3/Backblaze B2 via STREAMING (evita carregar buffer inteiro na RAM)
+ * Contagem de processos filhos ativos (para métricas e health check)
  */
-async function downloadFileFromBucket(fileKey) {
-  console.log(`⬇️ [DOWNLOAD][${new Date().toISOString()}] -> Starting download: ${fileKey}`);
-  
-  const s3 = getS3Client();
-
-  const tempDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'temp');
-  
-  // Criar diretório temp se não existir
-  if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir, { recursive: true });
-  }
-
-  const fileName = path.basename(fileKey);
-  const localFilePath = path.join(tempDir, `${Date.now()}-${fileName}`);
-
-  try {
-    // 🧹 MEMORY FIX: Usar createReadStream em vez de .promise() para evitar buffer inteiro na RAM
-    await new Promise((resolve, reject) => {
-      const readStream = s3.getObject({
-        Bucket: process.env.B2_BUCKET_NAME,
-        Key: fileKey
-      }).createReadStream();
-
-      const writeStream = fs.createWriteStream(localFilePath);
-
-      // Timeout de segurança: 2 minutos
-      const downloadTimeout = setTimeout(() => {
-        readStream.destroy(new Error('Download timeout após 2 minutos'));
-        writeStream.destroy();
-      }, 120000);
-
-      readStream.on('error', (err) => {
-        clearTimeout(downloadTimeout);
-        writeStream.destroy();
-        // Limpar arquivo parcial
-        try { fs.unlinkSync(localFilePath); } catch (_) {}
-        reject(new Error(`S3 read error: ${err.message}`));
-      });
-
-      writeStream.on('error', (err) => {
-        clearTimeout(downloadTimeout);
-        readStream.destroy();
-        try { fs.unlinkSync(localFilePath); } catch (_) {}
-        reject(new Error(`File write error: ${err.message}`));
-      });
-
-      writeStream.on('finish', () => {
-        clearTimeout(downloadTimeout);
-        resolve();
-      });
-
-      readStream.pipe(writeStream);
-    });
-
-    console.log(`✅ [DOWNLOAD][${new Date().toISOString()}] -> File saved (streamed): ${localFilePath}`);
-    
-    return localFilePath;
-  } catch (error) {
-    console.error(`💥 [DOWNLOAD][${new Date().toISOString()}] -> Failed to download ${fileKey}:`, error.message);
-    throw error;
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 🎯 REFERENCE MODE: FUNÇÕES ISOLADAS
-// ══════════════════════════════════════════════════════════════════════════════
+let activeChildProcesses = 0;
 
 /**
- * 🎯 PROCESSAR REFERENCE BASE (1ª MÚSICA)
+ * Executa um job de análise em processo isolado via fork().
  * 
- * CONTRATO:
- * - Não usa genreTargets
- * - Não chama Suggestion Engine
- * - Retorna requiresSecondTrack: true
- * - Salva como COMPLETED com métricas base
- */
-async function processReferenceBase(job) {
-  const { jobId, fileKey, fileName } = job.data;
-  
-  console.log('');
-  console.log('🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵');
-  console.log('🔵 [REFERENCE-BASE] ⚡⚡⚡ FUNÇÃO CHAMADA! ⚡⚡⚡');
-  console.log('🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵');
-  console.log('[REFERENCE-BASE] ═══════════════════════════════════════');
-  console.log('[REFERENCE-BASE] Processando 1ª música (BASE)');
-  console.log('[REFERENCE-BASE] Job ID:', jobId);
-  console.log('[REFERENCE-BASE] File:', fileName);
-  console.log('[REFERENCE-BASE] ═══════════════════════════════════════');
-
-  let localFilePath = null;
-
-  try {
-    // Atualizar status
-    console.log('[REFERENCE-BASE] 🔄 Definindo status como PROCESSING...');
-    await updateJobStatus(jobId, 'processing');
-    console.log('[REFERENCE-BASE] ✅ Status PROCESSING salvo com sucesso!');
-
-    // Download do arquivo
-    console.log('[REFERENCE-BASE] Baixando arquivo...');
-    localFilePath = await downloadFileFromBucket(fileKey);
-
-    // Ler buffer
-    let fileBuffer = await fs.promises.readFile(localFilePath);
-    console.log('[REFERENCE-BASE] Arquivo lido:', fileBuffer.length, 'bytes');
-    logMemoryDelta('worker', 'ref-base-after-readFile', jobId);
-
-    // Processar via pipeline (SEM genre, SEM suggestion engine)
-    console.log('[REFERENCE-BASE] Iniciando pipeline...');
-    const t0 = Date.now();
-    
-    console.log('[REFERENCE-BASE] 🔍 Parâmetros para processAudioComplete:', {
-      fileName: fileName || 'unknown.wav',
-      fileBufferSize: fileBuffer.length,
-      options: {
-        jobId,
-        mode: 'reference',
-        referenceStage: 'base'
-      }
-    });
-    
-    const finalJSON = await processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
-      jobId,
-      mode: 'reference',
-      referenceStage: 'base',
-      // SEM genre, SEM genreTargets, SEM planContext
-    });
-
-    // 🧹 MEMORY FIX: liberar fileBuffer imediatamente após processamento (evita reter ~100MB)
-    // fileBuffer não é mais necessário — pipeline já extraiu todos os dados
-    fileBuffer = null;
-
-    const totalMs = Date.now() - t0;
-    console.log('[REFERENCE-BASE] ✅ Pipeline concluído em', totalMs, 'ms');
-    console.log('[REFERENCE-BASE] 🔍 Pipeline retornou:', {
-      hasTechnicalData: !!finalJSON.technicalData,
-      hasScore: finalJSON.score !== undefined,
-      hasMetrics: !!finalJSON.metrics,
-      keys: Object.keys(finalJSON || {}).slice(0, 15)
-    });
-
-    // Adicionar campos específicos de reference base
-    finalJSON.success = true; // ✅ Garantir flag de sucesso
-    finalJSON.status = 'completed'; // ✅ Status explícito
-    finalJSON.mode = 'reference';
-    finalJSON.referenceStage = 'base';
-    finalJSON.requiresSecondTrack = true;
-    finalJSON.referenceJobId = jobId; // Este job é a base para próxima comparação
-    finalJSON.jobId = jobId; // ✅ jobId explícito para referência
-    
-    // 🛡️ CORREÇÃO CRÍTICA: Garantir analysisMode/isReduced para evitar race condition no frontend
-    // Análise de referência é sempre "full" - não tem conceito de reduced mode
-    finalJSON.analysisMode = finalJSON.analysisMode || 'full';
-    finalJSON.isReduced = finalJSON.isReduced ?? false;
-    
-    console.log('[REFERENCE-BASE] 📊 analysisMode:', finalJSON.analysisMode, '| isReduced:', finalJSON.isReduced);
-    
-    // ✅ GARANTIR campos obrigatórios para compatibilidade com polling/render
-    finalJSON.aiSuggestions = [];
-    finalJSON.suggestions = [];
-    finalJSON.referenceComparison = null; // Null no base (só existe no compare)
-    
-    // ✅ ADICIONAR baseMetrics explicitamente (facilita frontend)
-    finalJSON.baseMetrics = {
-      lufsIntegrated: finalJSON.technicalData?.lufsIntegrated,
-      truePeakDbtp: finalJSON.technicalData?.truePeakDbtp,
-      dynamicRange: finalJSON.technicalData?.dynamicRange,
-      loudnessRange: finalJSON.technicalData?.loudnessRange,
-      stereoWidth: finalJSON.metrics?.stereoImaging?.width,
-      spectralBalance: finalJSON.metrics?.spectralBalance
-    };
-
-    // Performance
-    finalJSON.performance = {
-      ...(finalJSON.performance || {}),
-      workerTotalTimeMs: totalMs,
-      workerTimestamp: new Date().toISOString(),
-      backendPhase: "reference-base",
-      workerId: process.pid
-    };
-
-    finalJSON._worker = {
-      source: "reference-base-pipeline",
-      redis: true,
-      pid: process.pid,
-      jobId
-    };
-
-    console.log('[REFERENCE-BASE] ✅ Análise base concluída');
-    console.log('[REFERENCE-BASE] LUFS:', finalJSON.technicalData?.lufsIntegrated || 'N/A');
-    console.log('[REFERENCE-BASE] DR:', finalJSON.technicalData?.dynamicRange || 'N/A');
-    console.log('[REFERENCE-BASE] TP:', finalJSON.technicalData?.truePeakDbtp || 'N/A');
-    console.log('[REFERENCE-BASE] requiresSecondTrack:', finalJSON.requiresSecondTrack);
-    console.log('[REFERENCE-BASE] referenceJobId:', finalJSON.referenceJobId);
-    console.log('[REFERENCE-BASE] referenceStage:', finalJSON.referenceStage);
-
-    // Salvar como COMPLETED com fallback Redis
-    console.log('[REFERENCE-BASE] 💾 Salvando no PostgreSQL como COMPLETED...');
-    console.log('[REFERENCE-BASE] 🔍 Dados sendo salvos:', {
-      mode: finalJSON.mode,
-      referenceStage: finalJSON.referenceStage,
-      requiresSecondTrack: finalJSON.requiresSecondTrack,
-      referenceJobId: finalJSON.referenceJobId,
-      hasAiSuggestions: Array.isArray(finalJSON.aiSuggestions),
-      aiSuggestionsLength: finalJSON.aiSuggestions?.length || 0,
-      hasSuggestions: Array.isArray(finalJSON.suggestions),
-      suggestionsLength: finalJSON.suggestions?.length || 0,
-      score: finalJSON.score
-    });
-    
-    try {
-      await updateJobStatus(jobId, 'completed', finalJSON);
-      console.log('[REFERENCE-BASE] ✅ Status COMPLETED salvo no banco com sucesso!');
-    } catch (dbError) {
-      console.error('[DB-SAVE-ERROR][REFERENCE-BASE] ❌ Falha ao salvar no Postgres:', dbError.message);
-      console.warn('[DB-SAVE-ERROR][REFERENCE-BASE] 🔄 Tentando fallback: salvar no Redis...');
-      
-      try {
-        // Fallback: salvar pelo menos no Redis para API poder servir
-        const redisKey = `job:${jobId}:results`;
-        await redisClient.set(redisKey, JSON.stringify({
-          ...finalJSON,
-          status: 'completed',
-          _fallback: true,
-          _savedAt: new Date().toISOString()
-        }), 'EX', 3600); // 1 hora de TTL
-        
-        console.warn('[DB-SAVE-ERROR][REFERENCE-BASE] ✅ Salvo no Redis como fallback');
-        console.warn('[DB-SAVE-ERROR][REFERENCE-BASE] ⚠️ ATENÇÃO: PostgreSQL pode estar com status desatualizado!');
-      } catch (redisError) {
-        console.error('[DB-SAVE-ERROR][REFERENCE-BASE] ❌ Falha no fallback Redis também:', redisError.message);
-        // Continuar - pelo menos o processamento não falhou
-      }
-    }
-
-    // Limpar arquivo temporário
-    if (localFilePath && fs.existsSync(localFilePath)) {
-      fs.unlinkSync(localFilePath);
-    }
-
-    logMemoryDelta('worker', 'ref-base-end-success', jobId);
-    clearMemoryDelta(jobId);
-    return finalJSON;
-
-  } catch (error) {
-    console.error('[REFERENCE-BASE] ❌ Erro:', error.message);
-
-    // Limpar arquivo temporário em caso de erro
-    if (localFilePath && fs.existsSync(localFilePath)) {
-      fs.unlinkSync(localFilePath);
-    }
-
-    logMemoryDelta('worker', 'ref-base-end-error', jobId);
-    clearMemoryDelta(jobId);
-
-    await updateJobStatus(jobId, 'failed', {
-      error: error.message,
-      mode: 'reference',
-      referenceStage: 'base'
-    });
-
-    throw error;
-  }
-}
-
-/**
- * 🎯 PROCESSAR REFERENCE COMPARE (2ª MÚSICA)
+ * O processo filho (analysis-job.js) recebe os dados do job via IPC,
+ * executa todo o processamento pesado (S3 download, FFmpeg, FFT, métricas, AI),
+ * envia o resultado de volta via IPC, e morre com process.exit(0).
  * 
- * CONTRATO:
- * - Carrega métricas da base usando referenceJobId
- * - Calcula referenceComparison (deltas)
- * - Chama referenceSuggestionEngine para gerar sugestões comparativas
- * - Retorna requiresSecondTrack: false
- * - Salva como COMPLETED com comparação
- */
-async function processReferenceCompare(job) {
-  const { jobId, fileKey, fileName, referenceJobId } = job.data;
-
-  console.log('[REFERENCE-COMPARE] ═══════════════════════════════════════');
-  console.log('[REFERENCE-COMPARE] Processando 2ª música (COMPARE)');
-  console.log('[REFERENCE-COMPARE] Job ID:', jobId);
-  console.log('[REFERENCE-COMPARE] Reference Job ID:', referenceJobId);
-  console.log('[REFERENCE-COMPARE] File:', fileName);
-  console.log('[REFERENCE-COMPARE] ═══════════════════════════════════════');
-
-  let localFilePath = null;
-
-  try {
-    // ETAPA 1: Carregar métricas da base
-    console.log('[REFERENCE-COMPARE] Carregando métricas base...');
-    
-    const refResult = await pool.query(
-      'SELECT id, status, results FROM jobs WHERE id = $1',
-      [referenceJobId]
-    );
-
-    if (refResult.rows.length === 0) {
-      throw new Error(`Job de referência ${referenceJobId} não encontrado`);
-    }
-
-    const refJob = refResult.rows[0];
-
-    if (refJob.status !== 'completed') {
-      throw new Error(`Job de referência está com status '${refJob.status}' (esperado: completed)`);
-    }
-
-    if (!refJob.results) {
-      throw new Error('Job de referência não possui resultados');
-    }
-
-    const baseMetrics = refJob.results;
-    console.log('[REFERENCE-COMPARE] ✅ Métricas base carregadas');
-    console.log('[REFERENCE-COMPARE] Base LUFS:', baseMetrics.technicalData?.lufsIntegrated || 'N/A');
-
-    // ETAPA 2: Atualizar status e baixar arquivo
-    await updateJobStatus(jobId, 'processing');
-
-    console.log('[REFERENCE-COMPARE] Baixando arquivo...');
-    localFilePath = await downloadFileFromBucket(fileKey);
-
-    // ETAPA 3: Ler buffer e processar
-    let fileBuffer = await fs.promises.readFile(localFilePath);
-    console.log('[REFERENCE-COMPARE] Arquivo lido:', fileBuffer.length, 'bytes');
-    logMemoryDelta('worker', 'ref-compare-after-readFile', jobId);
-
-    console.log('[REFERENCE-COMPARE] Iniciando pipeline...');
-    const t0 = Date.now();
-
-    const finalJSON = await processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
-      jobId,
-      mode: 'reference',
-      referenceStage: 'compare',
-      referenceJobId,
-      preloadedReferenceMetrics: baseMetrics
-    });
-
-    // 🧹 MEMORY FIX: liberar fileBuffer após processamento
-    fileBuffer = null;
-
-    const totalMs = Date.now() - t0;
-    console.log('[REFERENCE-COMPARE] Pipeline concluído em', totalMs, 'ms');
-
-    // ETAPA 4: Calcular referenceComparison (deltas)
-    console.log('[REFERENCE-COMPARE] Calculando deltas...');
-
-    const baseTech = baseMetrics.technicalData || {};
-    const compareTech = finalJSON.technicalData || {};
-
-    const referenceComparison = {
-      base: {
-        lufsIntegrated: baseTech.lufsIntegrated,
-        truePeakDbtp: baseTech.truePeakDbtp,
-        dynamicRange: baseTech.dynamicRange,
-        loudnessRange: baseTech.loudnessRange,
-        fileName: baseMetrics.metadata?.fileName
-      },
-      current: {
-        lufsIntegrated: compareTech.lufsIntegrated,
-        truePeakDbtp: compareTech.truePeakDbtp,
-        dynamicRange: compareTech.dynamicRange,
-        loudnessRange: compareTech.loudnessRange,
-        fileName: finalJSON.metadata?.fileName
-      },
-      deltas: {
-        lufsIntegrated: compareTech.lufsIntegrated - baseTech.lufsIntegrated,
-        truePeakDbtp: compareTech.truePeakDbtp - baseTech.truePeakDbtp,
-        dynamicRange: compareTech.dynamicRange - baseTech.dynamicRange,
-        loudnessRange: (compareTech.loudnessRange || 0) - (baseTech.loudnessRange || 0)
-      }
-    };
-
-    finalJSON.referenceComparison = referenceComparison;
-
-    console.log('[REFERENCE-COMPARE] Deltas:', {
-      LUFS: referenceComparison.deltas.lufsIntegrated.toFixed(2),
-      TP: referenceComparison.deltas.truePeakDbtp.toFixed(2),
-      DR: referenceComparison.deltas.dynamicRange.toFixed(2)
-    });
-
-    // ETAPA 5: Gerar sugestões comparativas via reference engine
-    console.log('[REFERENCE-COMPARE] Gerando sugestões comparativas...');
-
-    const comparativeSuggestions = referenceSuggestionEngine(baseMetrics, finalJSON);
-    
-    // ✅ GARANTIA: Sempre retornar arrays (mesmo que vazios)
-    finalJSON.aiSuggestions = Array.isArray(comparativeSuggestions) ? comparativeSuggestions : [];
-    finalJSON.suggestions = Array.isArray(comparativeSuggestions) ? comparativeSuggestions : []; // Compatibilidade
-
-    console.log('[REFERENCE-COMPARE] ✅ Geradas', finalJSON.aiSuggestions.length, 'sugestões');
-    
-    // 🛡️ FALLBACK SECUNDÁRIO: Se engine retornou vazio (não deveria mais acontecer), criar sugestão mínima
-    if (finalJSON.aiSuggestions.length === 0) {
-      console.warn('[REFERENCE-COMPARE] ⚠️ Engine retornou vazio - aplicando fallback secundário');
-      
-      const fallbackSuggestion = {
-        categoria: 'ReferenceAnalysis',
-        nivel: 'info',
-        problema: 'Comparação A/B concluída',
-        solucao: 'Revise as diferenças na tabela de comparação e ajuste conforme necessário.',
-        detalhes: {
-          deltas: referenceComparison.deltas,
-          status: 'fallback-secundario',
-          note: 'Músicas com características muito similares'
-        },
-        aiEnhanced: false,
-        enrichmentStatus: 'worker-fallback'
-      };
-      
-      finalJSON.aiSuggestions.push(fallbackSuggestion);
-      finalJSON.suggestions.push(fallbackSuggestion);
-      
-      console.log('[REFERENCE-COMPARE] ✅ Fallback secundário aplicado:', finalJSON.aiSuggestions.length, 'sugestões');
-    }
-
-    // ETAPA 6: Adicionar campos específicos
-    finalJSON.success = true; // ✅ Garantir flag de sucesso
-    finalJSON.status = 'completed'; // ✅ Status explícito
-    finalJSON.mode = 'reference';
-    finalJSON.referenceStage = 'compare';
-    finalJSON.referenceJobId = referenceJobId;
-    finalJSON.jobId = jobId; // ✅ jobId explícito
-    finalJSON.requiresSecondTrack = false; // Fluxo completo
-    
-    // 🛡️ CORREÇÃO CRÍTICA: Garantir analysisMode/isReduced para evitar race condition no frontend
-    // Análise de referência é sempre "full" - não tem conceito de reduced mode
-    finalJSON.analysisMode = finalJSON.analysisMode || 'full';
-    finalJSON.isReduced = finalJSON.isReduced ?? false;
-    
-    console.log('[REFERENCE-COMPARE] 📊 analysisMode:', finalJSON.analysisMode, '| isReduced:', finalJSON.isReduced);
-    
-    // ✅ ADICIONAR baseMetrics explicitamente (facilita frontend)
-    finalJSON.baseMetrics = {
-      lufsIntegrated: baseTech.lufsIntegrated,
-      truePeakDbtp: baseTech.truePeakDbtp,
-      dynamicRange: baseTech.dynamicRange,
-      loudnessRange: baseTech.loudnessRange,
-      stereoWidth: baseMetrics.metrics?.stereoImaging?.width,
-      spectralBalance: baseMetrics.metrics?.spectralBalance,
-      fileName: baseMetrics.metadata?.fileName
-    };
-
-    finalJSON.performance = {
-      ...(finalJSON.performance || {}),
-      workerTotalTimeMs: totalMs,
-      workerTimestamp: new Date().toISOString(),
-      backendPhase: "reference-compare",
-      workerId: process.pid
-    };
-
-    finalJSON._worker = {
-      source: "reference-compare-pipeline",
-      redis: true,
-      pid: process.pid,
-      jobId
-    };
-
-    console.log('[REFERENCE-COMPARE] ✅ Comparação concluída');
-    console.log('[REFERENCE-COMPARE] Compare LUFS:', compareTech.lufsIntegrated || 'N/A');
-    console.log('[REFERENCE-COMPARE] Delta LUFS:', referenceComparison.deltas.lufsIntegrated.toFixed(2));
-
-    // ETAPA 7: Salvar como COMPLETED
-    await updateJobStatus(jobId, 'completed', finalJSON);
-
-    // Limpar arquivo temporário
-    if (localFilePath && fs.existsSync(localFilePath)) {
-      fs.unlinkSync(localFilePath);
-    }
-
-    logMemoryDelta('worker', 'ref-compare-end-success', jobId);
-    clearMemoryDelta(jobId);
-    return finalJSON;
-
-  } catch (error) {
-    console.error('[REFERENCE-COMPARE] ❌ Erro:', error.message);
-
-    // Limpar arquivo temporário em caso de erro
-    if (localFilePath && fs.existsSync(localFilePath)) {
-      fs.unlinkSync(localFilePath);
-    }
-
-    logMemoryDelta('worker', 'ref-compare-end-error', jobId);
-    clearMemoryDelta(jobId);
-
-    await updateJobStatus(jobId, 'failed', {
-      error: error.message,
-      mode: 'reference',
-      referenceStage: 'compare',
-      referenceJobId
-    });
-
-    throw error;
-  }
-}
-
-/**
- * 🎵 AUDIO PROCESSOR PRINCIPAL - ANÁLISE REAL
+ * O orquestrador (este arquivo) recebe o resultado e atualiza o PostgreSQL.
+ * 
+ * GARANTIA: Quando o processo filho morre, o OS libera TODA a memória.
+ * Não importa quantos buffers, caches ou closures foram criados — tudo é destruído.
  */
 async function audioProcessor(job) {
-  // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs + referenceJobId + referenceStage
   const {
     jobId,
-    externalId,
-    fileKey,
     mode,
     fileName,
-    referenceJobId,
     referenceStage,
-    genre,
-    genreTargets,
-    soundDestination = 'pista',  // 🆕 STREAMING MODE: 'pista' | 'streaming'
   } = job.data;
-  
-  // 🆕 STREAMING MODE: Validar e logar soundDestination
-  const validSoundDestination = ['pista', 'streaming'].includes(soundDestination) ? soundDestination : 'pista';
-  
-  // ══════════════════════════════════════════════════════════════════════════════
-  // 🎯 ROUTING: DIRECIONAR PARA PIPELINE CORRETO
-  // ══════════════════════════════════════════════════════════════════════════════
-  
-  console.log('[WORKER-ROUTING] ═══════════════════════════════════════');
-  console.log('[WORKER-ROUTING] Job ID:', jobId?.substring(0, 8));
-  console.log('[WORKER-ROUTING] Mode:', mode);
-  console.log('[WORKER-ROUTING] Sound Destination:', validSoundDestination);
-  console.log('[WORKER-ROUTING] Reference Stage:', referenceStage || 'UNDEFINED');
-  console.log('[WORKER-ROUTING] Reference Job ID:', referenceJobId || 'N/A');
-  console.log('[WORKER-ROUTING] Job Data Keys:', Object.keys(job.data || {}));
-  console.log('[WORKER-ROUTING] ═══════════════════════════════════════');
-  
-  // 🎯 REFERENCE MODE: BASE (1ª música)
-  if (mode === 'reference' && referenceStage === 'base') {
-    console.log('[WORKER-ROUTING] ✅ Condição atendida: mode=reference AND referenceStage=base');
-    console.log('[WORKER-ROUTING] ➡️ Direcionando para processReferenceBase()');
-    return processReferenceBase(job);
-  }
-  
-  // 🎯 REFERENCE MODE: COMPARE (2ª música)
-  if (mode === 'reference' && referenceStage === 'compare') {
-    console.log('[WORKER-ROUTING] ➡️ Direcionando para processReferenceCompare()');
-    return processReferenceCompare(job);
-  }
-  
-  // 🎯 GENRE MODE: Pipeline tradicional
-  if (mode === 'genre' || !mode || !referenceStage) {
-    console.log('[WORKER-ROUTING] ➡️ Direcionando para processamento GENRE (pipeline tradicional)');
-    // CONTINUAR COM LÓGICA EXISTENTE ABAIXO
-  } else {
-    // Modo desconhecido
-    console.warn('[WORKER-ROUTING] ⚠️ Modo desconhecido:', { mode, referenceStage });
-    console.warn('[WORKER-ROUTING] Usando pipeline GENRE como fallback');
-  }
-  
-  // ══════════════════════════════════════════════════════════════════════════════
-  // 🎵 GENRE MODE: LÓGICA ORIGINAL (INALTERADA)
-  // ══════════════════════════════════════════════════════════════════════════════
-  
-  // 🎯 EXTRAÇÃO CRÍTICA: planContext (CORREÇÃO PARA PLANOS)
-  let extractedPlanContext = null;
-  if (job.data && typeof job.data === 'object') {
-    extractedPlanContext = job.data.planContext;
-  } else if (typeof job.data === 'string') {
-    try {
-      const parsed = JSON.parse(job.data);
-      extractedPlanContext = parsed.planContext;
-    } catch (e) {
-      console.warn('[WORKER][GENRE] ⚠️ Falha ao extrair planContext:', e.message);
-    }
-  }
-  
-  // 🎯 LOG ESSENCIAL: Job consumido
-  console.log('[WORKER][GENRE] Job consumido:', {
-    jobId: jobId.substring(0, 8),
-    mode,
-    genre: genre || 'N/A',
-    fileName,
-    hasTargets: !!genreTargets,
-    hasPlanContext: !!extractedPlanContext
-  });
 
-  let localFilePath = null;
-  let preloadedReferenceMetrics = null;
+  const displayId = jobId?.substring(0, 8) || 'unknown';
 
+  console.log('[WORKER] ═══════════════════════════════════════');
+  console.log(`[WORKER] 🚀 Job recebido: ${displayId}`);
+  console.log(`[WORKER] Mode: ${mode || 'genre'} | Stage: ${referenceStage || 'N/A'}`);
+  console.log(`[WORKER] Arquivo: ${fileName || 'unknown'}`);
+  console.log(`[WORKER] Processos ativos: ${activeChildProcesses}`);
+  console.log('[WORKER] ═══════════════════════════════════════');
+
+  // Atualizar status para 'processing' imediatamente
   try {
-    // ✅ REGRA 5: Validação de dados obrigatória
-    if (!job.data || !fileKey || !jobId) {
-      console.error('💥 [PROCESSOR] ERRO: Dados do job inválidos:', job.data);
-      throw new Error(`Dados do job inválidos: ${JSON.stringify(job.data)}`);
-    }
-
-    // 🔒 VALIDAÇÃO CRÍTICA: Verificar se jobId é UUID válido
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(jobId)) {
-      console.error(`💥 [PROCESSOR] ERRO: jobId não é UUID válido: '${jobId}'`);
-      console.error(`💥 [PROCESSOR] SOLUÇÃO: Job será processado mas não atualizado no PostgreSQL`);
-      console.error(`💥 [PROCESSOR] UUID esperado: formato '12345678-1234-1234-1234-123456789abc'`);
-      throw new Error(`jobId inválido: '${jobId}' não é um UUID válido. Formato esperado: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`);
-    }
-
-    console.log(`✅ [PROCESSOR] jobId UUID válido: ${jobId}`);
-    
-    // ✅ VALIDAÇÃO DE S3: Verificar se fileKey tem formato válido
-    if (!fileKey || typeof fileKey !== 'string' || fileKey.length < 3) {
-      console.error(`💥 [PROCESSOR] ERRO: fileKey inválido: '${fileKey}'`);
-      throw new Error(`fileKey inválido: '${fileKey}'`);
-    }
-
-    console.log(`✅ [PROCESSOR] fileKey válido: ${fileKey}`);
-
-    // 🎯 CARREGAR MÉTRICAS DE REFERÊNCIA (se referenceJobId presente)
-    if (referenceJobId) {
-      console.log('[WORKER][GENRE] Carregando métricas de referência...', referenceJobId.substring(0, 8));
-      
-      try {
-        const refResult = await pool.query(
-          `SELECT id, status, results FROM jobs WHERE id = $1`,
-          [referenceJobId]
-        );
-        
-        if (refResult.rows.length === 0) {
-          console.error('[WORKER][GENRE] ❌ Job de referência não encontrado:', referenceJobId);
-        } else {
-          const refJob = refResult.rows[0];
-          
-          if (refJob.status !== 'completed') {
-            console.warn('[WORKER][GENRE] ⚠️ Job ref status:', refJob.status);
-          } else if (!refJob.results) {
-            console.warn('[WORKER][GENRE] ⚠️ Job ref sem resultados');
-          } else {
-            preloadedReferenceMetrics = refJob.results;
-            console.log('[WORKER][GENRE] ✅ Métricas ref carregadas');
-          }
-        }
-      } catch (refError) {
-        console.error('[WORKER][GENRE] ❌ Erro ao carregar métricas ref:', refError.message);
-      }
-    }
-
-    console.log('[WORKER][GENRE] Atualizando status: processing');
     await updateJobStatus(jobId, 'processing');
-
-    console.log('[WORKER][GENRE] Baixando arquivo...', fileKey.split('/').pop());
-    const downloadStartTime = Date.now();
-    localFilePath = await downloadFileFromBucket(fileKey);
-    const downloadTime = Date.now() - downloadStartTime;
-    console.log('[WORKER][GENRE] ✅ Arquivo baixado em', downloadTime, 'ms');
-
-    // Ler arquivo para buffer
-    let fileBuffer = await fs.promises.readFile(localFilePath);
-    console.log('[WORKER][GENRE] Arquivo lido:', fileBuffer.length, 'bytes');
-    logMemoryDelta('worker', 'genre-after-readFile', jobId);
-
-    const t0 = Date.now();
-    
-    // Processar via pipeline
-    console.log('[WORKER][GENRE] Iniciando pipeline...');
-    console.log('[WORKER][GENRE] soundDestination para pipeline:', validSoundDestination);
-    
-    // Setar buffer no job para runPipeline (ephemeral, não serializado)
-    job._buffer = fileBuffer;
-    job._preloadedReferenceMetrics = preloadedReferenceMetrics;
-
-    const pipelinePromise = runPipeline(job);
-    
-    let _timeoutId;
-    const timeoutPromise = new Promise((_, reject) => {
-      // 🧹 MEMORY FIX: armazenar timeoutId para cancelar quando o pipeline ganhar a corrida
-      _timeoutId = setTimeout(() => reject(new Error(`Pipeline timeout após 3min: ${fileName}`)), 180000);
-    });
-
-    const finalJSON = await Promise.race([pipelinePromise, timeoutPromise])
-      .finally(() => {
-        // Cancelar o timer se o pipeline ganhar antes do timeout
-        if (_timeoutId) clearTimeout(_timeoutId);
-      });
-
-    // 🧹 MEMORY FIX: liberar buffers grandes imediatamente após pipeline concluir
-    // fileBuffer e job._buffer referenciam o MESMO objeto — anular ambos
-    fileBuffer = null;
-    job._buffer = null;
-    job._preloadedReferenceMetrics = null;
-
-    const totalMs = Date.now() - t0;
-    
-    console.log('[WORKER][GENRE] ✅ Pipeline concluído em', totalMs, 'ms');
-    console.log('[WORKER][GENRE] LUFS:', finalJSON.technicalData?.lufsIntegrated || 'N/A');
-    console.log('[WORKER][GENRE] Score:', finalJSON.score || 0);
-    
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // ✅ OVERRIDE JÁ FOI APLICADO NO PIPELINE (pipeline-complete.js)
-    // Targets já vêm corretos para o modo (pista ou streaming)
-    // Apenas marcar o modo no resultado final
-    // ═══════════════════════════════════════════════════════════════════════════════
-    finalJSON.soundDestination = validSoundDestination;
-    console.log(`[WORKER][${validSoundDestination.toUpperCase()}] 🎯 Modo ${validSoundDestination} - targets já aplicados no pipeline`);
-    
-    // Garantir planContext
-    if (!finalJSON.analysisMode && extractedPlanContext?.analysisMode) {
-      finalJSON.analysisMode = extractedPlanContext.analysisMode;
-    }
-    if (!finalJSON.isReduced && finalJSON.analysisMode === 'reduced') {
-      finalJSON.isReduced = true;
-    }
-    if (!finalJSON.limitWarning && finalJSON.analysisMode === 'reduced' && extractedPlanContext) {
-      finalJSON.limitWarning = `Você atingiu o limite de análises completas do plano ${extractedPlanContext.plan?.toUpperCase() || 'FREE'}. Atualize seu plano para desbloquear análise completa.`;
-    }
-
-    // Enriquecer resultado
-    finalJSON.performance = {
-      ...(finalJSON.performance || {}),
-      workerTotalTimeMs: totalMs,
-      workerTimestamp: new Date().toISOString(),
-      backendPhase: "5.1-5.4-redis",
-      workerId: process.pid,
-      downloadTimeMs: downloadTime
-    };
-
-    finalJSON._worker = { 
-      source: "pipeline_complete", 
-      redis: true,
-      pid: process.pid,
-      jobId: jobId
-    };
-    
-    // Garantir suggestions
-    if (!finalJSON.suggestions) {
-      finalJSON.suggestions = [];
-    }
-    
-    // AI Enrichment
-    try {
-      console.log('[WORKER][GENRE] Iniciando AI enrichment...');
-
-      const metrics = finalJSON.data?.metrics || finalJSON.metrics || null;
-      const targets = finalJSON.data?.genreTargets || finalJSON.genreTargets || null;
-      const problems = finalJSON.problemsAnalysis || null;
-
-      const enriched = await enrichSuggestionsWithAI(
-        finalJSON.suggestions || [],
-        {
-          metrics,
-          targets,
-          problems,
-          genre: finalJSON.data?.genre || finalJSON.genre || null,
-          mode,
-          referenceJobId,
-        }
-      );
-
-      finalJSON.aiSuggestions = Array.isArray(enriched) ? enriched : [];
-      console.log('[WORKER][GENRE] ✅ AI enrichment:', finalJSON.aiSuggestions.length, 'sugestões');
-
-    } catch (err) {
-      console.error('[WORKER][GENRE] ❌ Erro no enrichment:', err.message);
-      finalJSON.aiSuggestions = [];
-    }
-    
-    // Validar JSON
-    const validation = validateCompleteJSON(finalJSON, mode, referenceJobId);
-    
-    if (!validation.valid) {
-      console.error('[WORKER][GENRE] ❌ JSON incompleto:', validation.missing.join(', '));
-      
-      await updateJobStatus(jobId, 'processing', finalJSON);
-      
-      if (localFilePath && fs.existsSync(localFilePath)) {
-        fs.unlinkSync(localFilePath);
-      }
-      
-      throw new Error(`JSON incompleto: ${validation.missing.join(', ')}`);
-    }
-    
-    console.log('[WORKER][GENRE] ✅ JSON validado - salvando como completed');
-    
-    await updateJobStatus(jobId, 'completed', finalJSON);
-    
-    // Limpar arquivo temporário
-    if (localFilePath && fs.existsSync(localFilePath)) {
-      fs.unlinkSync(localFilePath);
-    }
-
-    logMemoryDelta('worker', 'genre-end-success', jobId);
-    clearMemoryDelta(jobId);
-
-    console.log('[WORKER][GENRE] ✅ Job concluído:', {
-      jobId: jobId.substring(0, 8),
-      score: finalJSON.score || 0,
-      suggestions: finalJSON.suggestions?.length || 0,
-      aiSuggestions: finalJSON.aiSuggestions?.length || 0
-    });
-
-    return finalJSON;
-
-  } catch (error) {
-    console.error('[WORKER][GENRE] ❌ Erro:', error.message);
-    
-    // 🔥 RETORNO DE SEGURANÇA
-    const errorResult = {
-      status: 'error',
-      error: {
-        message: error.message,
-        type: 'worker_pipeline_error',
-        phase: 'worker_redis_processing',
-        timestamp: new Date().toISOString()
-      },
-      score: 0,
-      classification: 'Erro Crítico',
-      scoringMethod: 'worker_redis_error_fallback',
-      metadata: {
-        fileName: fileName || 'unknown',
-        fileSize: 0,
-        sampleRate: 48000,
-        channels: 2,
-        duration: 0,
-        processedAt: new Date().toISOString(),
-        engineVersion: 'worker-redis-error',
-        pipelinePhase: 'error'
-      },
-      technicalData: {},
-      warnings: [`Worker Redis error: ${error.message}`],
-      buildVersion: 'worker-redis-error',
-      frontendCompatible: false,
-      _worker: { 
-        source: "pipeline_error", 
-        error: true, 
-        redis: true,
-        pid: process.pid,
-        jobId: jobId
-      }
-    };
-    
-    try {
-      await updateJobStatus(jobId, 'failed', errorResult);
-    } catch (dbError) {
-      console.error('[WORKER][GENRE] ❌ Falha ao atualizar status failed:', dbError.message);
-    }
-    
-    // Limpar arquivo temporário
-    if (localFilePath && fs.existsSync(localFilePath)) {
-      try {
-        fs.unlinkSync(localFilePath);
-      } catch (cleanupError) {
-        console.error('[WORKER][GENRE] ❌ Erro ao limpar arquivo:', cleanupError.message);
-      }
-    }
-
-    // 🧹 MEMORY FIX: liberar buffers no path de erro também
-    job._buffer = null;
-    job._preloadedReferenceMetrics = null;
-
-    logMemoryDelta('worker', 'genre-end-error', jobId);
-    clearMemoryDelta(jobId);
-    
-    throw error;
+  } catch (err) {
+    console.error(`[WORKER] ❌ Falha ao marcar processing: ${err.message}`);
+    // Continuar — não é fatal
   }
+
+  const memBefore = process.memoryUsage();
+  const startTime = Date.now();
+
+  return new Promise((resolve, reject) => {
+    // 🔥 FORK: Criar processo filho isolado
+    const child = fork(ANALYSIS_JOB_SCRIPT, [], {
+      // Herdar variáveis de ambiente (DATABASE_URL, B2_*, OPENAI_API_KEY, etc)
+      env: { ...process.env },
+      // Silenciar stdout/stderr do filho — redirecionar para o pai
+      silent: false,
+      // serialization: 'advanced' permite transferir Buffers mais eficientemente se necessário
+      serialization: 'json',
+    });
+
+    activeChildProcesses++;
+    const childPid = child.pid;
+    console.log(`[WORKER] 🔀 Fork criado PID=${childPid} para job ${displayId} (ativos: ${activeChildProcesses})`);
+
+    // Timeout de segurança: 5 minutos para o processo inteiro
+    const JOB_TIMEOUT = 300000;
+    const jobTimeout = setTimeout(() => {
+      console.error(`[WORKER] ⏰ Timeout de ${JOB_TIMEOUT / 1000}s para job ${displayId} PID=${childPid}`);
+      try { child.kill('SIGKILL'); } catch (_) {}
+      reject(new Error(`Job timeout após ${JOB_TIMEOUT / 1000}s: ${fileName}`));
+    }, JOB_TIMEOUT);
+
+    // Handler: resultado recebido do filho
+    child.on('message', async (msg) => {
+      clearTimeout(jobTimeout);
+
+      if (msg.type === 'result') {
+        const elapsed = Date.now() - startTime;
+        const memAfter = process.memoryUsage();
+
+        console.log(`[WORKER] ═══════════════════════════════════════`);
+        console.log(`[WORKER] ✅ Resultado recebido de PID=${childPid}`);
+        console.log(`[WORKER] Tempo total: ${elapsed}ms`);
+        console.log(`[WORKER] RAM orquestrador: ${(memAfter.rss / 1024 / 1024).toFixed(1)}MB`);
+        console.log(`[WORKER] RAM filho (pico): ${msg.metrics?.peakRssMB || '?'}MB`);
+        console.log(`[WORKER] Heap filho (pico): ${msg.metrics?.heapUsedMB || '?'}MB`);
+        console.log(`[WORKER] ═══════════════════════════════════════`);
+
+        try {
+          // Salvar resultado no PostgreSQL
+          await updateJobStatus(jobId, msg.status, msg.result);
+          console.log(`[WORKER] ✅ Job ${displayId} salvo como ${msg.status}`);
+          resolve(msg.result);
+        } catch (dbError) {
+          console.error(`[WORKER] ❌ Falha ao salvar resultado: ${dbError.message}`);
+          reject(dbError);
+        }
+
+      } else if (msg.type === 'error') {
+        console.error(`[WORKER] ❌ Erro do filho PID=${childPid}: ${msg.error}`);
+
+        // Salvar como failed
+        const errorResult = {
+          status: 'error',
+          error: {
+            message: msg.error,
+            type: 'worker_pipeline_error',
+            phase: 'isolated_process',
+            timestamp: new Date().toISOString()
+          },
+          score: 0,
+          classification: 'Erro Crítico',
+          scoringMethod: 'worker_redis_error_fallback',
+          metadata: {
+            fileName: fileName || 'unknown',
+            fileSize: 0,
+            sampleRate: 48000,
+            channels: 2,
+            duration: 0,
+            processedAt: new Date().toISOString(),
+            engineVersion: 'isolated-process-error',
+            pipelinePhase: 'error'
+          },
+          technicalData: {},
+          warnings: [`Isolated process error: ${msg.error}`],
+          buildVersion: 'isolated-process-error',
+          frontendCompatible: false,
+          _worker: {
+            source: 'analysis-job-error',
+            isolated: true,
+            error: true,
+            pid: childPid,
+            jobId
+          }
+        };
+
+        try {
+          await updateJobStatus(jobId, 'failed', errorResult);
+        } catch (dbError) {
+          console.error(`[WORKER] ❌ Falha ao salvar failed: ${dbError.message}`);
+        }
+
+        reject(new Error(msg.error));
+      }
+    });
+
+    // Handler: processo filho morreu inesperadamente
+    child.on('exit', (code, signal) => {
+      activeChildProcesses = Math.max(0, activeChildProcesses - 1);
+      clearTimeout(jobTimeout);
+
+      const elapsed = Date.now() - startTime;
+      const memAfter = process.memoryUsage();
+
+      console.log(`[WORKER] 💀 Filho PID=${childPid} encerrou (code=${code}, signal=${signal}) em ${elapsed}ms`);
+      console.log(`[WORKER] 📊 RAM orquestrador após cleanup: ${(memAfter.rss / 1024 / 1024).toFixed(1)}MB (ativos: ${activeChildProcesses})`);
+
+      // Se exit code > 0 e não recebemos mensagem, é crash
+      if (code !== 0 && code !== null) {
+        const crashError = new Error(`Processo filho crashou com code=${code} signal=${signal}`);
+        
+        // Tentar salvar como failed (fire and forget)
+        updateJobStatus(jobId, 'failed', {
+          status: 'error',
+          error: { message: crashError.message, type: 'child_process_crash' },
+          score: 0,
+          _worker: { source: 'crash', pid: childPid, code, signal }
+        }).catch(() => {});
+
+        reject(crashError);
+      }
+    });
+
+    // Handler: erro no fork
+    child.on('error', (err) => {
+      activeChildProcesses = Math.max(0, activeChildProcesses - 1);
+      clearTimeout(jobTimeout);
+      console.error(`[WORKER] ❌ Erro no fork PID=${childPid}: ${err.message}`);
+      reject(err);
+    });
+
+    // 🚀 ENVIAR DADOS DO JOB PARA O FILHO
+    child.send({
+      type: 'job',
+      data: job.data,
+    });
+  });
 }
 
 // ===============================================
