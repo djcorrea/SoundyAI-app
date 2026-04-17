@@ -786,19 +786,28 @@ async function updateJobStatus(jobId, status, results = null) {
   }
 }
 
+// 🧹 MEMORY FIX: S3 client singleton — evita recriar connection pool a cada download
+let _s3Client = null;
+function getS3Client() {
+  if (!_s3Client) {
+    _s3Client = new AWS.S3({
+      endpoint: process.env.B2_ENDPOINT,
+      accessKeyId: process.env.B2_KEY_ID,
+      secretAccessKey: process.env.B2_APP_KEY,
+      region: 'us-east-005',
+      s3ForcePathStyle: true
+    });
+  }
+  return _s3Client;
+}
+
 /**
- * Download arquivo do S3/Backblaze B2
+ * Download arquivo do S3/Backblaze B2 via STREAMING (evita carregar buffer inteiro na RAM)
  */
 async function downloadFileFromBucket(fileKey) {
   console.log(`⬇️ [DOWNLOAD][${new Date().toISOString()}] -> Starting download: ${fileKey}`);
   
-  const s3 = new AWS.S3({
-    endpoint: process.env.B2_ENDPOINT,
-    accessKeyId: process.env.B2_KEY_ID,
-    secretAccessKey: process.env.B2_APP_KEY,
-    region: 'us-east-005',
-    s3ForcePathStyle: true
-  });
+  const s3 = getS3Client();
 
   const tempDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'temp');
   
@@ -811,13 +820,45 @@ async function downloadFileFromBucket(fileKey) {
   const localFilePath = path.join(tempDir, `${Date.now()}-${fileName}`);
 
   try {
-    const data = await s3.getObject({
-      Bucket: process.env.B2_BUCKET_NAME,
-      Key: fileKey
-    }).promise();
+    // 🧹 MEMORY FIX: Usar createReadStream em vez de .promise() para evitar buffer inteiro na RAM
+    await new Promise((resolve, reject) => {
+      const readStream = s3.getObject({
+        Bucket: process.env.B2_BUCKET_NAME,
+        Key: fileKey
+      }).createReadStream();
 
-    fs.writeFileSync(localFilePath, data.Body);
-    console.log(`✅ [DOWNLOAD][${new Date().toISOString()}] -> File saved: ${localFilePath}`);
+      const writeStream = fs.createWriteStream(localFilePath);
+
+      // Timeout de segurança: 2 minutos
+      const downloadTimeout = setTimeout(() => {
+        readStream.destroy(new Error('Download timeout após 2 minutos'));
+        writeStream.destroy();
+      }, 120000);
+
+      readStream.on('error', (err) => {
+        clearTimeout(downloadTimeout);
+        writeStream.destroy();
+        // Limpar arquivo parcial
+        try { fs.unlinkSync(localFilePath); } catch (_) {}
+        reject(new Error(`S3 read error: ${err.message}`));
+      });
+
+      writeStream.on('error', (err) => {
+        clearTimeout(downloadTimeout);
+        readStream.destroy();
+        try { fs.unlinkSync(localFilePath); } catch (_) {}
+        reject(new Error(`File write error: ${err.message}`));
+      });
+
+      writeStream.on('finish', () => {
+        clearTimeout(downloadTimeout);
+        resolve();
+      });
+
+      readStream.pipe(writeStream);
+    });
+
+    console.log(`✅ [DOWNLOAD][${new Date().toISOString()}] -> File saved (streamed): ${localFilePath}`);
     
     return localFilePath;
   } catch (error) {
@@ -865,7 +906,7 @@ async function processReferenceBase(job) {
     localFilePath = await downloadFileFromBucket(fileKey);
 
     // Ler buffer
-    const fileBuffer = await fs.promises.readFile(localFilePath);
+    let fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[REFERENCE-BASE] Arquivo lido:', fileBuffer.length, 'bytes');
     logMemoryDelta('worker', 'ref-base-after-readFile', jobId);
 
@@ -889,6 +930,10 @@ async function processReferenceBase(job) {
       referenceStage: 'base',
       // SEM genre, SEM genreTargets, SEM planContext
     });
+
+    // 🧹 MEMORY FIX: liberar fileBuffer imediatamente após processamento (evita reter ~100MB)
+    // fileBuffer não é mais necessário — pipeline já extraiu todos os dados
+    fileBuffer = null;
 
     const totalMs = Date.now() - t0;
     console.log('[REFERENCE-BASE] ✅ Pipeline concluído em', totalMs, 'ms');
@@ -1079,7 +1124,7 @@ async function processReferenceCompare(job) {
     localFilePath = await downloadFileFromBucket(fileKey);
 
     // ETAPA 3: Ler buffer e processar
-    const fileBuffer = await fs.promises.readFile(localFilePath);
+    let fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[REFERENCE-COMPARE] Arquivo lido:', fileBuffer.length, 'bytes');
     logMemoryDelta('worker', 'ref-compare-after-readFile', jobId);
 
@@ -1093,6 +1138,9 @@ async function processReferenceCompare(job) {
       referenceJobId,
       preloadedReferenceMetrics: baseMetrics
     });
+
+    // 🧹 MEMORY FIX: liberar fileBuffer após processamento
+    fileBuffer = null;
 
     const totalMs = Date.now() - t0;
     console.log('[REFERENCE-COMPARE] Pipeline concluído em', totalMs, 'ms');
@@ -1401,7 +1449,7 @@ async function audioProcessor(job) {
     console.log('[WORKER][GENRE] ✅ Arquivo baixado em', downloadTime, 'ms');
 
     // Ler arquivo para buffer
-    const fileBuffer = await fs.promises.readFile(localFilePath);
+    let fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[WORKER][GENRE] Arquivo lido:', fileBuffer.length, 'bytes');
     logMemoryDelta('worker', 'genre-after-readFile', jobId);
 
@@ -1428,6 +1476,13 @@ async function audioProcessor(job) {
         // Cancelar o timer se o pipeline ganhar antes do timeout
         if (_timeoutId) clearTimeout(_timeoutId);
       });
+
+    // 🧹 MEMORY FIX: liberar buffers grandes imediatamente após pipeline concluir
+    // fileBuffer e job._buffer referenciam o MESMO objeto — anular ambos
+    fileBuffer = null;
+    job._buffer = null;
+    job._preloadedReferenceMetrics = null;
+
     const totalMs = Date.now() - t0;
     
     console.log('[WORKER][GENRE] ✅ Pipeline concluído em', totalMs, 'ms');
@@ -1591,6 +1646,10 @@ async function audioProcessor(job) {
         console.error('[WORKER][GENRE] ❌ Erro ao limpar arquivo:', cleanupError.message);
       }
     }
+
+    // 🧹 MEMORY FIX: liberar buffers no path de erro também
+    job._buffer = null;
+    job._preloadedReferenceMetrics = null;
 
     logMemoryDelta('worker', 'genre-end-error', jobId);
     clearMemoryDelta(jobId);

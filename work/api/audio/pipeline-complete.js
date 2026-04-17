@@ -289,6 +289,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   debugLog('[MODE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
   let audioData, segmentedData, coreMetrics, finalJSON;
+  let audioBufferSize = 0; // 🧹 MEMORY FIX: capturado antes de liberar audioBuffer
   const timings = {};
 
   // 🔬 [MEM] Ponto 0 — entrada do pipeline (RAM antes de qualquer alocação)
@@ -319,7 +320,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       // Criar arquivo temporário para FFmpeg True Peak
       tempFilePath = createTempWavFile(audioBuffer, audioData, fileName, jobId);
 
-      // 🔬 [MEM] Ponto 1 — após decode: audioData (Float32Arrays L+R) + wavBuffer (liberado em audio-decoder)
+      // 🧹 MEMORY FIX: Capturar tamanho do audioBuffer ANTES de liberar (necessário para metadata na Fase 5.4)
+      // audioBuffer não é mais necessário — foi decodificado para audioData e salvo em tempFilePath
+      audioBufferSize = audioBuffer ? audioBuffer.length : 0;
+      audioBuffer = null; // liberar ~50-150MB imediatamente
+
+      // 🔬 [MEM] Ponto 1 — após decode + liberação do audioBuffer original
       logMemoryDelta('pipeline', '1-after-decode', jobId);
       
     } catch (error) {
@@ -410,9 +416,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       // Construir metadata completo e seguro
       const metadata = {
         fileName: fileName || 'unknown',
-        fileSize: audioBuffer ? audioBuffer.length : 0,
-        fileSizeBytes: audioBuffer ? audioBuffer.length * 4 : 0, // Float32 = 4 bytes por sample
-        fileSizeMB: audioBuffer ? (audioBuffer.length * 4) / (1024 * 1024) : 0,
+        fileSize: audioBufferSize,
+        fileSizeBytes: audioBufferSize * 4, // Float32 = 4 bytes por sample
+        fileSizeMB: (audioBufferSize * 4) / (1024 * 1024),
         duration: audioData ? audioData.duration : 0,
         sampleRate: audioData ? audioData.sampleRate : 48000,
         channels: audioData ? audioData.numberOfChannels : 2,
