@@ -1810,7 +1810,10 @@ log('🚀 Carregando auth.js...');
           */
           
           // 🏠 HOME: Acesso livre — login apenas quando clicar em Masterizar
-          const isHomePage = window.location.pathname.includes('home.html');
+          // 🔥 FIX: Incluir '/' e '' pois o servidor serve home.html na raiz
+          const isHomePage = window.location.pathname.includes('home.html') ||
+                             window.location.pathname === '/' ||
+                             window.location.pathname === '';
           if (!isLoginPage && !isHomePage) window.location.href = "login.html";
           resolve(null);
         }, 5000);
@@ -1825,7 +1828,10 @@ log('🚀 Carregando auth.js...');
           const isDemoPage = window.location.pathname.includes("/demo") || 
                              window.location.search.includes("mode=demo");
           // 🏠 HOME: Acesso livre — login apenas no modal de masterização
-          const isHomePage = window.location.pathname.includes('home.html');
+          // 🔥 FIX: Incluir '/' e '' pois o servidor serve home.html na raiz
+          const isHomePage = window.location.pathname.includes('home.html') ||
+                             window.location.pathname === '/' ||
+                             window.location.pathname === '';
           debugLog('AUTH CHECK:', user ? user.uid : null, '| page:', window.location.pathname);
 
           // ✅ BUG #2 FIX: Proteger cadastro em progresso
