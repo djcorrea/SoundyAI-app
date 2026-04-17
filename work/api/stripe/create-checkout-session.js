@@ -2,7 +2,7 @@
 // Endpoint para criar Checkout Session no Stripe
 
 import express from 'express';
-import stripe, { getPlanConfig, isValidPlan } from '../../lib/stripe/config.js';
+import stripe, { getPlanConfig, isValidPlan, STRIPE_PAYMENT_LINKS } from '../../lib/stripe/config.js';
 import { getAuth } from '../../../firebase/admin.js';
 
 const router = express.Router();
@@ -80,7 +80,18 @@ router.post('/create-checkout-session', async (req, res) => {
 
     console.log(`📋 [STRIPE] Plano selecionado: ${planConfig.displayName} (${planConfig.priceId})`);
 
-    // 4️⃣ CRIAR CHECKOUT SESSION NO STRIPE (ASSINATURA RECORRENTE)
+    // 4️⃣ VERIFICAR SE PLANO USA PAYMENT LINK DIRETO (ex: PRO)
+    const paymentLinkBase = STRIPE_PAYMENT_LINKS[plan];
+    if (paymentLinkBase) {
+      console.log(`🔗 [STRIPE] Redirecionando via Payment Link para plano: ${plan}`);
+      // Passar uid e email como query params para o Payment Link (suporte nativo Stripe)
+      const params = new URLSearchParams({ client_reference_id: uid });
+      if (decodedToken.email) params.append('prefilled_email', decodedToken.email);
+      const paymentLinkUrl = `${paymentLinkBase}?${params.toString()}`;
+      return res.status(200).json({ url: paymentLinkUrl });
+    }
+
+    // 5️⃣ CRIAR CHECKOUT SESSION NO STRIPE (ASSINATURA RECORRENTE - demais planos)
     console.log(`🔧 [STRIPE] Criando session - Mode: subscription, Price ID: ${planConfig.priceId}`);
     
     // Construir URLs de sucesso e cancelamento

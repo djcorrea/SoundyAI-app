@@ -1,13 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pagamento Confirmado - SoundyAI</title>
-    
+    <title>Bem-vindo ao SoundyAI Premium ✦</title>
+
     <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
     <script src="logger.js"></script>
-    
+
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
     <script>
@@ -15,465 +15,919 @@
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'G-MBDHDYN6Z0');
+      gtag('config', 'AW-17884386312');
     </script>
-    
+
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* =========================================
+           RESET & BASE
+           ========================================= */
+        *, *::before, *::after {
+            margin: 0; padding: 0; box-sizing: border-box;
+        }
+
+        :root {
+            --bg0: #050814;
+            --bg1: #070B1E;
+            --panel: rgba(9, 16, 38, 0.72);
+            --stroke: rgba(120, 160, 255, 0.14);
+            --text: rgba(255, 255, 255, 0.93);
+            --muted: rgba(255, 255, 255, 0.58);
+            --green: #00ff88;
+            --green-dark: #00cc66;
+            --green-glow: rgba(0, 255, 136, 0.35);
+            --blue: #3B82F6;
+            --purple: #8B5CF6;
+            --gold: #F59E0B;
+            --gold-light: #FCD34D;
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg0);
             min-height: 100vh;
+            color: var(--text);
+            overflow-x: hidden;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            color: #fff;
-            overflow: hidden;
+            justify-content: center;
         }
 
-        /* Background Effects */
-        .background-effects {
+        /* =========================================
+           BACKGROUND
+           ========================================= */
+        .bg {
             position: fixed;
             inset: 0;
-            pointer-events: none;
             z-index: 0;
+            overflow: hidden;
+            background:
+                radial-gradient(700px 500px at 10% 15%, rgba(0,255,136,0.07), transparent 60%),
+                radial-gradient(600px 450px at 90% 25%, rgba(139,92,246,0.14), transparent 60%),
+                radial-gradient(800px 600px at 50% 90%, rgba(59,130,246,0.09), transparent 60%),
+                linear-gradient(180deg, var(--bg0), var(--bg1));
+        }
+
+        .bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(120,160,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(120,160,255,0.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, black 30%, transparent 100%);
         }
 
         .orb {
             position: absolute;
             border-radius: 50%;
             filter: blur(80px);
-            opacity: 0.4;
-            animation: float 8s ease-in-out infinite;
+            pointer-events: none;
         }
-
         .orb-1 {
-            width: 400px;
-            height: 400px;
-            background: linear-gradient(135deg, #00ff88, #00cc66);
-            top: -100px;
-            left: -100px;
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(0,255,136,0.12), transparent 70%);
+            top: -150px; left: -150px;
+            animation: orbFloat 12s ease-in-out infinite;
         }
-
         .orb-2 {
-            width: 300px;
-            height: 300px;
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
-            bottom: -50px;
-            right: -50px;
-            animation-delay: -4s;
+            width: 420px; height: 420px;
+            background: radial-gradient(circle, rgba(139,92,246,0.14), transparent 70%);
+            bottom: -100px; right: -80px;
+            animation: orbFloat 10s ease-in-out infinite reverse;
+        }
+        .orb-3 {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(59,130,246,0.10), transparent 70%);
+            top: 40%; left: 60%;
+            animation: orbFloat 15s ease-in-out infinite;
         }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-30px) scale(1.05); }
+        @keyframes orbFloat {
+            0%, 100% { transform: translate(0,0) scale(1); }
+            33% { transform: translate(30px,-20px) scale(1.05); }
+            66% { transform: translate(-20px,20px) scale(0.97); }
         }
 
-        /* Container */
-        .container {
+        /* =========================================
+           WRAPPER
+           ========================================= */
+        .page-wrapper {
             position: relative;
             z-index: 1;
-            max-width: 500px;
-            width: 90%;
-            padding: 40px;
+            width: 100%;
+            max-width: 620px;
+            padding: 2rem 1.25rem 4rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
-        /* Card */
-        .success-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            padding: 48px 40px;
-            text-align: center;
-            animation: fadeInUp 0.6s ease-out;
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Success Icon */
-        .success-icon {
-            width: 100px;
-            height: 100px;
-            margin: 0 auto 24px;
-            background: linear-gradient(135deg, #00ff88, #00cc66);
-            border-radius: 50%;
+        /* =========================================
+           BRAND
+           ========================================= */
+        .brand {
             display: flex;
             align-items: center;
-            justify-content: center;
-            animation: pulse 2s ease-in-out infinite;
-            box-shadow: 0 0 40px rgba(0, 255, 136, 0.3);
+            gap: 10px;
+            margin-bottom: 2.5rem;
+            opacity: 0;
+            animation: fadeDown 0.6s ease-out 0.2s forwards;
         }
 
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(0, 255, 136, 0.3); }
-            50% { transform: scale(1.05); box-shadow: 0 0 60px rgba(0, 255, 136, 0.5); }
+        .brand-logo {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--green), var(--green-dark));
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 20px var(--green-glow);
         }
 
-        .success-icon svg {
-            width: 50px;
-            height: 50px;
-            stroke: #0a0a0f;
-            stroke-width: 3;
-            fill: none;
-        }
+        .brand-logo svg { width: 20px; height: 20px; }
 
-        /* Typography */
-        .success-title {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 28px;
+        .brand-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.1rem;
             font-weight: 700;
-            margin-bottom: 12px;
-            background: linear-gradient(90deg, #00ff88, #00cc66);
+            letter-spacing: 0.05em;
+            background: linear-gradient(90deg, var(--green), #00e67a);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
-        .success-subtitle {
-            font-size: 16px;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 32px;
-            line-height: 1.6;
+        /* =========================================
+           ÍCONE ANIMADO
+           ========================================= */
+        .success-icon-wrap {
+            position: relative;
+            margin-bottom: 2rem;
+            opacity: 0;
+            animation: scaleIn 0.7s cubic-bezier(0.175,0.885,0.32,1.275) 0.5s forwards;
         }
 
-        /* Status */
-        .status-container {
-            background: rgba(0, 255, 136, 0.1);
-            border: 1px solid rgba(0, 255, 136, 0.2);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 32px;
+        .success-icon-ring {
+            width: 120px; height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(0,255,136,0.18), rgba(0,204,102,0.10));
+            border: 1.5px solid rgba(0,255,136,0.3);
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+            box-shadow: 0 0 60px rgba(0,255,136,0.15), inset 0 0 40px rgba(0,255,136,0.04);
+            animation: iconPulse 3s ease-in-out 1.5s infinite;
+        }
+
+        .success-icon-ring::before {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,255,136,0.15);
+            animation: ripple1 3s ease-out 1.5s infinite;
+        }
+        .success-icon-ring::after {
+            content: '';
+            position: absolute;
+            inset: -18px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,255,136,0.07);
+            animation: ripple2 3s ease-out 1.8s infinite;
+        }
+
+        @keyframes iconPulse {
+            0%,100% { box-shadow: 0 0 60px rgba(0,255,136,0.15), inset 0 0 40px rgba(0,255,136,0.04); }
+            50% { box-shadow: 0 0 80px rgba(0,255,136,0.28), inset 0 0 40px rgba(0,255,136,0.07); }
+        }
+        @keyframes ripple1 {
+            0% { transform: scale(1); opacity: 0.6; }
+            100% { transform: scale(1.4); opacity: 0; }
+        }
+        @keyframes ripple2 {
+            0% { transform: scale(1); opacity: 0.4; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        .success-check { width: 54px; height: 54px; }
+
+        .check-path {
+            fill: none;
+            stroke: var(--green);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-dasharray: 50;
+            stroke-dashoffset: 50;
+            animation: drawCheck 0.55s ease-out 1.1s forwards;
+        }
+
+        @keyframes drawCheck { to { stroke-dashoffset: 0; } }
+
+        .sparkle {
+            position: absolute;
+            width: 6px; height: 6px;
+            background: var(--green);
+            border-radius: 50%;
+            filter: blur(1px);
+        }
+        .sparkle-1 { top: 0; right: 10px; animation: sparklePop 2.5s ease-out 1.6s infinite; }
+        .sparkle-2 { bottom: 5px; left: 5px; animation: sparklePop 2.5s ease-out 2.0s infinite; width:4px;height:4px; }
+        .sparkle-3 { top:50%; right:-12px; animation: sparklePop 2.5s ease-out 2.3s infinite; width:5px;height:5px; }
+        .sparkle-4 { top:10px; left:-8px; animation: sparklePop 2.5s ease-out 1.9s infinite; width:4px;height:4px; background:var(--gold-light); }
+
+        @keyframes sparklePop {
+            0%,100% { transform:scale(0); opacity:0; }
+            30% { transform:scale(1.5); opacity:1; }
+            80% { transform:scale(0.8); opacity:0.5; }
+        }
+
+        /* =========================================
+           BADGE
+           ========================================= */
+        .plan-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 18px;
+            background: linear-gradient(90deg, rgba(245,158,11,0.14), rgba(252,211,77,0.07));
+            border: 1px solid rgba(245,158,11,0.35);
+            border-radius: 100px;
+            font-size: 0.74rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--gold-light);
+            margin-bottom: 1.25rem;
+            opacity: 0;
+            animation: fadeUp 0.5s ease-out 0.9s forwards;
+        }
+        .plan-badge svg { width:13px; height:13px; }
+
+        /* =========================================
+           TÍTULOS
+           ========================================= */
+        .hero-title {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(1.8rem, 5vw, 2.55rem);
+            font-weight: 800;
+            line-height: 1.15;
+            text-align: center;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.82) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            opacity: 0;
+            animation: fadeUp 0.6s ease-out 1.0s forwards;
+        }
+        .hero-title span {
+            background: linear-gradient(90deg, var(--green), #00e67a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 1rem;
+            color: var(--muted);
+            line-height: 1.65;
+            text-align: center;
+            max-width: 420px;
+            margin: 0 auto 2.5rem;
+            opacity: 0;
+            animation: fadeUp 0.6s ease-out 1.15s forwards;
+        }
+
+        /* =========================================
+           CARD GLASSMORPHISM
+           ========================================= */
+        .main-card {
+            width: 100%;
+            background: var(--panel);
+            backdrop-filter: blur(24px) saturate(1.4);
+            -webkit-backdrop-filter: blur(24px) saturate(1.4);
+            border: 1px solid var(--stroke);
+            border-top-color: rgba(120,160,255,0.22);
+            border-radius: 24px;
+            padding: 2.25rem;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 1.25rem;
+            opacity: 0;
+            animation: fadeUp 0.6s ease-out 1.25s forwards;
+        }
+
+        .main-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0,255,136,0.4), transparent);
+        }
+
+        /* =========================================
+           STATUS
+           ========================================= */
+        .section-label {
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 0.75rem;
         }
 
         .status-row {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 8px 0;
-        }
-
-        .status-row:not(:last-child) {
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            margin-bottom: 0.6rem;
         }
 
         .status-label {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.6);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.875rem;
+            color: var(--muted);
         }
+        .status-label svg { width:15px; height:15px; flex-shrink:0; }
 
         .status-value {
-            font-size: 14px;
+            font-size: 0.875rem;
             font-weight: 600;
-            color: #00ff88;
+            color: var(--green);
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
+        .status-value.loading { color: var(--muted); }
 
-        .status-value.loading {
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        /* Loading Spinner */
         .spinner {
             display: inline-block;
-            width: 14px;
-            height: 14px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-top-color: #00ff88;
+            width: 13px; height: 13px;
+            border: 2px solid rgba(255,255,255,0.12);
+            border-top-color: var(--green);
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-right: 8px;
-            vertical-align: middle;
+            animation: spin 0.7s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .divider { height:1px; background:var(--stroke); margin: 1.5rem 0; }
+
+        /* =========================================
+           FEATURES
+           ========================================= */
+        .features-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 0.7rem 0.85rem;
+            background: rgba(0,255,136,0.04);
+            border: 1px solid rgba(0,255,136,0.1);
+            border-radius: 10px;
+            font-size: 0.815rem;
+            color: rgba(255,255,255,0.8);
+            transition: border-color 0.2s;
         }
+        .feature-item:hover { border-color: rgba(0,255,136,0.22); }
 
-        /* Button */
-        .btn-primary {
-            display: inline-flex;
+        .feat-icon {
+            width: 22px; height: 22px;
+            background: rgba(0,255,136,0.12);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .feat-icon svg { width:12px; height:12px; stroke:var(--green); }
+
+        /* =========================================
+           MENSAGEM
+           ========================================= */
+        .message {
+            display: none;
+            padding: 0.875rem 1rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            line-height: 1.55;
+            margin-bottom: 1rem;
+        }
+        .message.info  { display:block; background:rgba(0,255,136,0.07); border:1px solid rgba(0,255,136,0.2); color:rgba(0,255,136,0.9); }
+        .message.error { display:block; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:#fca5a5; }
+        .message.warning { display:block; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.2); color:#fcd34d; }
+
+        /* =========================================
+           BOTÃO CTA PRINCIPAL
+           ========================================= */
+        .btn-cta {
+            display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
             width: 100%;
-            padding: 16px 32px;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, var(--green), var(--green-dark));
+            color: #040a12;
             font-family: 'Inter', sans-serif;
-            font-size: 16px;
-            font-weight: 600;
-            color: #0a0a0f;
-            background: linear-gradient(90deg, #00ff88, #00cc66);
+            font-size: 1rem;
+            font-weight: 700;
             border: none;
-            border-radius: 12px;
+            border-radius: 14px;
             cursor: pointer;
             text-decoration: none;
-            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 4px 28px rgba(0,255,136,0.32), 0 1px 0 rgba(255,255,255,0.1) inset;
+            opacity: 0;
+            animation: fadeUp 0.5s ease-out 1.5s forwards;
+        }
+        .btn-cta::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+            opacity: 0;
+            transition: opacity 0.25s;
+        }
+        .btn-cta:hover { transform:translateY(-2px); box-shadow:0 8px 36px rgba(0,255,136,0.44), 0 1px 0 rgba(255,255,255,0.1) inset; }
+        .btn-cta:hover::before { opacity:1; }
+        .btn-cta:active { transform:translateY(0); }
+        .btn-cta svg { width:18px; height:18px; flex-shrink:0; }
+
+        .btn-cta::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 60%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+            animation: btnShimmer 3.5s ease-in-out 2s infinite;
+        }
+        @keyframes btnShimmer {
+            0% { left: -60%; }
+            100% { left: 160%; }
         }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* Messages */
-        .message {
-            padding: 16px;
-            border-radius: 12px;
-            margin-bottom: 24px;
-            font-size: 14px;
-            display: none;
-        }
-
-        .message.info {
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            color: #a5b4fc;
-            display: block;
-        }
-
-        .message.error {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            color: #fca5a5;
-            display: block;
-        }
-
-        /* Footer */
-        .footer-text {
-            margin-top: 24px;
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        .footer-text a {
-            color: #00ff88;
+        /* =========================================
+           BOTÃO SECUNDÁRIO
+           ========================================= */
+        .btn-secondary {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 0.875rem 2rem;
+            background: transparent;
+            color: var(--muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: 1px solid var(--stroke);
+            border-radius: 14px;
+            cursor: pointer;
             text-decoration: none;
+            transition: border-color 0.2s, color 0.2s;
+            opacity: 0;
+            animation: fadeUp 0.5s ease-out 1.65s forwards;
+            margin-top: 0.75rem;
+        }
+        .btn-secondary:hover { border-color:rgba(120,160,255,0.3); color:var(--text); }
+        .btn-secondary svg { width:15px; height:15px; }
+
+        /* =========================================
+           REDIRECT NOTICE
+           ========================================= */
+        .redirect-notice {
+            margin-top: 1.5rem;
+            font-size: 0.78rem;
+            color: var(--muted);
+            text-align: center;
+            opacity: 0;
+            animation: fadeUp 0.5s ease-out 1.8s forwards;
+        }
+        #countdown-num { color:var(--green); font-weight:700; font-variant-numeric:tabular-nums; }
+
+        /* =========================================
+           FOOTER
+           ========================================= */
+        .page-footer {
+            margin-top: 2.5rem;
+            text-align: center;
+            font-size: 0.78rem;
+            color: var(--muted);
+            opacity: 0;
+            animation: fadeUp 0.5s ease-out 1.9s forwards;
+        }
+        .page-footer a { color:rgba(120,160,255,0.7); text-decoration:none; transition:color 0.2s; }
+        .page-footer a:hover { color:var(--blue); }
+
+        /* =========================================
+           CONFETTI
+           ========================================= */
+        .confetti-piece {
+            position: fixed;
+            width: 8px; height: 8px;
+            top: -20px;
+            border-radius: 2px;
+            pointer-events: none;
+            z-index: 999;
+            animation: confettiFall linear forwards;
+        }
+        @keyframes confettiFall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            80% { opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
         }
 
-        .footer-text a:hover {
-            text-decoration: underline;
+        /* =========================================
+           ANIMAÇÕES GERAIS
+           ========================================= */
+        @keyframes fadeUp {
+            from { opacity:0; transform:translateY(18px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
+        @keyframes fadeDown {
+            from { opacity:0; transform:translateY(-12px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
+        @keyframes scaleIn {
+            from { opacity:0; transform:scale(0.6); }
+            to   { opacity:1; transform:scale(1); }
+        }
+
+        /* =========================================
+           MOBILE
+           ========================================= */
+        @media (max-width: 520px) {
+            .page-wrapper { padding:1.5rem 1rem 3rem; }
+            .main-card { padding:1.5rem 1.25rem; }
+            .features-grid { grid-template-columns:1fr; }
+            .hero-title { font-size:1.7rem; }
         }
     </style>
 </head>
 <body>
-    <!-- Background Effects -->
-    <div class="background-effects">
+
+    <!-- Background -->
+    <div class="bg">
         <div class="orb orb-1"></div>
         <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
     </div>
 
-    <div class="container">
-        <div class="success-card">
-            <!-- Success Icon -->
-            <div class="success-icon">
-                <svg viewBox="0 0 24 24">
-                    <polyline points="20 6 9 17 4 12"></polyline>
+    <main class="page-wrapper">
+
+        <!-- Marca -->
+        <div class="brand">
+            <div class="brand-logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#040a12" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 18V5l12-2v13"/>
+                    <circle cx="6" cy="18" r="3"/>
+                    <circle cx="18" cy="16" r="3"/>
                 </svg>
             </div>
+            <span class="brand-name">SoundyAI</span>
+        </div>
 
-            <h1 class="success-title">Pagamento Confirmado!</h1>
-            <p class="success-subtitle">
-                Seu pagamento foi processado com sucesso.<br>
-                Estamos ativando seu plano...
-            </p>
+        <!-- Ícone de sucesso -->
+        <div class="success-icon-wrap">
+            <div class="success-icon-ring">
+                <svg class="success-check" viewBox="0 0 54 54" fill="none">
+                    <path class="check-path" d="M13 27 L23 37 L41 19"/>
+                </svg>
+            </div>
+            <div class="sparkle sparkle-1"></div>
+            <div class="sparkle sparkle-2"></div>
+            <div class="sparkle sparkle-3"></div>
+            <div class="sparkle sparkle-4"></div>
+        </div>
 
-            <!-- Status Container -->
-            <div class="status-container">
-                <div class="status-row">
-                    <span class="status-label">Plano</span>
-                    <span class="status-value" id="plan-name">
-                        <span class="spinner"></span>Verificando...
-                    </span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Status</span>
-                    <span class="status-value loading" id="plan-status">
-                        <span class="spinner"></span>Atualizando...
-                    </span>
-                </div>
+        <!-- Badge de plano -->
+        <div class="plan-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                <path d="M4 22h16"/>
+                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+            </svg>
+            <span id="plan-badge-text">Plano Premium</span>
+        </div>
+
+        <!-- Título -->
+        <h1 class="hero-title">
+            Bem-vindo ao<br><span>SoundyAI Premium</span>
+        </h1>
+
+        <p class="hero-subtitle">
+            Pagamento confirmado. Agora você tem acesso completo a todas as ferramentas para levar suas músicas ao próximo nível.
+        </p>
+
+        <!-- Card principal -->
+        <div class="main-card">
+
+            <p class="section-label">Resumo da assinatura</p>
+
+            <div class="status-row">
+                <span class="status-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="5" width="20" height="14" rx="2"/>
+                        <line x1="2" y1="10" x2="22" y2="10"/>
+                    </svg>
+                    Plano ativo
+                </span>
+                <span class="status-value" id="plan-name">
+                    <span class="spinner"></span>&nbsp;Verificando...
+                </span>
             </div>
 
-            <!-- Message Area -->
+            <div class="status-row">
+                <span class="status-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    Status
+                </span>
+                <span class="status-value loading" id="plan-status">
+                    <span class="spinner"></span>&nbsp;Atualizando...
+                </span>
+            </div>
+
+            <!-- Mensagem de feedback -->
             <div class="message" id="message"></div>
 
-            <!-- CTA Button -->
-            <a href="/index.html" class="btn-primary" id="cta-button">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                    <polyline points="9 22 9 12 15 12 15 22"/>
-                </svg>
-                Ir para o App
-            </a>
+            <div class="divider"></div>
 
-            <p class="footer-text">
-                Dúvidas? <a href="/suporte.html">Entre em contato</a>
-            </p>
+            <p class="section-label">O que você desbloqueou</p>
+
+            <div class="features-grid">
+                <div class="feature-item">
+                    <span class="feat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                            <polyline points="17 6 23 6 23 12"/>
+                        </svg>
+                    </span>
+                    Análises avançadas
+                </div>
+                <div class="feature-item">
+                    <span class="feat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 8v4l3 3"/>
+                        </svg>
+                    </span>
+                    Histórico completo
+                </div>
+                <div class="feature-item">
+                    <span class="feat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                            <path d="M2 17l10 5 10-5"/>
+                            <path d="M2 12l10 5 10-5"/>
+                        </svg>
+                    </span>
+                    Sugestões de IA
+                </div>
+                <div class="feature-item">
+                    <span class="feat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                        </svg>
+                    </span>
+                    AutoMaster
+                </div>
+                <div class="feature-item">
+                    <span class="feat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                        </svg>
+                    </span>
+                    Masterização inteligente
+                </div>
+                <div class="feature-item">
+                    <span class="feat-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                    </span>
+                    Suporte prioritário
+                </div>
+            </div>
+
         </div>
-    </div>
+
+        <!-- CTA -->
+        <a href="https://www.soundyai.com.br" class="btn-cta" id="cta-button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18V5l12-2v13"/>
+                <circle cx="6" cy="18" r="3"/>
+                <circle cx="18" cy="16" r="3"/>
+            </svg>
+            Começar a usar o SoundyAI
+        </a>
+
+        <a href="/gerenciar.html" class="btn-secondary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            Gerenciar minha assinatura
+        </a>
+
+        <p class="redirect-notice" id="redirect-notice" style="display:none;">
+            Redirecionando em <span id="countdown-num">10</span>s automaticamente
+        </p>
+
+        <footer class="page-footer">
+            Dúvidas? <a href="/suporte.html">Fale com o suporte</a>&nbsp;&nbsp;·&nbsp;&nbsp;
+            <a href="/termos.html">Termos</a>&nbsp;&nbsp;·&nbsp;&nbsp;
+            <a href="/privacidade.html">Privacidade</a>
+        </footer>
+
+    </main>
+
+    <!-- Confetti -->
+    <script>
+        (function launchConfetti() {
+            var colors = ['#00ff88','#00cc66','#8B5CF6','#3B82F6','#F59E0B','#ffffff','#FCD34D'];
+            for (var i = 0; i < 90; i++) {
+                (function(index) {
+                    setTimeout(function() {
+                        var el = document.createElement('div');
+                        el.className = 'confetti-piece';
+                        el.style.left = (Math.random() * 100) + 'vw';
+                        el.style.background = colors[Math.floor(Math.random() * colors.length)];
+                        el.style.width  = (Math.random() * 8 + 4) + 'px';
+                        el.style.height = (Math.random() * 8 + 4) + 'px';
+                        el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                        var dur = (Math.random() * 2.5 + 2).toFixed(2);
+                        el.style.animationDuration = dur + 's';
+                        document.body.appendChild(el);
+                        setTimeout(function() { el.remove(); }, parseFloat(dur) * 1000 + 300);
+                    }, index * 35);
+                })(i);
+            }
+        })();
+    </script>
 
     <!-- Firebase -->
     <script type="module">
         import { auth, db } from './firebase.js';
         import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
-        import { doc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
+        import { doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
 
-        log('🎉 [SUCCESS] Página de sucesso carregada');
+        log('ðŸŽ‰ [SUCCESS] PÃ¡gina premium de confirmaÃ§Ã£o carregada');
 
-        // Elements
-        const planNameEl = document.getElementById('plan-name');
-        const planStatusEl = document.getElementById('plan-status');
-        const messageEl = document.getElementById('message');
-        const ctaButton = document.getElementById('cta-button');
+        const urlParams  = new URLSearchParams(window.location.search);
+        const sessionId  = urlParams.get('session_id');
+        log('ðŸ“‹ [SUCCESS] session_id:', sessionId);
 
-        // Get session_id from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const sessionId = urlParams.get('session_id');
+        const planNameEl     = document.getElementById('plan-name');
+        const planStatusEl   = document.getElementById('plan-status');
+        const messageEl      = document.getElementById('message');
+        const badgeTextEl    = document.getElementById('plan-badge-text');
+        const redirectNotice = document.getElementById('redirect-notice');
+        const countdownEl    = document.getElementById('countdown-num');
 
-        log('📋 [SUCCESS] Session ID:', sessionId);
+        const PLAN_DISPLAY = {
+            plus: 'SoundyAI Plus',
+            pro:  'SoundyAI Pro',
+            free: 'Gratuito'
+        };
 
-        // Show message
-        function showMessage(text, type = 'info') {
+        const STATUS_DISPLAY = {
+            active:     '✅ Ativo',
+            past_due:   '⚠️ Pagamento pendente',
+            canceled:   '🚫 Cancelado',
+            incomplete: '⏳ Processando...'
+        };
+
+        function showMessage(text, type) {
             messageEl.textContent = text;
-            messageEl.className = `message ${type}`;
+            messageEl.className   = 'message ' + (type || 'info');
         }
 
-        // Update plan display
-        function updatePlanDisplay(plan, status) {
-            const planNames = {
-                'plus': 'SoundyAI Plus',
-                'pro': 'SoundyAI Pro',
-                'free': 'Gratuito'
-            };
+        function updatePlanUI(plan, status) {
+            var planLabel   = PLAN_DISPLAY[plan] || plan || '—';
+            var statusLabel = STATUS_DISPLAY[status] || status || '—';
 
-            const statusNames = {
-                'active': '✅ Ativo',
-                'past_due': '⚠️ Pagamento Pendente',
-                'canceled': '🚫 Cancelado',
-                'incomplete': '⏳ Processando...'
-            };
+            planNameEl.innerHTML = planLabel;
+            planNameEl.classList.remove('loading');
 
-            planNameEl.innerHTML = planNames[plan] || plan || 'Verificando...';
-            planStatusEl.innerHTML = statusNames[status] || status || 'Atualizando...';
+            planStatusEl.innerHTML = statusLabel;
             planStatusEl.classList.remove('loading');
+
+            if (badgeTextEl) badgeTextEl.textContent = planLabel;
+            document.title = 'Bem-vindo ao ' + planLabel + ' ✦ SoundyAI';
         }
 
-        // Listen for auth state
-        onAuthStateChanged(auth, async (user) => {
+        function startCountdown(seconds, href) {
+            if (!redirectNotice) return;
+            redirectNotice.style.display = 'block';
+            var remaining = seconds;
+            countdownEl.textContent = remaining;
+            var timer = setInterval(function() {
+                remaining--;
+                countdownEl.textContent = remaining;
+                if (remaining <= 0) {
+                    clearInterval(timer);
+                    window.location.href = href;
+                }
+            }, 1000);
+        }
+
+        onAuthStateChanged(auth, function(user) {
             if (!user) {
-                log('❌ [SUCCESS] Usuário não autenticado');
-                showMessage('Você precisa estar logado para verificar seu plano.', 'error');
-                setTimeout(() => {
-                    window.location.href = '/login.html';
-                }, 3000);
+                log('âŒ [SUCCESS] NÃ£o autenticado');
+                showMessage('Você precisa estar logado para confirmar seu plano.', 'error');
+                setTimeout(function() { window.location.href = '/login.html'; }, 3000);
                 return;
             }
 
-            log('✅ [SUCCESS] Usuário autenticado:', user.uid);
-            
-            // Google Analytics 4 - Event Tracking
-            // Rastrear conversão concluída
+            log('âœ… [SUCCESS] UsuÃ¡rio:', user.uid);
+
+            // GA4 - conversão
             if (typeof gtag === 'function') {
-                const sessionId = new URLSearchParams(window.location.search).get('session_id') || 'unknown';
-                
-                gtag('event', 'purchase_completed', {
-                    transaction_id: sessionId,
-                    value: 197.0,
+                gtag('event', 'purchase', {
+                    transaction_id: sessionId || 'unknown',
+                    value: 0,
                     currency: 'BRL',
-                    items: [{
-                        item_name: 'SoundyAI Subscription',
-                        item_id: 'soundyai-plan',
-                        price: 197.0,
-                        quantity: 1
-                    }]
+                    items: [{ item_name: 'SoundyAI Subscription', item_id: 'soundyai-plan', quantity: 1 }]
                 });
-                
-                debugLog('🎯 [GA4] Evento purchase_completed disparado:', sessionId);
+                log('ðŸŽ¯ [GA4] Evento purchase disparado');
             }
 
-            // ⚠️ IMPORTANTE: NÃO liberar plano aqui!
-            // A liberação acontece APENAS via webhook do Stripe
-            // Aqui apenas mostramos o status atual do Firestore
+            var userRef = doc(db, 'usuarios', user.uid);
+            var planActivated = false;
 
-            const userRef = doc(db, 'usuarios', user.uid);
-
-            // Escutar mudanças em tempo real (para quando webhook atualizar)
-            const unsubscribe = onSnapshot(userRef, (docSnap) => {
+            var unsubscribe = onSnapshot(userRef, function(docSnap) {
                 if (!docSnap.exists()) {
-                    log('⏳ [SUCCESS] Documento não encontrado, aguardando...');
+                    log('â³ [SUCCESS] Documento ainda nÃ£o existe â€” aguardando webhook...');
                     return;
                 }
 
-                const data = docSnap.data();
-                log('📊 [SUCCESS] Dados do usuário:', data);
+                var data   = docSnap.data();
+                log('ðŸ“Š [SUCCESS] Dados:', data);
 
-                const plan = data.plan || 'free';
-                const subscription = data.subscription || {};
-                const status = subscription.status || (plan !== 'free' ? 'active' : null);
+                var plan   = data.plan || 'free';
+                var sub    = data.subscription || {};
+                var status = sub.status || (plan !== 'free' ? 'active' : null);
 
-                updatePlanDisplay(plan, status);
+                updatePlanUI(plan, status);
 
-                // Se plano foi ativado (não é free)
-                if (plan !== 'free' && (status === 'active' || !status)) {
-                    showMessage('🎉 Seu plano foi ativado com sucesso! Você já pode aproveitar todos os recursos.', 'info');
-                    
-                    // Rastrear ativação bem-sucedida
+                if (plan !== 'free' && (status === 'active' || !status) && !planActivated) {
+                    planActivated = true;
+                    showMessage('🎉 Seu plano foi ativado! Aproveite todos os recursos premium.', 'info');
+
                     if (typeof gtag === 'function') {
                         gtag('event', 'conversion', {
                             event_category: 'subscription',
-                            event_label: 'plano_ativado_' + plan,
-                            page_location: window.location.href
+                            event_label: 'plano_ativado_' + plan
                         });
                     }
-                    
-                    // Parar de escutar após confirmar ativação
-                    setTimeout(() => {
-                        unsubscribe();
-                    }, 2000);
+
+                    startCountdown(10, 'https://www.soundyai.com.br');
+                    setTimeout(function() { unsubscribe(); }, 5000);
+
                 } else if (status === 'past_due') {
-                    showMessage('⚠️ Há um problema com seu pagamento. Por favor, atualize seus dados de pagamento.', 'error');
+                    showMessage('⚠️ Problema no pagamento. Atualize seu método de pagamento.', 'error');
                 } else if (plan === 'free') {
-                    // Ainda processando - webhook ainda não chegou
-                    log('⏳ [SUCCESS] Aguardando webhook processar...');
+                    log('â³ [SUCCESS] Webhook ainda nÃ£o processou â€” aguardando...');
                 }
-            }, (error) => {
-                error('❌ [SUCCESS] Erro ao escutar documento:', error);
-                showMessage('Erro ao verificar status. Tente novamente em alguns segundos.', 'error');
+            }, function(err) {
+                log('âŒ [SUCCESS] Erro onSnapshot:', err);
+                showMessage('Erro ao verificar status. Atualize a página em alguns segundos.', 'error');
             });
 
-            // Timeout de segurança - se após 30s ainda não atualizou
-            setTimeout(() => {
-                unsubscribe();
-                const currentPlan = planNameEl.textContent;
-                if (currentPlan.includes('Verificando')) {
-                    showMessage('O pagamento está sendo processado. Seu plano será atualizado em breve. Você pode continuar usando o app.', 'info');
-                    updatePlanDisplay('processando', 'incomplete');
+            // Timeout de segurança - 35s
+            setTimeout(function() {
+                if (!planActivated) {
+                    unsubscribe();
+                    showMessage('Seu pagamento está sendo processado. O plano será ativado em breve — você já pode usar o app.', 'warning');
+                    startCountdown(15, 'https://www.soundyai.com.br');
                 }
-            }, 30000);
+            }, 35000);
         });
 
-        // Track page view
-        log('📈 [SUCCESS] Evento de conversão - session:', sessionId);
+        log('ðŸ“ˆ [SUCCESS] Evento de conversÃ£o iniciado - session:', sessionId);
     </script>
 </body>
 </html>

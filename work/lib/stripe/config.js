@@ -16,6 +16,12 @@ const PRICE_ID_PRO = process.env.STRIPE_PRICE_ID_PRO || 'price_1SlIKMCOXidjqeFiT
 // ✅ ATUALIZADO 2026-01-06: Price ID REAL do plano STUDIO (R$99,90/mês)
 const PRICE_ID_STUDIO = process.env.STRIPE_PRICE_ID_STUDIO || 'price_1SmjUuCOXidjqeFiNZNuXFHB';
 
+// ✅ PAYMENT LINKS DIRETOS DO STRIPE (PLANO PRO - R$69,99)
+// CENTRALIZADO: Alterar apenas aqui ou via env var STRIPE_PAYMENT_LINK_PRO
+export const STRIPE_PAYMENT_LINKS = {
+  pro: process.env.STRIPE_PAYMENT_LINK_PRO || 'https://buy.stripe.com/7sY00i9wF7j25pqaEZgw000',
+};
+
 console.log('✅ [STRIPE CONFIG] SDK inicializado');
 console.log(`💳 [STRIPE CONFIG] Price ID Plus: ${PRICE_ID_PLUS.substring(0, 20)}...`);
 console.log(`💳 [STRIPE CONFIG] Price ID Pro: ${PRICE_ID_PRO.substring(0, 20)}...`);

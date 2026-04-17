@@ -149,8 +149,8 @@
                 <div class="card-price-section">
                     <div class="card-price">
                         <span class="currency">R$</span>
-                        <span class="price-value">29</span>
-                        <span class="price-period">/mês</span>
+                        <span class="price-value">47</span>
+                        <span class="price-period">,99</span>
                     </div>
                     <p class="price-annual">A partir de R$ 0,97/dia</p>
                 </div>
@@ -208,7 +208,7 @@
                     <div class="card-price">
                         <span class="currency">R$</span>
                         <span class="price-value">69</span>
-                        <span class="price-period">/mês</span>
+                        <span class="price-period">,99</span>
                     </div>
                     <p class="price-annual">A partir de R$ 2,30/dia</p>
                 </div>
@@ -333,7 +333,7 @@
                 
                 // 📊 GA4 Tracking: Assinatura iniciada
                 if (window.GATracking?.trackSubscriptionStarted) {
-                    const planPrices = { plus: 9.90, pro: 47.00 };
+                    const planPrices = { plus: 29.99, pro: 69.99 };
                     window.GATracking.trackSubscriptionStarted({
                         plan: plan,
                         price: planPrices[plan] || null,
@@ -380,7 +380,7 @@
                 btnPlus.addEventListener('click', () => {
                     sendGA4Event('select_plan_plus', {
                         plan_name: 'Plus',
-                        value: 9.90,
+                        value: 29.99,
                         currency: 'BRL',
                         page_path: window.location.pathname
                     });
@@ -391,7 +391,7 @@
                 btnPro.addEventListener('click', () => {
                     sendGA4Event('select_plan_pro', {
                         plan_name: 'Pro',
-                        value: 47.00,
+                        value: 69.99,
                         currency: 'BRL',
                         page_path: window.location.pathname
                     });
