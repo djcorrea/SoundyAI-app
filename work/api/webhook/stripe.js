@@ -10,15 +10,23 @@ import { addAutomasterCredits, AUTOMASTER_CREDITS_PER_PLAN } from '../../lib/aut
 
 const router = express.Router();
 
+// ⚠️ FIX #5: Aviso de configuração no startup
+if (!process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET.startsWith('whsec_xxxxx')) {
+  console.error('🚨 [STRIPE WEBHOOK] STRIPE_WEBHOOK_SECRET não configurado ou tem valor placeholder!');
+  console.error('   Obtenha o segredo em: Stripe Dashboard → Developers → Webhooks → seu endpoint → Signing secret');
+  console.error('   Configure a env var STRIPE_WEBHOOK_SECRET=whsec_...');
+}
+
 /**
  * POST /api/webhook/stripe
  * Webhook principal para eventos do Stripe
  * 
  * EVENTOS TRATADOS:
- * - checkout.session.completed → Ativa plano após pagamento
+ * - checkout.session.completed → Ativa plano após pagamento (Checkout API + Payment Links)
  * - customer.subscription.created → Assinatura criada
- * - customer.subscription.updated → Status alterado (active, past_due, etc)
+ * - customer.subscription.updated → Status alterado (active, past_due, etc) + renovação
  * - customer.subscription.deleted → Assinatura cancelada
+ * - invoice.paid → Alias de invoice.payment_succeeded (ambos tratados)
  * - invoice.payment_succeeded → Renovação confirmada
  * - invoice.payment_failed → Falha no pagamento
  */
@@ -92,8 +100,9 @@ router.post('/', async (req, res) => {
         break;
       
       // ═══════════════════════════════════════════════════════════════════
-      // INVOICE PAID: Renovação bem-sucedida
+      // INVOICE PAID: Renovação bem-sucedida (dois eventos, mesma lógica)
       // ═══════════════════════════════════════════════════════════════════
+      case 'invoice.paid':             // ✅ FIX #3: invoice.paid adicionado
       case 'invoice.payment_succeeded':
         result = await handleInvoicePaymentSucceeded(event, eventId, timestamp);
         break;
@@ -174,9 +183,8 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
     return { status: 'error', error: 'session_retrieval_failed' };
   }
 
-  // Extrair UID do usuário (tentar metadata, depois client_reference_id)
+  // ✅ FIX #1: Extrair UID do usuário (metadata → client_reference_id)
   const uid = fullSession.metadata?.uid || fullSession.client_reference_id;
-  const plan = fullSession.metadata?.plan;
 
   if (!uid) {
     console.error(`❌ [STRIPE CHECKOUT] UID não encontrado na session`);
@@ -192,19 +200,8 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
     return { status: 'error', error: 'uid_not_found' };
   }
 
-  if (!plan || (plan !== 'plus' && plan !== 'pro' && plan !== 'studio')) {
-    console.error(`❌ [STRIPE CHECKOUT] Plano inválido: ${plan}`);
-    await markEventAsProcessed(eventId, {
-      eventType: 'checkout.session.completed',
-      error: 'invalid_plan',
-      sessionId: session.id,
-      uid,
-      plan,
-    });
-    return { status: 'error', error: 'invalid_plan' };
-  }
-
-  // Extrair dados da subscription
+  // Extrair dados da subscription ANTES de validar o plan
+  // (Payment Links não têm metadata.plan — plan é derivado do priceId)
   const subscription = fullSession.subscription;
   if (!subscription) {
     console.error(`❌ [STRIPE CHECKOUT] Subscription ausente`);
@@ -213,7 +210,6 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
       error: 'subscription_missing',
       sessionId: session.id,
       uid,
-      plan,
     });
     return { status: 'error', error: 'subscription_missing' };
   }
@@ -226,6 +222,22 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
   const priceId = subscriptionObj.items.data[0]?.price?.id;
   const currentPeriodEnd = new Date(subscriptionObj.current_period_end * 1000);
   const customerId = fullSession.customer?.id || fullSession.customer;
+
+  // ✅ FIX #1: Plan via metadata (Checkout API) OU derivado do priceId (Payment Link)
+  const plan = fullSession.metadata?.plan || getPlanFromPriceId(priceId);
+
+  if (!plan || !['plus', 'pro', 'studio'].includes(plan)) {
+    console.error(`❌ [STRIPE CHECKOUT] Plano inválido ou não identificado: plan=${plan}, priceId=${priceId}`);
+    await markEventAsProcessed(eventId, {
+      eventType: 'checkout.session.completed',
+      error: 'invalid_plan',
+      sessionId: session.id,
+      uid,
+      plan,
+      priceId,
+    });
+    return { status: 'error', error: 'invalid_plan' };
+  }
 
   console.log(`📋 [STRIPE CHECKOUT] Dados extraídos:`);
   console.log(`   UID: ${uid}`);
@@ -247,6 +259,18 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
     });
 
     console.log(`✅ [STRIPE CHECKOUT] Assinatura ativada: ${uid} → ${plan.toUpperCase()}`);
+
+    // ✅ FIX #2: Garantir que customer do Stripe tem metadata.uid
+    // Crítico para Payment Links: eventos futuros (renovações) encontram o UID via customer.metadata
+    if (customerId) {
+      try {
+        await stripe.customers.update(customerId, { metadata: { uid } });
+        console.log(`✅ [STRIPE CHECKOUT] Customer Stripe atualizado com UID: ${customerId} → ${uid}`);
+      } catch (customerErr) {
+        // Não bloquear a ativação do plano por falha ao atualizar customer
+        console.error(`⚠️ [STRIPE CHECKOUT] Erro ao atualizar customer metadata (não fatal): ${customerErr.message}`);
+      }
+    }
 
     // Adicionar créditos AutoMaster do plano ativado
     const planCredits = AUTOMASTER_CREDITS_PER_PLAN[plan] ?? 0;
@@ -364,16 +388,20 @@ async function handleSubscriptionUpdated(event, eventId, timestamp) {
   console.log(`   Status: ${subscription.status}`);
   console.log(`   Previous Status: ${previousAttributes.status || 'N/A'}`);
 
-  // Verificar se o status mudou
-  if (previousAttributes.status === subscription.status) {
-    console.log(`⏭️ [STRIPE SUB UPDATED] Status não mudou, ignorando`);
+  // ✅ FIX #4: Verificar se status OU current_period_end mudaram
+  // Renovações mantêm status=active mas atualizam current_period_end
+  const statusChanged = previousAttributes.status !== undefined && previousAttributes.status !== subscription.status;
+  const periodEndChanged = previousAttributes.current_period_end !== undefined;
+
+  if (!statusChanged && !periodEndChanged) {
+    console.log(`⏭️ [STRIPE SUB UPDATED] Nenhuma mudança relevante (status=${subscription.status}), ignorando`);
     await markEventAsProcessed(eventId, {
       eventType: 'customer.subscription.updated',
       subscriptionId: subscription.id,
       status: subscription.status,
-      result: 'status_unchanged',
+      result: 'no_relevant_change',
     });
-    return { status: 'ignored', reason: 'status_unchanged' };
+    return { status: 'ignored', reason: 'no_relevant_change' };
   }
 
   // Extrair UID
