@@ -735,7 +735,7 @@
         </div>
 
         <!-- CTA -->
-        <a href="https://www.soundyai.com.br" class="btn-cta" id="cta-button">
+        <a href="/home.html" class="btn-cta" id="cta-button">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M9 18V5l12-2v13"/>
                 <circle cx="6" cy="18" r="3"/>
@@ -904,7 +904,7 @@
                         });
                     }
 
-                    startCountdown(10, 'https://www.soundyai.com.br');
+                    startCountdown(10, '/home.html');
                     setTimeout(function() { unsubscribe(); }, 5000);
 
                 } else if (status === 'past_due') {
@@ -922,7 +922,7 @@
                 if (!planActivated) {
                     unsubscribe();
                     showMessage('Seu pagamento está sendo processado. O plano será ativado em breve — você já pode usar o app.', 'warning');
-                    startCountdown(15, 'https://www.soundyai.com.br');
+                    startCountdown(15, '/home.html');
                 }
             }, 35000);
         });

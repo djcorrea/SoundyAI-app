@@ -1,6 +1,6 @@
 // firebase.js - Configuração Firebase Corrigida
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
-import { getAuth } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
+import { getAuth, browserLocalPersistence, setPersistence } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
 
 // Configuração do Firebase (configuração correta do projeto)
@@ -27,5 +27,13 @@ if (getApps().length === 0) {
 // Exportar instâncias
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// ✅ Garantir persistência local explícita (browserLocalPersistence é o padrão,
+// mas definir explicitamente protege contra regressões e ambientes edge-case).
+// Tokens ficam em IndexedDB, sobrevivem a refreshes e navegação entre páginas
+// DO MESMO DOMÍNIO. Nunca usar URLs absolutas com www↔non-www entre páginas.
+setPersistence(auth, browserLocalPersistence).catch(function(e) {
+  log('⚠️ [FIREBASE] setPersistence falhou (não crítico):', e.message);
+});
 
 log('🔥 Firebase config carregado');
