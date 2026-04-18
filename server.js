@@ -2161,6 +2161,13 @@ app.listen(PORT, async () => {
     console.log('\n🔧 [DEV] Executando testes de validação...');
     testRealisticSuggestions();
   }
+
+  // 📊 Monitor de memória do SoundyAI-app (a cada 60s)
+  const memMonitor = setInterval(() => {
+    const mem = process.memoryUsage();
+    console.log(`[MEM-MONITOR][soundyai-app] PID=${process.pid} | RSS=${(mem.rss / 1024 / 1024).toFixed(1)}MB | Heap=${(mem.heapUsed / 1024 / 1024).toFixed(1)}/${(mem.heapTotal / 1024 / 1024).toFixed(1)}MB`);
+  }, 60000);
+  memMonitor.unref();
 });
 
 export default app;

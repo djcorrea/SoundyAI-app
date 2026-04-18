@@ -1,7 +1,6 @@
 import express from "express";
 import pkg from "pg";
 import multer from "multer";
-import AWS from "aws-sdk";
 import cors from "cors";
 import fetch from "node-fetch";
 
@@ -33,14 +32,22 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }, // Railway/Postgres
 });
 
-// ---------- Configuração Backblaze ----------
-const s3 = new AWS.S3({
-  endpoint: "https://s3.us-east-005.backblazeb2.com",
-  region: "us-east-005",
-  accessKeyId: process.env.B2_KEY_ID,
-  secretAccessKey: process.env.B2_APP_KEY,
-  signatureVersion: "v4",
-});
+// ---------- Configuração Backblaze (lazy) ----------
+// 🧹 MEMORY OPT: AWS SDK não é carregado até a primeira requisição de presign/upload
+let _s3 = null;
+async function getS3Client() {
+  if (!_s3) {
+    const { default: AWS } = await import('aws-sdk');
+    _s3 = new AWS.S3({
+      endpoint: "https://s3.us-east-005.backblazeb2.com",
+      region: "us-east-005",
+      accessKeyId: process.env.B2_KEY_ID,
+      secretAccessKey: process.env.B2_APP_KEY,
+      signatureVersion: "v4",
+    });
+  }
+  return _s3;
+}
 
 const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 
@@ -432,7 +439,8 @@ app.get("/api/presign", async (req, res) => {
       Expires: 600, // 10 minutos
     };
 
-    // Gerar URL pré-assinada
+    // Gerar URL pré-assinada (lazy S3)
+    const s3 = await getS3Client();
     const uploadUrl = await s3.getSignedUrlPromise('putObject', params);
 
     console.log(`✅ URL pré-assinada gerada: ${fileKey}`);
@@ -479,6 +487,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
       ContentType: req.file.mimetype,
     };
 
+    const s3 = await getS3Client();
     const data = await s3.upload(params).promise();
     console.log("✅ Upload concluído:", key);
 
@@ -501,4 +510,11 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 // ---------- Start ----------
 app.listen(PORT, () => {
   console.log(`API rodando na porta ${PORT}`);
+
+  // 📊 Monitor de memória (a cada 60s)
+  const memMonitor = setInterval(() => {
+    const mem = process.memoryUsage();
+    console.log(`[MEM-MONITOR][api] PID=${process.pid} | RSS=${(mem.rss / 1024 / 1024).toFixed(1)}MB | Heap=${(mem.heapUsed / 1024 / 1024).toFixed(1)}/${(mem.heapTotal / 1024 / 1024).toFixed(1)}MB`);
+  }, 60000);
+  memMonitor.unref();
 });

@@ -20,6 +20,9 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const redis = new Redis(REDIS_URL, {
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
+  // 🧹 MEMORY OPT: Não conectar no construtor — conecta na 1ª operação real
+  // Reduz TCP handshake + buffer de socket durante idle do serviço
+  lazyConnect: true,
   retryStrategy(times) {
     const delay = Math.min(times * 50, 2000);
     return delay;

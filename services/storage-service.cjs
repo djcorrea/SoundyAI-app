@@ -29,32 +29,40 @@ const B2_APP_KEY = process.env.B2_APP_KEY;
 const B2_BUCKET_NAME = process.env.B2_BUCKET_NAME;
 const B2_DOWNLOAD_URL = process.env.B2_DOWNLOAD_URL;
 
-// Validação no boot
-if (!B2_ENDPOINT || !B2_KEY_ID || !B2_APP_KEY || !B2_BUCKET_NAME || !B2_DOWNLOAD_URL) {
-  const missing = [];
-  if (!B2_ENDPOINT) missing.push('B2_ENDPOINT');
-  if (!B2_KEY_ID) missing.push('B2_KEY_ID');
-  if (!B2_APP_KEY) missing.push('B2_APP_KEY');
-  if (!B2_BUCKET_NAME) missing.push('B2_BUCKET_NAME');
-  if (!B2_DOWNLOAD_URL) missing.push('B2_DOWNLOAD_URL');
-  
-  throw new Error(`Backblaze B2 configuration missing: ${missing.join(', ')}`);
-}
-
 // =============================================================================
-// CLIENTE B2
+// CLIENTE B2 (lazy — inicializado na primeira operação real)
+// 🧹 MEMORY OPT: AWS SDK v3 não é instanciado até a primeira chamada de upload/download
 // =============================================================================
 
-const client = new S3Client({
-  region: 'us-east-005',
-  endpoint: B2_ENDPOINT,
-  credentials: {
-    accessKeyId: B2_KEY_ID,
-    secretAccessKey: B2_APP_KEY
+let _client = null;
+
+function getClient() {
+  if (!_client) {
+    // Validação adiada para o momento de uso real
+    const missing = [];
+    if (!B2_ENDPOINT) missing.push('B2_ENDPOINT');
+    if (!B2_KEY_ID) missing.push('B2_KEY_ID');
+    if (!B2_APP_KEY) missing.push('B2_APP_KEY');
+    if (!B2_BUCKET_NAME) missing.push('B2_BUCKET_NAME');
+    if (!B2_DOWNLOAD_URL) missing.push('B2_DOWNLOAD_URL');
+
+    if (missing.length > 0) {
+      throw new Error(`Backblaze B2 configuration missing: ${missing.join(', ')}`);
+    }
+
+    _client = new S3Client({
+      region: 'us-east-005',
+      endpoint: B2_ENDPOINT,
+      credentials: {
+        accessKeyId: B2_KEY_ID,
+        secretAccessKey: B2_APP_KEY
+      }
+    });
+
+    logger.info({ endpoint: B2_ENDPOINT, bucket: B2_BUCKET_NAME }, 'Backblaze B2 client initialized (lazy)');
   }
-});
-
-logger.info({ endpoint: B2_ENDPOINT, bucket: B2_BUCKET_NAME }, 'Backblaze B2 client initialized');
+  return _client;
+}
 
 // =============================================================================
 // FUNÇÕES PÚBLICAS
@@ -77,7 +85,7 @@ async function uploadFile(key, buffer, contentType = 'audio/wav') {
       ContentType: contentType
     });
 
-    await client.send(command);
+    await getClient().send(command);
     logger.info({ key, size: buffer.length, contentType }, 'File uploaded');
     return key;
   } catch (error) {
@@ -130,7 +138,7 @@ async function getFileStream(key) {
       Bucket: B2_BUCKET_NAME,
       Key: key
     });
-    const response = await client.send(command);
+    const response = await getClient().send(command);
     logger.info({ key, contentLength: response.ContentLength }, 'File stream opened');
     return {
       stream: response.Body,            // Node.js Readable — suporta .pipe()
@@ -168,7 +176,7 @@ async function generateSignedUrl(key, expiresInSeconds = 300, filename = null) {
     }
 
     const command = new GetObjectCommand(commandParams);
-    const url = await getSignedUrl(client, command, { expiresIn: expiresInSeconds });
+    const url = await getSignedUrl(getClient(), command, { expiresIn: expiresInSeconds });
     logger.info({ key, expiresIn: expiresInSeconds, hasFilename: !!filename }, 'Signed URL generated');
     return url;
   } catch (error) {
@@ -190,7 +198,7 @@ async function deleteFile(key) {
       Key: key
     });
 
-    await client.send(command);
+    await getClient().send(command);
     logger.info({ key }, 'File deleted');
   } catch (error) {
     logger.warn({ key, error: error.message }, 'Delete failed (best-effort)');
