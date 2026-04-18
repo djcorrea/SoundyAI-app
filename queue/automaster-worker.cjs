@@ -44,7 +44,7 @@ workerPool.on('error', (err) => {
  */
 
 const { Worker } = require('bullmq');
-const { execFile } = require('child_process');
+const { execFile, fork } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
@@ -68,7 +68,10 @@ const logger = createServiceLogger('automaster-worker');
 
 const WORKER_CONCURRENCY = parseInt(process.env.AUTOMASTER_CONCURRENCY || '1', 10);
 const TIMEOUT_MS = 300000; // 300 segundos (5 minutos) - aumentado para áudios longos
-const MASTER_PIPELINE_SCRIPT = path.resolve(__dirname, '../automaster/master-pipeline.cjs');
+// 🏗️ ARCH OPT: fork-per-job em vez de execFile — processo isolado, memória liberada após cada job
+const AUTOMASTER_JOB_SCRIPT = path.resolve(__dirname, '../automaster/automaster-job.cjs');
+// Timeout do fork = timeout máximo do pipeline interno (11min) + 60s margem
+const JOB_FORK_TIMEOUT_MS = 720000; // 12 minutos
 const TMP_BASE_DIR = path.resolve(__dirname, '../tmp');
 
 const JOB_ID_REGEX = /^[a-zA-Z0-9_-]+$/;
@@ -147,66 +150,90 @@ async function cleanupJobWorkspace(jobId) {
 }
 
 // ============================================================================
-// EXECUÇÃO DO PIPELINE
+// EXECUÇÃO DO PIPELINE (via fork — processo isolado com IPC)
+// 🏗️ NOVA ARQUITETURA: cada job roda em processo filho próprio.
+//    Ao encerrar (process.exit(0)), o OS recupera TODO o heap daquele job.
+//    Sem acúmulo de memória entre execuções.
 // ============================================================================
 
 async function executePipeline(isolatedInput, isolatedOutput, mode, jobLogger, safeMode = false) {
-  jobLogger.info({ mode, safeMode }, 'Executando pipeline');
-
-  const pipelineFlags = [];
-  if (safeMode) pipelineFlags.push('--safe-mode');
+  jobLogger.info({ mode, safeMode }, 'Forking automaster-job (processo isolado por job)');
 
   return new Promise((resolve, reject) => {
-    execFile(
-      'node',
-      [MASTER_PIPELINE_SCRIPT, isolatedInput, isolatedOutput, mode, ...pipelineFlags],
-      {
-        timeout: TIMEOUT_MS,
-        maxBuffer: 10 * 1024 * 1024,
-        killSignal: 'SIGTERM',
-        encoding: 'utf8'
-      },
-      (error, stdout, stderr) => {
-        // Logar stderr para diagnóstico (sem bloquear o fluxo)
-        if (stderr && stderr.trim()) {
-          jobLogger.info({ stderr: stderr.trim().substring(0, 2000) }, 'Pipeline stderr (diagnóstico)');
-        }
+    // fork() cria processo Node.js filho com canal IPC pré-configurado
+    const child = fork(AUTOMASTER_JOB_SCRIPT, [], {
+      env: process.env,
+      silent: false, // herda stderr/stdout — logs aparecem diretamente no Railway
+    });
 
-        // stdout com JSON válido tem prioridade sobre exit code
-        // Exit code não-zero pode ser intencional (ex.: ABORT_UNSAFE_INPUT)
-        const rawOut = stdout && stdout.trim();
-        if (rawOut) {
-          const lines = rawOut.split('\n');
-          const lastLine = lines[lines.length - 1];
+    let settled = false;
+    let safetyTimer = null;
 
-          jobLogger.info({
-            totalLines: lines.length,
-            lastLinePreview: lastLine.substring(0, 100)
-          }, 'Pipeline output received');
-
-          try {
-            const result = JSON.parse(lastLine);
-            return resolve({
-              pipelineResult: result,
-              stdout: rawOut,
-              stderr: stderr ? stderr.trim() : ''
-            });
-          } catch (parseErr) {
-            jobLogger.error({ lastLine }, 'Failed to parse pipeline JSON');
-            // Cair no reject abaixo
-          }
-        }
-
-        // Sem stdout ou JSON inválido: aí sim reportar o erro real
-        if (error) {
-          jobLogger.error({ error: error.message, code: error.code, stderr }, 'Pipeline execution failed');
-          return reject(error);
-        }
-
-        jobLogger.error({ stdout, stderr }, 'Pipeline returned empty stdout');
-        return reject(new Error('Pipeline returned empty output'));
+    function settle(result) {
+      if (!settled) {
+        settled = true;
+        if (safetyTimer) clearTimeout(safetyTimer);
+        resolve(result);
       }
-    );
+    }
+
+    function fail(err) {
+      if (!settled) {
+        settled = true;
+        if (safetyTimer) clearTimeout(safetyTimer);
+        reject(err);
+      }
+    }
+
+    // Timeout de segurança — garante que o fork não fica pendurado para sempre
+    // O pipeline interno já tem seu próprio timeout (11min); este é a última defesa
+    safetyTimer = setTimeout(() => {
+      jobLogger.error({ mode }, `automaster-job TIMEOUT após ${JOB_FORK_TIMEOUT_MS / 1000}s — matando processo filho`);
+      try { child.kill('SIGTERM'); } catch (_) {}
+      setTimeout(() => { try { child.kill('SIGKILL'); } catch (_) {} }, 5000);
+      fail(new Error(`automaster-job timeout (${JOB_FORK_TIMEOUT_MS / 1000}s)`));
+    }, JOB_FORK_TIMEOUT_MS);
+
+    // Não impedir que o worker encerre caso apenas o timer esteja ativo
+    if (safetyTimer.unref) safetyTimer.unref();
+
+    // Enviar dados do job imediatamente — IPC bufferiza até o filho estar pronto
+    child.send({
+      inputPath: isolatedInput,
+      outputPath: isolatedOutput,
+      mode,
+      safeMode,
+    });
+
+    child.on('message', (msg) => {
+      if (!msg) return;
+
+      if (msg.success === true) {
+        jobLogger.info({
+          pipelineStatus: msg.pipelineResult && msg.pipelineResult.status,
+          pipelineSuccess: msg.pipelineResult && msg.pipelineResult.success,
+        }, 'automaster-job retornou sucesso via IPC');
+        settle({
+          pipelineResult: msg.pipelineResult,
+          stdout: msg.stdout || '',
+          stderr: msg.stderr || '',
+        });
+      } else if (msg.success === false) {
+        jobLogger.error({ error: msg.error, code: msg.code }, 'automaster-job retornou falha via IPC');
+        fail(new Error(msg.error || 'automaster-job retornou falha sem mensagem de erro'));
+      }
+    });
+
+    child.on('exit', (code, signal) => {
+      // Se resultado já foi resolvido (settled=true), exit é esperado — ignorar
+      // Caso contrário: processo saiu antes de enviar resultado = erro
+      fail(new Error(`automaster-job encerrou inesperadamente (code=${code}, signal=${signal})`));
+    });
+
+    child.on('error', (err) => {
+      jobLogger.error({ error: err.message }, 'Erro ao criar/comunicar com automaster-job');
+      fail(err);
+    });
   });
 }
 
