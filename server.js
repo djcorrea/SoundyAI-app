@@ -26,7 +26,8 @@ import fs from "fs";
 import multer from "multer";
 import { execFile, exec, execSync, spawn } from "child_process";
 import { promisify } from "util";
-import { analyzeAudioMetrics, decideGainWithinRange, MODES } from './automaster/decision-engine.cjs';
+// 🧹 MEMORY OPT: decision-engine.cjs REMOVIDO — nunca era chamado diretamente no server.js
+// O processamento de áudio/DSP ocorre APENAS no automaster-worker (processo filho)
 
 // ============================================================================
 // AutoMaster — imports estáticos (CJS é suportado por ESM via default import)
@@ -276,7 +277,6 @@ import stripeWebhookRouter from "./work/api/webhook/stripe.js";
 
 // 🔐 AUTH MIDDLEWARE + CRÉDITOS: AutoMaster
 import { verifyFirebaseToken } from './work/lib/auth/verify-token-middleware.js';
-import { checkAndConsumeCredit } from './work/lib/automaster/credits.js'; // legado — mantido p/ compat
 import { createJobWithTransaction, consumeJobCredit, releaseUserLock } from './work/lib/automaster/jobs.js';
 import { getFirestore, getAuth } from './firebase/admin.js';
 
@@ -653,15 +653,16 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
     const storageService = storageServiceModule;
     const jobStore = jobStoreModule;
 
-    // Validar que a fila BullMQ está operacional antes de qualquer Firestore
+    // Validar que o módulo da fila está disponível (Queue é lazy — Redis só conecta no 1º add())
+    // Erros de conexão com Redis surfaceiam ao chamar add() mais abaixo (tratados no try/catch)
     if (!automasterQueue || typeof automasterQueue.add !== 'function') {
-      console.error('[AUTOMASTER] Redis não conectado ou automasterQueue inválida:', {
+      console.error('[AUTOMASTER] automasterQueueModule inválido:', {
         queueType: typeof automasterQueue,
         addType: typeof automasterQueue?.add
       });
       return res.status(503).json({
         error: 'QUEUE_UNAVAILABLE',
-        message: 'Fila de processamento indisponível (Redis não conectado)'
+        message: 'Fila de processamento indisponível'
       });
     }
 

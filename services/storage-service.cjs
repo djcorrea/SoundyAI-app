@@ -7,8 +7,9 @@
  * @module services/storage-service
  */
 
-const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+// 🧹 MEMORY OPT: AWS SDK v3 não é carregado no startup
+// Os require de @aws-sdk foram movidos para DENTRO de getClient()
+// Apenas módulos leves são carregados aqui (logger, fs, path)
 const { createServiceLogger } = require('./logger.cjs');
 const fs = require('fs').promises;
 const path = require('path');
@@ -30,15 +31,15 @@ const B2_BUCKET_NAME = process.env.B2_BUCKET_NAME;
 const B2_DOWNLOAD_URL = process.env.B2_DOWNLOAD_URL;
 
 // =============================================================================
-// CLIENTE B2 (lazy — inicializado na primeira operação real)
-// 🧹 MEMORY OPT: AWS SDK v3 não é instanciado até a primeira chamada de upload/download
+// CLIENTE B2 (lazy — require do AWS SDK ocorre apenas aqui, na 1ª chamada real)
 // =============================================================================
 
 let _client = null;
+let _S3Client, _PutObjectCommand, _GetObjectCommand, _DeleteObjectCommand, _getSignedUrl;
 
 function getClient() {
   if (!_client) {
-    // Validação adiada para o momento de uso real
+    // Validação de env vars adiada para o momento de uso real
     const missing = [];
     if (!B2_ENDPOINT) missing.push('B2_ENDPOINT');
     if (!B2_KEY_ID) missing.push('B2_KEY_ID');
@@ -50,7 +51,17 @@ function getClient() {
       throw new Error(`Backblaze B2 configuration missing: ${missing.join(', ')}`);
     }
 
-    _client = new S3Client({
+    // Carregar AWS SDK v3 somente aqui (lazy) — ~15-20MB economizados no idle
+    if (!_S3Client) {
+      const s3Pkg = require('@aws-sdk/client-s3');
+      _S3Client = s3Pkg.S3Client;
+      _PutObjectCommand = s3Pkg.PutObjectCommand;
+      _GetObjectCommand = s3Pkg.GetObjectCommand;
+      _DeleteObjectCommand = s3Pkg.DeleteObjectCommand;
+      _getSignedUrl = require('@aws-sdk/s3-request-presigner').getSignedUrl;
+    }
+
+    _client = new _S3Client({
       region: 'us-east-005',
       endpoint: B2_ENDPOINT,
       credentials: {
@@ -78,14 +89,15 @@ function getClient() {
  */
 async function uploadFile(key, buffer, contentType = 'audio/wav') {
   try {
-    const command = new PutObjectCommand({
+    const client = getClient(); // garante que _PutObjectCommand está carregado
+    const command = new _PutObjectCommand({
       Bucket: B2_BUCKET_NAME,
       Key: key,
       Body: buffer,
       ContentType: contentType
     });
 
-    await getClient().send(command);
+    await client.send(command);
     logger.info({ key, size: buffer.length, contentType }, 'File uploaded');
     return key;
   } catch (error) {
@@ -134,11 +146,12 @@ async function downloadFile(key) {
  */
 async function getFileStream(key) {
   try {
-    const command = new GetObjectCommand({
+    const client = getClient(); // garante que _GetObjectCommand está carregado
+    const command = new _GetObjectCommand({
       Bucket: B2_BUCKET_NAME,
       Key: key
     });
-    const response = await getClient().send(command);
+    const response = await client.send(command);
     logger.info({ key, contentLength: response.ContentLength }, 'File stream opened');
     return {
       stream: response.Body,            // Node.js Readable — suporta .pipe()
@@ -175,8 +188,8 @@ async function generateSignedUrl(key, expiresInSeconds = 300, filename = null) {
       commandParams.ResponseContentDisposition = `attachment; filename="${safe}"`;
     }
 
-    const command = new GetObjectCommand(commandParams);
-    const url = await getSignedUrl(getClient(), command, { expiresIn: expiresInSeconds });
+    const command = new _GetObjectCommand(commandParams);
+    const url = await _getSignedUrl(getClient(), command, { expiresIn: expiresInSeconds });
     logger.info({ key, expiresIn: expiresInSeconds, hasFilename: !!filename }, 'Signed URL generated');
     return url;
   } catch (error) {
@@ -193,12 +206,13 @@ async function generateSignedUrl(key, expiresInSeconds = 300, filename = null) {
  */
 async function deleteFile(key) {
   try {
-    const command = new DeleteObjectCommand({
+    const client = getClient(); // garante que _DeleteObjectCommand está carregado
+    const command = new _DeleteObjectCommand({
       Bucket: B2_BUCKET_NAME,
       Key: key
     });
 
-    await getClient().send(command);
+    await client.send(command);
     logger.info({ key }, 'File deleted');
   } catch (error) {
     logger.warn({ key, error: error.message }, 'Delete failed (best-effort)');
