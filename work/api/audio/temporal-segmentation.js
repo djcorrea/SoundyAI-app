@@ -269,8 +269,9 @@ export function segmentAudioTemporal(audioBufferLike, options = {}) {
     const rightRMSResult = segmentChannelForRMS(rightChannel, 'right');
 
     // Validar consistência
-    if (leftRMSResult.frames.length !== rightRMSResult.frames.length) {
-      throw makeErr(stage, `RMS frames inconsistentes: L=${leftRMSResult.frames.length}, R=${rightRMSResult.frames.length}`, 'rms_frame_count_mismatch');
+    // 🧹 MEMORY OPT: segmentChannelForRMS retorna { rmsValues } apenas (sem .frames)
+    if (leftRMSResult.rmsValues.length !== rightRMSResult.rmsValues.length) {
+      throw makeErr(stage, `RMS frames inconsistentes: L=${leftRMSResult.rmsValues.length}, R=${rightRMSResult.rmsValues.length}`, 'rms_frame_count_mismatch');
     }
 
     // ========= GERAR TIMESTAMPS =========

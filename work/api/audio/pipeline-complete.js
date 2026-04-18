@@ -306,7 +306,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   // Impacto: Previne disco full (5-20 GB/dia em jobs com falhas frequentes)
   // ============================================================================
   try {
-  try {
     // ========= FASE 5.1: DECODIFICAÇÃO =========
     try {
       logAudio('decode', 'start', { fileName, jobId });
@@ -1910,11 +1909,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     console.error(`💥 [${jobId.substring(0,8)}] Pipeline falhou após ${totalTime}ms:`, error.message);
     console.error(`📍 [${jobId.substring(0,8)}] Stage: ${error.stage || 'unknown'}, Code: ${error.code || 'unknown'}`);
     
-    // ✅ PATCH 2026-02-23: Cleanup movido para finally (sempre executa)
-    
-    // ========= ESTRUTURAR ERRO FINAL =========
-    // NÃO retornar JSON de erro - propagar para camada de jobs
-    // A camada de jobs decidirá como marcar o status
+    // Re-propagar para camada de jobs (nunca engolir o erro silenciosamente)
+    if (error.stage) {
+      throw error; // Já é erro estruturado
+    }
+    throw makeErr('pipeline', `Pipeline failed: ${error.message}`, 'pipeline_error');
   } finally {
     // ============================================================================
     // 🛡️ CLEANUP GARANTIDO - SEMPRE EXECUTA (PATCH 2026-02-23)
@@ -1929,26 +1928,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     // 🔬 [MEM] Ponto final — após cleanup do temp file
     logMemoryDelta('pipeline', '5-finally-end', jobId);
     clearMemoryDelta(jobId);
-  }
-    
-    // Se já é um erro estruturado, re-propagar
-    if (error.stage) {
-      throw error;
-    }
-    
-    // Erro inesperado - estruturar
-    throw makeErr('pipeline', `Pipeline failed: ${error.message}`, 'pipeline_error');
-  } finally {
-    // ============================================================================
-    // 🛡️ CLEANUP GARANTIDO - SEMPRE EXECUTA (PATCH 2026-02-23)
-    // ============================================================================
-    // Executa SEMPRE: sucesso, erro, throw, return, timeout
-    // Previne arquivos órfãos em /temp/ (Railway disco limitado)
-    // ============================================================================
-    if (tempFilePath && tempFileOwned) {
-      cleanupTempFile(tempFilePath);
-      console.log(`[CLEANUP] ✅ Temp file cleanup executado (finally): ${tempFilePath}`);
-    }
   }
 }
 
