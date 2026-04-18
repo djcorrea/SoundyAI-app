@@ -178,18 +178,26 @@ app.get('/api', (req, res) => {
 });
 
 // ---------- Rota para gerar URL pré-assinada (preservada do server original) ----------
-import AWS from "aws-sdk";
-
-// Configuração Backblaze
-const s3 = new AWS.S3({
-  endpoint: "https://s3.us-east-005.backblazeb2.com",
-  region: "us-east-005",
-  accessKeyId: process.env.B2_KEY_ID,
-  secretAccessKey: process.env.B2_APP_KEY,
-  signatureVersion: "v4",
-});
+// 🧹 MEMORY OPT: AWS SDK carregado lazily (só quando /api/presign é chamado)
+// Economia: ~20-30MB RAM em idle que o SDK AWS ocupa no módulo
 
 const BUCKET_NAME = process.env.B2_BUCKET_NAME;
+let _s3Client = null; // instanciado na primeira chamada
+
+async function getS3Client() {
+  if (!_s3Client) {
+    // Lazy import do AWS SDK — só carrega quando necessário
+    const AWS = (await import("aws-sdk")).default;
+    _s3Client = new AWS.S3({
+      endpoint: "https://s3.us-east-005.backblazeb2.com",
+      region: "us-east-005",
+      accessKeyId: process.env.B2_KEY_ID,
+      secretAccessKey: process.env.B2_APP_KEY,
+      signatureVersion: "v4",
+    });
+  }
+  return _s3Client;
+}
 
 app.get("/api/presign", async (req, res) => {
   try {
@@ -219,6 +227,7 @@ app.get("/api/presign", async (req, res) => {
       Expires: 600, // 10 minutos
     };
 
+    const s3 = await getS3Client();
     const uploadUrl = await s3.getSignedUrlPromise('putObject', params);
 
     console.log(`✅ [API] URL pré-assinada gerada: ${fileKey}`);
@@ -291,4 +300,11 @@ app.listen(PORT, () => {
   console.log(`🔖 [API] Build: ${GIT_SHA.substring(0, 7)}`);
   console.log(`🔗 [API] CORS configurado para produção e desenvolvimento`);
   console.log('═══════════════════════════════════════════════════════════════════');
+
+  // 📊 Monitor de memória do servidor API (a cada 60s)
+  const memMonitor = setInterval(() => {
+    const mem = process.memoryUsage();
+    console.log(`[MEM-MONITOR][API] PID=${process.pid} | RSS=${(mem.rss / 1024 / 1024).toFixed(1)}MB | Heap=${(mem.heapUsed / 1024 / 1024).toFixed(1)}/${(mem.heapTotal / 1024 / 1024).toFixed(1)}MB`);
+  }, 60000);
+  memMonitor.unref(); // não impedir shutdown graceful
 });

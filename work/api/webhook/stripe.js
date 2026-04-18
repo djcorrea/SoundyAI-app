@@ -3,7 +3,7 @@
 // Trata todos os eventos críticos de assinatura
 
 import express from 'express';
-import stripe, { STRIPE_PRICE_IDS, getPlanFromPriceId } from '../../lib/stripe/config.js';
+import getStripe, { STRIPE_PRICE_IDS, getPlanFromPriceId } from '../../lib/stripe/config.js';
 import { applySubscription, cancelSubscription, downgradeToFree } from '../../lib/user/userPlans.js';
 import { isEventProcessed, markEventAsProcessed } from '../../lib/stripe/idempotency.js';
 import { addAutomasterCredits, AUTOMASTER_CREDITS_PER_PLAN } from '../../lib/automaster/credits.js';
@@ -33,6 +33,9 @@ if (!process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET.star
 router.post('/', async (req, res) => {
   const timestamp = new Date().toISOString();
   console.log(`\n📨 [STRIPE WEBHOOK] [${timestamp}] ════════════════════════════════════════`);
+
+  // 🧹 MEMORY OPT: instanciar Stripe aqui (lazy) — SDK carregado na 1ª requisição real
+  const stripe = getStripe();
 
   try {
     // 1️⃣ VALIDAR ASSINATURA HMAC

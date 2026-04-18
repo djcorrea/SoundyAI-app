@@ -102,7 +102,7 @@ router.post('/create-checkout-session', async (req, res) => {
     const successUrl = process.env.STRIPE_SUCCESS_URL || `${baseUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = process.env.STRIPE_CANCEL_URL || `${baseUrl}/planos.html?canceled=true`;
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await stripe().checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [

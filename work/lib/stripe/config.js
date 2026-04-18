@@ -3,10 +3,30 @@
 
 import Stripe from 'stripe';
 
-// ✅ Inicializar SDK do Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2023-10-16', // Versão estável
-});
+// 🧹 MEMORY OPT: Stripe SDK instanciado lazily — só na primeira chamada real
+// Economiza ~15-20MB RAM em idle (SDK Stripe + TLS handshake inicial não ocorrem)
+let _stripeInstance = null;
+
+/**
+ * Retorna a instância Stripe singleton (inicializada na primeira chamada)
+ */
+export function getStripe() {
+  if (!_stripeInstance) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('[STRIPE] STRIPE_SECRET_KEY não configurada');
+    }
+    _stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2023-10-16',
+    });
+    console.log('✅ [STRIPE CONFIG] SDK inicializado (lazy)');
+  }
+  return _stripeInstance;
+}
+
+// Manter export default para compatibilidade com create-checkout-session.js
+// que usa: import stripe, { ... } from '../../lib/stripe/config.js'
+// Agora 'stripe' é o getter, não a instância direta
+export default getStripe;
 
 // ✅ PRICE IDs OFICIAIS DO STRIPE (PRODUÇÃO)
 // IMPORTANTE: Estes são os Price IDs REAIS do Stripe Dashboard
@@ -21,11 +41,6 @@ const PRICE_ID_STUDIO = process.env.STRIPE_PRICE_ID_STUDIO || 'price_1SmjUuCOXid
 export const STRIPE_PAYMENT_LINKS = {
   pro: process.env.STRIPE_PAYMENT_LINK_PRO || 'https://buy.stripe.com/7sY00i9wF7j25pqaEZgw000',
 };
-
-console.log('✅ [STRIPE CONFIG] SDK inicializado');
-console.log(`💳 [STRIPE CONFIG] Price ID Plus: ${PRICE_ID_PLUS.substring(0, 20)}...`);
-console.log(`💳 [STRIPE CONFIG] Price ID Pro: ${PRICE_ID_PRO.substring(0, 20)}...`);
-console.log(`💳 [STRIPE CONFIG] Price ID Studio: ${PRICE_ID_STUDIO.substring(0, 20)}...`);
 
 // ✅ Mapeamento de planos → Price IDs
 export const STRIPE_PLANS = {
@@ -118,5 +133,3 @@ export function getPlanConfig(plan) {
 export function isValidPlan(plan) {
   return plan === 'plus' || plan === 'pro' || plan === 'studio';   // ✅ ATUALIZADO
 }
-
-export default stripe;

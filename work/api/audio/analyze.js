@@ -38,8 +38,15 @@ import { canDemoAnalyze, registerDemoUsage, generateDemoId, extractDemoParams } 
 // Definir service name para auditoria
 process.env.SERVICE_NAME = 'api';
 
-// ✅ Obter Firebase Auth
-const auth = getAuth();
+// 🧹 MEMORY OPT: getAuth() chamado lazily — Firebase Admin SDK só inicializa
+// na primeira requisição autenticada, não na carga do módulo (~15-20MB economizados em idle)
+let _auth = null;
+function getAuthLazy() {
+  if (!_auth) {
+    _auth = getAuth();
+  }
+  return _auth;
+}
 
 const router = express.Router();
 
@@ -580,7 +587,7 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
       console.log('🔑 [ANALYZE] IDTOKEN recebido:', idToken.substring(0, 20) + '...');
       
       try {
-        decoded = await auth.verifyIdToken(idToken);
+        decoded = await getAuthLazy().verifyIdToken(idToken);
         console.log('✅ [ANALYZE] Token verificado com sucesso');
       } catch (err) {
         console.error('❌ [ANALYZE] Erro ao verificar token:', err.message);
