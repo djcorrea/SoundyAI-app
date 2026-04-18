@@ -60,6 +60,86 @@ function generateTmp(ext) {
 // ========= CONVERSÃO COM FFMPEG (FAIL-FAST) =========
 
 /**
+ * 🧹 MEMORY OPT: Converte arquivo no DISCO para WAV PCM Float32 48kHz estéreo
+ * Evita carregar arquivo original na RAM (~100MB economizados vs versão stdin)
+ * @param {string} inputFilePath - Caminho do arquivo no disco
+ * @param {string} filename - Nome do arquivo para logs
+ * @returns {Promise<Buffer>} WAV convertido (Float32 LE, 48kHz, 2ch)
+ */
+async function convertToWavPcmFromFile(inputFilePath, filename) {
+  return new Promise((resolve, reject) => {
+    if (!inputFilePath || typeof inputFilePath !== 'string') {
+      reject(makeErr('decode', 'Caminho de arquivo inválido', 'invalid_file_path'));
+      return;
+    }
+
+    const args = [
+      '-hide_banner',
+      '-loglevel', 'error',
+      '-nostdin',
+      '-i', inputFilePath,      // 🧹 entrada via ARQUIVO (não stdin)
+      '-vn',
+      '-ar', String(SAMPLE_RATE),
+      '-ac', String(CHANNELS),
+      '-c:a', 'pcm_f32le',
+      '-f', 'wav',
+      'pipe:1'                  // saída via stdout
+    ];
+
+    const ff = spawn(FFMPEG_PATH, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    let stderr = '';
+    const chunks = [];
+    let ffmpegKilled = false;
+
+    const ffmpegTimeout = setTimeout(() => {
+      console.warn(`⚠️ FFmpeg timeout para ${filename} - matando processo...`);
+      ffmpegKilled = true;
+      try { ff.stdout.destroy(); } catch (_) {}
+      try { ff.stderr.destroy(); } catch (_) {}
+      chunks.length = 0;
+      ff.kill('SIGKILL');
+      reject(makeErr('decode', `FFmpeg timeout após 2 minutos para: ${filename}`, 'ffmpeg_timeout'));
+    }, 120000);
+
+    ff.stdout.on('data', (d) => chunks.push(d));
+    ff.stderr.on('data', (d) => (stderr += d?.toString?.() || ''));
+
+    ff.on('error', (err) => {
+      clearTimeout(ffmpegTimeout);
+      if (!ffmpegKilled) {
+        ffmpegKilled = true;
+        try { ff.kill('SIGKILL'); } catch (_) {}
+        try { ff.stdout.destroy(); } catch (_) {}
+        try { ff.stderr.destroy(); } catch (_) {}
+        chunks.length = 0;
+        reject(makeErr('decode', `FFmpeg spawn error: ${err.message}`, 'ffmpeg_spawn_error'));
+      }
+    });
+
+    ff.on('close', (code) => {
+      clearTimeout(ffmpegTimeout);
+      if (ffmpegKilled) return;
+
+      if (code !== 0) {
+        const errorMsg = stderr || '(sem stderr)';
+        reject(makeErr('decode', `FFmpeg falhou (code=${code}): ${errorMsg}`, 'ffmpeg_conversion_failed'));
+        return;
+      }
+
+      const outputBuffer = Buffer.concat(chunks);
+      chunks.length = 0;
+      if (outputBuffer.length === 0) {
+        reject(makeErr('decode', 'FFmpeg retornou buffer vazio', 'ffmpeg_empty_output'));
+        return;
+      }
+
+      resolve(outputBuffer);
+    });
+  });
+}
+
+/**
  * Converte arquivo para WAV PCM Float32 48kHz estéreo com validações rigorosas
  * @param {Buffer} inputBuffer - Buffer do arquivo de áudio
  * @param {string} filename - Nome do arquivo para logs
@@ -580,6 +660,136 @@ export async function decodeAudioFile(fileBuffer, filename, options = {}) {
     
     // Erro inesperado - estruturar
     throw makeErr(stage, error.message || String(error), 'unexpected_error');
+  }
+}
+
+/**
+ * 🧹 MEMORY OPT: Decodifica arquivo de áudio a partir do DISCO (sem carregar na RAM)
+ * Mesma lógica que decodeAudioFile, mas FFmpeg lê do disco direto.
+ * Economia: ~100-150MB (evita fs.readFile + FFmpeg stdin)
+ * @param {string} filePath - Caminho do arquivo no disco
+ * @param {string} filename - Nome do arquivo para logs
+ * @param {Object} options - Opções (jobId para logs)
+ */
+export async function decodeAudioFromFile(filePath, filename, options = {}) {
+  const jobId = options.jobId || 'unknown';
+  const stage = 'decode';
+  const start = Date.now();
+
+  try {
+    logAudio(stage, 'start', { fileName: filename, jobId, source: 'file' });
+
+    // Validar formato suportado
+    validateSupportedFormat(filename || '');
+
+    // ========= CONVERSÃO FFmpeg (lê do disco) =========
+    let wavBuffer;
+    try {
+      wavBuffer = await convertToWavPcmFromFile(filePath, filename);
+    } catch (err) {
+      if (err.stage === 'decode') throw err;
+      throw makeErr(stage, `FFmpeg conversion failed: ${err.message}`, 'ffmpeg_conversion_failed');
+    }
+
+    // ========= DECODIFICAÇÃO WAV =========
+    let audioData;
+    try {
+      audioData = decodeWavFloat32Stereo(wavBuffer, filename);
+      wavBuffer = null; // 🧹 liberar wavBuffer (~115-230MB)
+    } catch (err) {
+      wavBuffer = null;
+      if (err.stage === 'decode') throw err;
+      throw makeErr(stage, `WAV decode failed: ${err.message}`, 'wav_decode_failed');
+    }
+
+    // ========= DETECÇÃO DE CLIPPING =========
+    let maxAbsLeft = 0, maxAbsRight = 0;
+    let countNear1 = 0;
+    
+    for (let i = 0; i < audioData.leftChannel.length; i++) {
+      const absL = Math.abs(audioData.leftChannel[i]);
+      const absR = Math.abs(audioData.rightChannel[i]);
+      if (absL > maxAbsLeft) maxAbsLeft = absL;
+      if (absR > maxAbsRight) maxAbsRight = absR;
+      if (absL >= 0.995) countNear1++;
+      if (absR >= 0.995) countNear1++;
+    }
+    
+    const maxAbsOverall = Math.max(maxAbsLeft, maxAbsRight);
+    const totalSamples = audioData.leftChannel.length * 2;
+    const pctNear1 = (countNear1 / totalSamples) * 100;
+
+    const clippingLeft = detectClipping(audioData.leftChannel);
+    const clippingRight = detectClipping(audioData.rightChannel);
+
+    // ========= PÓS-PROCESSAMENTO (DC filter) =========
+    const shouldSkipDcFilter = (pctNear1 >= 0.1 || maxAbsOverall >= 0.998);
+    
+    let leftProcessed, rightProcessed;
+    if (shouldSkipDcFilter) {
+      console.log(`[AUDIO_DECODE] ⚠️ Near-clipping — PULANDO filtro DC`);
+      leftProcessed = audioData.leftChannel;
+      rightProcessed = audioData.rightChannel;
+    } else {
+      console.log(`[AUDIO_DECODE] ✅ Aplicando filtro DC (20Hz)`);
+      leftProcessed = removeDCOffset(audioData.leftChannel, audioData.sampleRate, 20);
+      rightProcessed = removeDCOffset(audioData.rightChannel, audioData.sampleRate, 20);
+      ensureFiniteArray(leftProcessed, stage, 'left after DC');
+      ensureFiniteArray(rightProcessed, stage, 'right after DC');
+    }
+
+    const clippingTotal = {
+      clippedSamples: clippingLeft.clippedSamples + clippingRight.clippedSamples,
+      totalSamples: clippingLeft.totalSamples + clippingRight.totalSamples,
+      clippingPct: ((clippingLeft.clippedSamples + clippingRight.clippedSamples) / (clippingLeft.totalSamples + clippingRight.totalSamples)) * 100
+    };
+
+    const processingTime = Date.now() - start;
+
+    const audioBufferCompatible = {
+      sampleRate: audioData.sampleRate,
+      numberOfChannels: audioData.numberOfChannels,
+      length: audioData.length,
+      duration: audioData.duration,
+      data: leftProcessed,
+      leftChannel: leftProcessed,
+      rightChannel: rightProcessed,
+      getChannelData(channel) {
+        if (channel === 0) return this.leftChannel;
+        if (channel === 1) return this.rightChannel;
+        throw makeErr(stage, `Canal inválido: ${channel}`, 'invalid_channel');
+      },
+      _metadata: {
+        processingTime,
+        decodedAt: new Date().toISOString(),
+        stage: '5.1-decode',
+        format: extFromFilename(filename),
+        clipping: clippingTotal,
+        dcRemoval: !shouldSkipDcFilter,
+        channelPolicy: 'force_stereo',
+        source: 'file',
+        enforced: { SAMPLE_RATE, CHANNELS, BIT_DEPTH }
+      }
+    };
+
+    logAudio(stage, 'done', {
+      ms: processingTime,
+      meta: {
+        sampleRate: audioData.sampleRate,
+        channels: audioData.numberOfChannels,
+        duration: audioData.duration.toFixed(2),
+        clippingPct: clippingTotal.clippingPct.toFixed(1),
+        source: 'file'
+      }
+    });
+
+    return audioBufferCompatible;
+
+  } catch (error) {
+    const processingTime = Date.now() - start;
+    logAudio(stage, 'error', { code: error.code || 'unknown', message: error.message });
+    if (error.stage === stage) throw error;
+    throw makeErr(stage, `Audio decode from file failed: ${error.message}`, 'decode_file_failed');
   }
 }
 

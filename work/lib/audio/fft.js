@@ -38,7 +38,7 @@ class FastFFT {
       this.cache.set(cacheKey, twiddles);
     }
     
-    // Arrays de saída
+    // Arrays de trabalho (internos — NÃO retornados)
     const real = new Float32Array(signal);
     const imag = new Float32Array(N);
     
@@ -48,16 +48,17 @@ class FastFFT {
     // Iterative FFT
     this.iterativeFFT(real, imag, N, twiddles);
     
-    // Calcular magnitude e fase
-    const magnitude = new Float32Array(N);
-    const phase = new Float32Array(N);
+    // 🧹 MEMORY OPT: Calcular APENAS magnitude (phase/real/imag nunca usados pelo pipeline)
+    // Apenas bins 0..N/2 são únicos (sinal real → simetria hermitiana)
+    const halfN = N >>> 1;
+    const magnitude = new Float32Array(halfN);
     
-    for (let i = 0; i < N; i++) {
+    for (let i = 0; i < halfN; i++) {
       magnitude[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]);
-      phase[i] = Math.atan2(imag[i], real[i]);
     }
     
-    return { real, imag, magnitude, phase };
+    // real e imag saem de escopo aqui → GC pode coletar imediatamente
+    return { magnitude };
   }
 
   /**

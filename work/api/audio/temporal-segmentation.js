@@ -119,19 +119,13 @@ function segmentChannelForFFT(audioData, channelName) {
     const rawFrame = extractFrame(audioData, startSample, FFT_SIZE);
     const windowedFrame = applyWindow(rawFrame, hannWindow);
     
-    // ⚡ CORREÇÃO CRÍTICA: Executar FFT real para obter magnitude e phase
+    // ⚡ FFT: core-metrics usa APENAS magnitude — não reter real/imag/phase
     try {
       const fftResult = fftEngine.fft(windowedFrame);
       
-      // Criar objeto frame com magnitude e phase (como esperado por core-metrics.js)
-      const frameWithFFT = {
-        magnitude: fftResult.magnitude,
-        phase: fftResult.phase,
-        real: fftResult.real,
-        imag: fftResult.imag
-      };
-      
-      frames.push(frameWithFFT);
+      // 🧹 MEMORY OPT: Guardar apenas magnitude (único campo consumido pelo pipeline)
+      // Economia: ~75% da memória FFT (~1.32 GB para 5 min de áudio)
+      frames.push({ magnitude: fftResult.magnitude });
     } catch (fftError) {
       throw makeErr('segmentation', `Erro FFT no frame ${frameIndex} de ${channelName}: ${fftError.message}`, 'fft_calculation_error');
     }
@@ -148,8 +142,7 @@ function segmentChannelForFFT(audioData, channelName) {
  * Segmentar canal para RMS/LUFS com validações
  */
 function segmentChannelForRMS(audioData, channelName) {
-  const frames = [];
-  const rmsValues = []; // ⚡ NOVO: Array para valores RMS calculados
+  const rmsValues = [];
   const totalSamples = audioData.length;
   
   // Calcular número de blocos de forma determinística
@@ -162,40 +155,37 @@ function segmentChannelForRMS(audioData, channelName) {
   for (let blockIndex = 0; blockIndex < numBlocks; blockIndex++) {
     const startSample = blockIndex * RMS_HOP_SAMPLES;
     
-    // Último bloco pode ser menor, mas sempre aplicamos zero-padding
-    const block = extractFrame(audioData, startSample, RMS_BLOCK_SAMPLES);
-    frames.push(block);
-    
-    // ⚡ CORREÇÃO CRÍTICA: Calcular RMS real de cada bloco
+    // 🧹 MEMORY OPT: Calcular RMS inline SEM reter o bloco raw em memória
+    // Economia: ~330 MB para 5 min de áudio (3000 blocos × Float32Array(14400) × 2 canais)
     let sumSquares = 0;
-    for (let i = 0; i < block.length; i++) {
-      sumSquares += block[i] * block[i];
-    }
-    const rmsValue = Math.sqrt(sumSquares / block.length);
+    const endSample = Math.min(startSample + RMS_BLOCK_SAMPLES, totalSamples);
+    const blockLength = endSample - startSample;
     
-    // ✅ DEBUG RMS: Log valores calculados
+    for (let i = startSample; i < endSample; i++) {
+      const sample = audioData[i];
+      sumSquares += sample * sample;
+    }
+    // Zero-padding para o restante do bloco (se último bloco for menor)
+    const rmsValue = Math.sqrt(sumSquares / RMS_BLOCK_SAMPLES);
+    
     if (blockIndex === 0) {
-      console.log(`[DEBUG RMS CALC] Canal ${channelName}, Bloco 0: rmsValue=${rmsValue}, isFinite=${isFinite(rmsValue)}, block.length=${block.length}`);
+      console.log(`[DEBUG RMS CALC] Canal ${channelName}, Bloco 0: rmsValue=${rmsValue}, isFinite=${isFinite(rmsValue)}, blockLength=${blockLength}`);
     }
     
-    // ✅ CORREÇÃO: Aceitar valores RMS reais (incluindo zero para silêncio)
-    // REMOVIDO: lógica de 1e-8 artificial que causava -160 dB
     if (isFinite(rmsValue)) {
-      rmsValues.push(rmsValue);  // Aceita 0, 0.001, 0.05, etc
+      rmsValues.push(rmsValue);
     } else {
-      // Apenas para NaN/Infinity (erro de cálculo), usar zero
       rmsValues.push(0);
     }
   }
   
-  if (frames.length === 0) {
+  if (rmsValues.length === 0) {
     throw makeErr('segmentation', `Nenhum frame RMS gerado para canal ${channelName}`, 'no_rms_frames');
   }
   
-  // ✅ DEBUG RMS: Log valores finais
-  console.log(`[DEBUG RMS FINAL] Canal ${channelName}: frames=${frames.length}, rmsValues=${rmsValues.length}, primeiro RMS=${rmsValues[0]?.toFixed(6)}, último RMS=${rmsValues[rmsValues.length-1]?.toFixed(6)}`);
+  console.log(`[DEBUG RMS FINAL] Canal ${channelName}: rmsValues=${rmsValues.length}, primeiro RMS=${rmsValues[0]?.toFixed(6)}, último RMS=${rmsValues[rmsValues.length-1]?.toFixed(6)}`);
   
-  return { frames, rmsValues }; // ⚡ RETORNAR AMBOS: frames brutos e valores RMS
+  return { rmsValues };
 }
 
 /**
@@ -285,7 +275,7 @@ export function segmentAudioTemporal(audioBufferLike, options = {}) {
 
     // ========= GERAR TIMESTAMPS =========
     const fftTimestamps = generateTimestamps(leftFFTFrames.length, FFT_HOP_SIZE, sampleRate);
-    const rmsTimestamps = generateTimestamps(leftRMSResult.frames.length, RMS_HOP_SAMPLES, sampleRate);
+    const rmsTimestamps = generateTimestamps(leftRMSResult.rmsValues.length, RMS_HOP_SAMPLES, sampleRate);
 
     // ========= RESULTADO ESTRUTURADO =========
     const processingTime = Date.now() - startTime;
@@ -322,14 +312,10 @@ export function segmentAudioTemporal(audioBufferLike, options = {}) {
         }))
       },
 
-      // Frames RMS/LUFS com metadados completos
+      // Frames RMS/LUFS — 🧹 MEMORY OPT: apenas valores escalares, sem blocks raw
       framesRMS: {
-        left: leftRMSResult.rmsValues,  // ⚡ USAR VALORES RMS CALCULADOS 
-        right: rightRMSResult.rmsValues, // ⚡ USAR VALORES RMS CALCULADOS
-        frames: {
-          left: leftRMSResult.frames,   // Frames brutos para LUFS se necessário
-          right: rightRMSResult.frames
-        },
+        left: leftRMSResult.rmsValues,
+        right: rightRMSResult.rmsValues,
         frameSize: RMS_BLOCK_SAMPLES,
         hopSize: RMS_HOP_SAMPLES,
         blockDurationMs: RMS_BLOCK_DURATION_MS,

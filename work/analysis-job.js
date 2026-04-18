@@ -193,17 +193,19 @@ async function processReferenceBase(jobData) {
 
   try {
     localFilePath = await downloadFileFromBucket(fileKey);
-    let fileBuffer = await fs.promises.readFile(localFilePath);
-    console.log(`[ANALYSIS-JOB][REF-BASE] Arquivo: ${fileBuffer.length} bytes`);
+    
+    // 🧹 MEMORY OPT: Obter tamanho do arquivo SEM carregá-lo na RAM
+    const fileStats = fs.statSync(localFilePath);
+    console.log(`[ANALYSIS-JOB][REF-BASE] Arquivo: ${fileStats.size} bytes`);
 
     const t0 = Date.now();
-    const finalJSON = await processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
+    // 🧹 MEMORY OPT: Passar caminho do arquivo — FFmpeg lê do disco direto
+    const finalJSON = await processAudioComplete(null, fileName || 'unknown.wav', {
       jobId,
       mode: 'reference',
       referenceStage: 'base',
+      inputFilePath: localFilePath,
     });
-
-    fileBuffer = null; // liberar imediatamente
 
     const totalMs = Date.now() - t0;
     console.log(`[ANALYSIS-JOB][REF-BASE] Pipeline concluído em ${totalMs}ms`);
@@ -283,19 +285,18 @@ async function processReferenceCompare(jobData) {
 
     // Download e processamento
     localFilePath = await downloadFileFromBucket(fileKey);
-    let fileBuffer = await fs.promises.readFile(localFilePath);
-    console.log(`[ANALYSIS-JOB][REF-COMPARE] Arquivo: ${fileBuffer.length} bytes`);
+    const fileStats = fs.statSync(localFilePath);
+    console.log(`[ANALYSIS-JOB][REF-COMPARE] Arquivo: ${fileStats.size} bytes`);
 
     const t0 = Date.now();
-    const finalJSON = await processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
+    const finalJSON = await processAudioComplete(null, fileName || 'unknown.wav', {
       jobId,
       mode: 'reference',
       referenceStage: 'compare',
       referenceJobId,
-      preloadedReferenceMetrics: baseMetrics
+      preloadedReferenceMetrics: baseMetrics,
+      inputFilePath: localFilePath,
     });
-
-    fileBuffer = null;
 
     const totalMs = Date.now() - t0;
     console.log(`[ANALYSIS-JOB][REF-COMPARE] Pipeline concluído em ${totalMs}ms`);
@@ -447,21 +448,22 @@ async function processGenre(jobData) {
     const downloadStartTime = Date.now();
     localFilePath = await downloadFileFromBucket(fileKey);
     const downloadTime = Date.now() - downloadStartTime;
-    console.log(`[ANALYSIS-JOB][GENRE] ✅ Download em ${downloadTime}ms`);
-
-    // Ler buffer
-    let fileBuffer = await fs.promises.readFile(localFilePath);
-    console.log(`[ANALYSIS-JOB][GENRE] Arquivo: ${fileBuffer.length} bytes`);
+    
+    // 🧹 MEMORY OPT: Obter tamanho SEM carregar na RAM
+    const fileStats = fs.statSync(localFilePath);
+    console.log(`[ANALYSIS-JOB][GENRE] ✅ Download em ${downloadTime}ms (${fileStats.size} bytes)`);
 
     const t0 = Date.now();
 
     // Criar pseudo-job para runPipeline (mantém compatibilidade)
+    // 🧹 MEMORY OPT: Usar _inputFilePath em vez de _buffer — FFmpeg lê do disco
     const pseudoJob = {
       data: {
         ...jobData,
         soundDestination: validSoundDestination,
       },
-      _buffer: fileBuffer,
+      _buffer: null,
+      _inputFilePath: localFilePath,
       _preloadedReferenceMetrics: preloadedReferenceMetrics,
     };
 
@@ -478,9 +480,8 @@ async function processGenre(jobData) {
         if (_timeoutId) clearTimeout(_timeoutId);
       });
 
-    // Liberar buffers
-    fileBuffer = null;
-    pseudoJob._buffer = null;
+    // Liberar referências
+    pseudoJob._inputFilePath = null;
     pseudoJob._preloadedReferenceMetrics = null;
 
     const totalMs = Date.now() - t0;

@@ -1,7 +1,7 @@
 // 🎯 PIPELINE COMPLETO FASES 5.1 - 5.4 - CORRIGIDO
 // Integração completa com tratamento de erros padronizado e fail-fast
 
-import decodeAudioFile from "./audio-decoder.js";              // Fase 5.1
+import decodeAudioFile, { decodeAudioFromFile } from "./audio-decoder.js";              // Fase 5.1
 import { segmentAudioTemporal } from "./temporal-segmentation.js"; // Fase 5.2  
 import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
 import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
@@ -242,6 +242,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   const startTime = Date.now();
   const jobId = options.jobId || 'unknown';
   let tempFilePath = null; // ✅ PATCH 2026-02-23: Garantir cleanup em finally
+  let tempFileOwned = false; // 🧹 MEMORY OPT: se true, pipeline deve deletar o temp file
   let detectedGenre = null; // 🛡️ Escopo global da função para evitar ReferenceError
   let customTargets = null; // 🔧 Declaração antecipada para evitar ReferenceError
 
@@ -311,19 +312,35 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       logAudio('decode', 'start', { fileName, jobId });
       const phase1StartTime = Date.now();
       
-      audioData = await decodeAudioFile(audioBuffer, fileName, { jobId });
+      // 🧹 MEMORY OPT: Se inputFilePath disponível, FFmpeg lê do disco (evita ~100MB na RAM)
+      const inputFilePath = options.inputFilePath || null;
+      
+      if (inputFilePath) {
+        console.log(`🧹 [${jobId.substring(0,8)}] Fase 5.1: decode via ARQUIVO (memory-optimized)`);
+        audioData = await decodeAudioFromFile(inputFilePath, fileName, { jobId });
+        
+        // Usar o arquivo original como tempFile para True Peak (evita reescrever no disco)
+        tempFilePath = inputFilePath;
+        tempFileOwned = false; // NÃO deletar — o caller (analysis-job.js) faz cleanup
+        
+        // audioBuffer pode não existir neste path
+        audioBufferSize = audioBuffer ? audioBuffer.length : 0;
+        audioBuffer = null;
+      } else {
+        // Fallback: modo legado via buffer (para compatibilidade)
+        audioData = await decodeAudioFile(audioBuffer, fileName, { jobId });
+        
+        // Criar arquivo temporário para FFmpeg True Peak
+        tempFilePath = createTempWavFile(audioBuffer, audioData, fileName, jobId);
+        tempFileOwned = true; // Pipeline criou o arquivo — deve deletar
+        
+        audioBufferSize = audioBuffer ? audioBuffer.length : 0;
+        audioBuffer = null; // liberar ~50-150MB imediatamente
+      }
       
       timings.phase1_decode = Date.now() - phase1StartTime;
       console.log(`✅ [${jobId.substring(0,8)}] Fase 5.1 concluída em ${timings.phase1_decode}ms`);
       console.log(`📊 [${jobId.substring(0,8)}] Audio: ${audioData.sampleRate}Hz, ${audioData.numberOfChannels}ch, ${audioData.duration.toFixed(2)}s`);
-      
-      // Criar arquivo temporário para FFmpeg True Peak
-      tempFilePath = createTempWavFile(audioBuffer, audioData, fileName, jobId);
-
-      // 🧹 MEMORY FIX: Capturar tamanho do audioBuffer ANTES de liberar (necessário para metadata na Fase 5.4)
-      // audioBuffer não é mais necessário — foi decodificado para audioData e salvo em tempFilePath
-      audioBufferSize = audioBuffer ? audioBuffer.length : 0;
-      audioBuffer = null; // liberar ~50-150MB imediatamente
 
       // 🔬 [MEM] Ponto 1 — após decode + liberação do audioBuffer original
       logMemoryDelta('pipeline', '1-after-decode', jobId);
@@ -390,16 +407,17 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       throw makeErr('core_metrics', `Core metrics failed: ${error.message}`, 'core_metrics_error');
     }
 
-    // 🧹 MEMORY: segmentedData (frames FFT ~1,35GB) foi consumido por calculateCoreMetrics — liberar
+    // 🧹 MEMORY: segmentedData (frames FFT) foi consumido por calculateCoreMetrics — liberar
     if (segmentedData) {
       if (segmentedData.framesFFT) {
         segmentedData.framesFFT.left   = null;
         segmentedData.framesFFT.right  = null;
         segmentedData.framesFFT.frames = null;
       }
-      if (segmentedData.framesRMS?.frames) {
-        segmentedData.framesRMS.frames.left  = null;
-        segmentedData.framesRMS.frames.right = null;
+      // framesRMS agora contém apenas escalares (sem blocks raw) — nular referências
+      if (segmentedData.framesRMS) {
+        segmentedData.framesRMS.left  = null;
+        segmentedData.framesRMS.right = null;
       }
       if (segmentedData.originalChannels) {
         segmentedData.originalChannels.left  = null;
@@ -1904,7 +1922,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     // Executa SEMPRE: sucesso, erro, throw, return, timeout
     // Previne arquivos órfãos em /temp/ (Railway disco limitado)
     // ============================================================================
-    if (tempFilePath) {
+    if (tempFilePath && tempFileOwned) {
       cleanupTempFile(tempFilePath);
       console.log(`[CLEANUP] ✅ Temp file cleanup executado (finally): ${tempFilePath}`);
     }
@@ -1927,7 +1945,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     // Executa SEMPRE: sucesso, erro, throw, return, timeout
     // Previne arquivos órfãos em /temp/ (Railway disco limitado)
     // ============================================================================
-    if (tempFilePath) {
+    if (tempFilePath && tempFileOwned) {
       cleanupTempFile(tempFilePath);
       console.log(`[CLEANUP] ✅ Temp file cleanup executado (finally): ${tempFilePath}`);
     }
@@ -2866,9 +2884,11 @@ export async function runPipeline(job) {
     throw new Error('[PIPELINE-CRITICAL] genreTargets não carregado');
   }
 
-  const audioBuffer = job._buffer;
-  if (!audioBuffer) {
-    throw new Error('[PIPELINE-CRITICAL] job._buffer não definido — worker deve setar antes de chamar runPipeline');
+  const audioBuffer = job._buffer || null;
+  const inputFilePath = job._inputFilePath || null;
+  
+  if (!audioBuffer && !inputFilePath) {
+    throw new Error('[PIPELINE-CRITICAL] job._buffer ou job._inputFilePath deve ser definido — worker deve setar antes de chamar runPipeline');
   }
 
   const {
@@ -2893,5 +2913,6 @@ export async function runPipeline(job) {
     genreTargets,
     planContext: planContext || null,
     soundDestination,
+    inputFilePath,
   });
 }
