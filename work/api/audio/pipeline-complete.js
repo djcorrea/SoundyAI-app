@@ -270,7 +270,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   debugLog('=====================================================\n\n');
   
   debugLog(`🚀 [${jobId.substring(0,8)}] Iniciando pipeline completo para: ${fileName}`);
-  debugLog(`📊 [${jobId.substring(0,8)}] Buffer size: ${audioBuffer.length} bytes`);
+  debugLog(`📊 [${jobId.substring(0,8)}] Buffer size: ${audioBuffer != null ? audioBuffer.length + ' bytes' : 'N/A (file path mode)'}`);
   debugLog(`🔧 [${jobId.substring(0,8)}] Opções:`, options);
   
   // 🔥 LOG OBRIGATÓRIO: ENTRADA DO PIPELINE
