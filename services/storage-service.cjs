@@ -21,14 +21,22 @@ const path = require('path');
 const logger = createServiceLogger('StorageService');
 
 // =============================================================================
-// CONFIGURAÇÃO
+// CONFIGURAÇÃO (lida dinamicamente — nunca congelada no require())
 // =============================================================================
 
-const B2_ENDPOINT = process.env.B2_ENDPOINT;
-const B2_KEY_ID = process.env.B2_KEY_ID;
-const B2_APP_KEY = process.env.B2_APP_KEY;
-const B2_BUCKET_NAME = process.env.B2_BUCKET_NAME;
-const B2_DOWNLOAD_URL = process.env.B2_DOWNLOAD_URL;
+/**
+ * Lê as env vars B2 no momento da chamada, nunca no module load.
+ * Garante que dotenv e Railway têm tempo de popular process.env antes do uso real.
+ */
+function getConfig() {
+  return {
+    endpoint:    process.env.B2_ENDPOINT,
+    keyId:       process.env.B2_KEY_ID,
+    appKey:      process.env.B2_APP_KEY,
+    bucket:      process.env.B2_BUCKET_NAME,
+    downloadUrl: process.env.B2_DOWNLOAD_URL,
+  };
+}
 
 // =============================================================================
 // CLIENTE B2 (lazy — require do AWS SDK ocorre apenas aqui, na 1ª chamada real)
@@ -39,13 +47,15 @@ let _S3Client, _PutObjectCommand, _GetObjectCommand, _DeleteObjectCommand, _getS
 
 function getClient() {
   if (!_client) {
+    const cfg = getConfig();
+
     // Validação de env vars adiada para o momento de uso real
     const missing = [];
-    if (!B2_ENDPOINT) missing.push('B2_ENDPOINT');
-    if (!B2_KEY_ID) missing.push('B2_KEY_ID');
-    if (!B2_APP_KEY) missing.push('B2_APP_KEY');
-    if (!B2_BUCKET_NAME) missing.push('B2_BUCKET_NAME');
-    if (!B2_DOWNLOAD_URL) missing.push('B2_DOWNLOAD_URL');
+    if (!cfg.endpoint)    missing.push('B2_ENDPOINT');
+    if (!cfg.keyId)       missing.push('B2_KEY_ID');
+    if (!cfg.appKey)      missing.push('B2_APP_KEY');
+    if (!cfg.bucket)      missing.push('B2_BUCKET_NAME');
+    if (!cfg.downloadUrl) missing.push('B2_DOWNLOAD_URL');
 
     if (missing.length > 0) {
       throw new Error(`Backblaze B2 configuration missing: ${missing.join(', ')}`);
@@ -61,16 +71,21 @@ function getClient() {
       _getSignedUrl = require('@aws-sdk/s3-request-presigner').getSignedUrl;
     }
 
+    logger.info(
+      { endpoint: cfg.endpoint?.substring(0, 60), bucket: cfg.bucket, hasKey: !!cfg.keyId },
+      '[STORAGE] B2 client criando...'
+    );
+
     _client = new _S3Client({
       region: 'us-east-005',
-      endpoint: B2_ENDPOINT,
+      endpoint: cfg.endpoint,
       credentials: {
-        accessKeyId: B2_KEY_ID,
-        secretAccessKey: B2_APP_KEY
+        accessKeyId: cfg.keyId,
+        secretAccessKey: cfg.appKey
       }
     });
 
-    logger.info({ endpoint: B2_ENDPOINT, bucket: B2_BUCKET_NAME }, 'Backblaze B2 client initialized (lazy)');
+    logger.info({ endpoint: cfg.endpoint, bucket: cfg.bucket }, 'Backblaze B2 client initialized (lazy)');
   }
   return _client;
 }
@@ -89,9 +104,10 @@ function getClient() {
  */
 async function uploadFile(key, buffer, contentType = 'audio/wav') {
   try {
-    const client = getClient(); // garante que _PutObjectCommand está carregado
+    const client = getClient(); // garante que _PutObjectCommand está carregado e envs validadas
+    const bucket = process.env.B2_BUCKET_NAME;
     const command = new _PutObjectCommand({
-      Bucket: B2_BUCKET_NAME,
+      Bucket: bucket,
       Key: key,
       Body: buffer,
       ContentType: contentType
@@ -113,8 +129,10 @@ async function uploadFile(key, buffer, contentType = 'audio/wav') {
  * @returns {Promise<Buffer>} Conteúdo do arquivo
  */
 async function downloadFile(key) {
-  const baseUrl = B2_DOWNLOAD_URL.replace(/\/$/, '');
-  const url = `${baseUrl}/file/${B2_BUCKET_NAME}/${key}`;
+  const downloadUrl = process.env.B2_DOWNLOAD_URL;
+  const bucket = process.env.B2_BUCKET_NAME;
+  const baseUrl = (downloadUrl || '').replace(/\/$/, '');
+  const url = `${baseUrl}/file/${bucket}/${key}`;
 
   console.log('[B2 URL]', url);
   console.log('[INPUT KEY]', key);
@@ -146,9 +164,9 @@ async function downloadFile(key) {
  */
 async function getFileStream(key) {
   try {
-    const client = getClient(); // garante que _GetObjectCommand está carregado
+    const client = getClient(); // garante que _GetObjectCommand está carregado e envs validadas
     const command = new _GetObjectCommand({
-      Bucket: B2_BUCKET_NAME,
+      Bucket: process.env.B2_BUCKET_NAME,
       Key: key
     });
     const response = await client.send(command);
@@ -176,7 +194,7 @@ async function getFileStream(key) {
 async function generateSignedUrl(key, expiresInSeconds = 300, filename = null) {
   try {
     const commandParams = {
-      Bucket: B2_BUCKET_NAME,
+      Bucket: process.env.B2_BUCKET_NAME,
       Key: key,
     };
 
@@ -206,9 +224,9 @@ async function generateSignedUrl(key, expiresInSeconds = 300, filename = null) {
  */
 async function deleteFile(key) {
   try {
-    const client = getClient(); // garante que _DeleteObjectCommand está carregado
+    const client = getClient(); // garante que _DeleteObjectCommand está carregado e envs validadas
     const command = new _DeleteObjectCommand({
-      Bucket: B2_BUCKET_NAME,
+      Bucket: process.env.B2_BUCKET_NAME,
       Key: key
     });
 
