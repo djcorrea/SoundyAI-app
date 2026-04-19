@@ -82,6 +82,8 @@ const criticalVars = {
   'B2_KEY_ID': process.env.B2_KEY_ID,
   'B2_APP_KEY': process.env.B2_APP_KEY,
   'B2_BUCKET_NAME': process.env.B2_BUCKET_NAME,
+  'B2_ENDPOINT': process.env.B2_ENDPOINT,
+  'B2_DOWNLOAD_URL': process.env.B2_DOWNLOAD_URL,
 };
 
 let hasErrors = false;
@@ -2111,6 +2113,15 @@ app.listen(PORT, async () => {
     console.log('[INLINE-WORKER] Iniciando worker AutoMaster:', workerPath);
 
     function spawnWorker() {
+      // [ENV AUDIT] Confirmar vars B2 no momento do spawn — valor real herdado pelo worker
+      console.log('[ENV SERVER] B2 env vars no spawn:', {
+        B2_ENDPOINT:    process.env.B2_ENDPOINT    || '(undefined)',
+        B2_BUCKET_NAME: process.env.B2_BUCKET_NAME || '(undefined)',
+        B2_KEY_ID:      process.env.B2_KEY_ID      ? '(set)' : '(undefined)',
+        B2_APP_KEY:     process.env.B2_APP_KEY     ? '(set)' : '(undefined)',
+        B2_DOWNLOAD_URL: process.env.B2_DOWNLOAD_URL || '(undefined)',
+      });
+
       const workerProc = spawn(process.execPath, [workerPath], {
         env: process.env,
         stdio: 'inherit' // compartilha stdout/stderr com o servidor (visível nos logs do Railway)

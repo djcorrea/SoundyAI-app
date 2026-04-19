@@ -23,12 +23,9 @@ const logger = createServiceLogger('StorageService');
 // =============================================================================
 // CONFIGURAÇÃO
 // =============================================================================
-
-const B2_ENDPOINT = process.env.B2_ENDPOINT;
-const B2_KEY_ID = process.env.B2_KEY_ID;
-const B2_APP_KEY = process.env.B2_APP_KEY;
-const B2_BUCKET_NAME = process.env.B2_BUCKET_NAME;
-const B2_DOWNLOAD_URL = process.env.B2_DOWNLOAD_URL;
+// NOTA: as variáveis B2_* são lidas DIRETAMENTE de process.env no momento de uso,
+// dentro de getClient() e de cada função. NÃO são cacheadas aqui.
+// Isso garante que o valor correto seja usado mesmo em processos filhos (spawn/fork).
 
 // =============================================================================
 // CLIENTE B2 (lazy — require do AWS SDK ocorre apenas aqui, na 1ª chamada real)

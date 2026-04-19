@@ -1,4 +1,14 @@
 require('dotenv').config();
+
+// [ENV WORKER] Log imediato de boot — confirma se env vars B2 chegaram ao processo filho
+console.log('[ENV WORKER] B2 env vars no boot do worker:', {
+  B2_ENDPOINT:     process.env.B2_ENDPOINT    || '(undefined)',
+  B2_BUCKET_NAME:  process.env.B2_BUCKET_NAME || '(undefined)',
+  B2_KEY_ID:       process.env.B2_KEY_ID      ? '(set)' : '(undefined)',
+  B2_APP_KEY:      process.env.B2_APP_KEY     ? '(set)' : '(undefined)',
+  B2_DOWNLOAD_URL: process.env.B2_DOWNLOAD_URL || '(undefined)',
+});
+
 const { Pool } = require('pg');
 
 // ============================================================================
