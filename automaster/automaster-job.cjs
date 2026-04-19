@@ -4,18 +4,15 @@
  *
  * Responsabilidades:
  *   1. Receber dados do job via IPC (process.on('message'))
- *   2. Executar runMasterPipeline() DIRETAMENTE (sem execFile intermediário)
+ *   2. Executar master-pipeline.cjs em subprocess filho
  *   3. Retornar resultado ao worker pai via process.send()
  *   4. Encerrar com process.exit(0) — libera toda a memória ao OS
  *
- * Arquitetura:
- *   worker → fork(automaster-job) → runMasterPipeline() → [execFile DSP scripts] → FFmpeg
- *
- *   1 job = 1 processo filho.
- *   master-pipeline.cjs é carregado neste processo e chama os scripts DSP
- *   (measure-audio, check-aptitude, run-automaster, etc.) via execFile — isso é
- *   necessário pois cada script DSP é stateless e encerra sozinho.
- *   Ao encerrar este processo (process.exit), o OS recupera TODO o heap V8.
+ * Por que fork em vez de execFile direto no worker?
+ *   - IPC é mais confiável que parsing de JSON do stdout
+ *   - Permite futuras atualizações de progresso bidirecionais
+ *   - Isolamento claro: este processo carrega APENAS o necessário
+ *   - Ao encerrar, o OS recupera TODO o heap (V8 + FFmpeg child procs)
  *
  * Uso: chamado exclusivamente via fork() pelo automaster-worker.cjs
  *   NÃO executar diretamente na linha de comando.
@@ -25,29 +22,78 @@
 
 require('dotenv').config();
 
-// Importação direta — elimina o processo intermediário master-pipeline Node.js
-const { runMasterPipeline } = require('./master-pipeline.cjs');
+const { execFile } = require('child_process');
+const path = require('path');
 
 // ============================================================================
-// HANDLERS DE ERROS NÃO CAPTURADOS — garantem que o processo sempre responde
+// CONSTANTES
 // ============================================================================
 
-process.on('uncaughtException', (err) => {
-  console.error('[automaster-job] uncaughtException:', err.message);
-  try {
-    process.send({ success: false, error: err.message, code: 'UNCAUGHT_EXCEPTION' });
-  } catch (_) {}
-  process.exit(1);
-});
+const MASTER_PIPELINE_SCRIPT = path.resolve(__dirname, 'master-pipeline.cjs');
 
-process.on('unhandledRejection', (reason) => {
-  const msg = reason instanceof Error ? reason.message : String(reason);
-  console.error('[automaster-job] unhandledRejection:', msg);
-  try {
-    process.send({ success: false, error: msg, code: 'UNHANDLED_REJECTION' });
-  } catch (_) {}
-  process.exit(1);
-});
+// Timeout maior que o timeout interno do run-automaster.cjs (660000ms = 11min)
+// Garante que o execFile externo não mate o processo antes do pipeline terminar
+const PIPELINE_EXEC_TIMEOUT_MS = 720000; // 12 minutos
+
+// ============================================================================
+// EXECUÇÃO DO PIPELINE
+// ============================================================================
+
+/**
+ * Chama master-pipeline.cjs como child process e parseia o JSON do stdout.
+ * Interface de retorno compatível com o que o worker espera:
+ *   { pipelineResult: Object, stdout: string, stderr: string }
+ *
+ * @param {string} inputPath   - Caminho absoluto do WAV de entrada
+ * @param {string} outputPath  - Caminho absoluto do WAV de saída
+ * @param {string} mode        - Modo DSP (STREAMING|LOW|MEDIUM|HIGH|EXTREME)
+ * @param {string[]} flags     - Flags opcionais (ex: ['--safe-mode'])
+ * @returns {Promise<{ pipelineResult: Object, stdout: string, stderr: string }>}
+ */
+function runPipeline(inputPath, outputPath, mode, flags) {
+  return new Promise((resolve, reject) => {
+    execFile(
+      'node',
+      [MASTER_PIPELINE_SCRIPT, inputPath, outputPath, mode, ...flags],
+      {
+        timeout: PIPELINE_EXEC_TIMEOUT_MS,
+        maxBuffer: 10 * 1024 * 1024, // 10 MB
+        killSignal: 'SIGTERM',
+        encoding: 'utf8',
+      },
+      (error, stdout, stderr) => {
+        // Repassar stderr ao processo pai (aparece nos logs do Railway)
+        if (stderr && stderr.trim()) {
+          process.stderr.write(
+            `[automaster-job] pipeline stderr: ${stderr.trim().substring(0, 2000)}\n`
+          );
+        }
+
+        // stdout com JSON válido tem prioridade sobre exit code
+        // Exit code não-zero pode ser intencional (ex: ABORT_UNSAFE_INPUT, NOT_APT)
+        const rawOut = stdout && stdout.trim();
+        if (rawOut) {
+          const lines = rawOut.split('\n');
+          const lastLine = lines[lines.length - 1];
+
+          try {
+            const result = JSON.parse(lastLine);
+            return resolve({
+              pipelineResult: result,
+              stdout: rawOut,
+              stderr: stderr ? stderr.trim() : '',
+            });
+          } catch (_parseErr) {
+            // stdout existe mas JSON inválido — cair para o reject abaixo
+          }
+        }
+
+        if (error) return reject(error);
+        reject(new Error('master-pipeline retornou saída vazia'));
+      }
+    );
+  });
+}
 
 // ============================================================================
 // ENTRY POINT — recebe dados via IPC, roda pipeline, envia resultado, encerra
@@ -68,23 +114,12 @@ process.on('message', async (jobData) => {
       throw new Error('automaster-job: mode ausente ou inválido');
     }
 
-    // Chamar pipeline DIRETAMENTE — sem execFile intermediário
-    // runMasterPipeline retorna JS object; não há parsing de JSON de stdout
-    const pipelineResult = await runMasterPipeline({
-      inputPath,
-      outputPath,
-      mode,
-      safeMode,
-    });
+    const flags = safeMode ? ['--safe-mode'] : [];
 
-    // Sucesso — retornar resultado ao worker pai com interface compatível
-    // { pipelineResult, stdout, stderr } — mesmo shape que o worker espera
-    process.send({
-      success: true,
-      pipelineResult,
-      stdout: '',  // não aplicável na chamada direta
-      stderr: '',  // não aplicável na chamada direta
-    });
+    const result = await runPipeline(inputPath, outputPath, mode, flags);
+
+    // Sucesso — retornar resultado ao worker pai
+    process.send({ success: true, ...result });
 
   } catch (error) {
     // Falha — retornar erro estruturado ao worker pai
