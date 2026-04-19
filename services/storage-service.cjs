@@ -122,6 +122,15 @@ function getClient() {
  * @returns {Promise<string>} Key do objeto no storage
  */
 async function uploadFile(key, buffer, contentType = 'audio/wav') {
+  // [UPLOAD PROCESS] Qual processo está chamando uploadFile?
+  // input/ = server.js (upload do usuário antes de enfileirar) — IS_AUTOMASTER_WORKER = undefined
+  // output/ preview/ = queue/automaster-worker.cjs — IS_AUTOMASTER_WORKER = 'true'
+  console.error('[UPLOAD PROCESS]', {
+    pid: process.pid,
+    isWorker: process.env.IS_AUTOMASTER_WORKER || 'false',
+    key,
+    file: __filename,
+  });
   console.error('[UPLOAD FUNCTION EXECUTING]', { key, contentType, bufferSize: buffer?.length ?? 'null' });
   // Logging diagnóstico completo — expõe EXATAMENTE o que está disponível
   console.error('[STORAGE AUDIT] uploadFile()', {

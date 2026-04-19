@@ -1,5 +1,9 @@
 require('dotenv').config();
 
+// [WORKER IDENTITY] Marcar este processo como worker de automaster
+// Permite distinguir uploads de INPUT (server.js) de uploads de OUTPUT (este worker)
+process.env.IS_AUTOMASTER_WORKER = 'true';
+
 // [BOOT] Log IMEDIATO de boot — console.error bypassa qualquer supressão
 console.error('[BOOT]', { file: __filename, pid: process.pid, entrypoint: 'queue/automaster-worker.cjs' });
 
