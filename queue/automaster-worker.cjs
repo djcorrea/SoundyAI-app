@@ -501,12 +501,42 @@ async function processJob(job) {
     }
 
     // 8. Upload output para storage (90%)
+    // FAILSAFE: se o upload falhar, o job NÃO é descartado — o DSP já processou com sucesso.
+    // O status é marcado como 'upload_failed' para que o usuário seja notificado
+    // e o sistema possa retentar o upload sem reprocessar o áudio.
     await job.updateProgress(90);
     await jobStore.updateProgress(jobId, 90);
     console.log('[PIPELINE] Step 3: upload start', { source: isolatedOutput, jobId });
-    const outputKey = await storageService.uploadOutput(isolatedOutput, jobId);
-    console.log('[PIPELINE] Step 3: upload ok', { outputKey });
-    jobLogger.info({ outputKey }, 'Output enviado ao storage');
+
+    let outputKey;
+    let uploadFailed = false;
+    let uploadError = null;
+    try {
+      outputKey = await storageService.uploadOutput(isolatedOutput, jobId);
+      console.log('[PIPELINE] Step 3: upload ok', { outputKey });
+      jobLogger.info({ outputKey }, 'Output enviado ao storage');
+    } catch (uploadErr) {
+      // Upload falhou — mas o arquivo DSP existe localmente ainda (cleanup só ocorre no step 9)
+      uploadFailed = true;
+      uploadError = uploadErr;
+      jobLogger.error(
+        { error: uploadErr.message, isolatedOutput },
+        'UPLOAD FAILED — DSP completou com sucesso mas storage upload falhou'
+      );
+      console.error('[PIPELINE] Step 3: upload FAILED:', uploadErr.message);
+
+      // Marcar como upload_failed no Redis para diagnóstico e possível retry manual
+      await jobStore.updateJobStatus(jobId, 'upload_failed', {
+        error_code: 'UPLOAD_FAILED',
+        error_message: uploadErr.message.substring(0, 500),
+        dsp_completed: '1',         // confirma que o DSP foi bem-sucedido
+        local_path: isolatedOutput, // path temporário (será limpo pelo cleanup)
+        progress: 90,
+      });
+
+      // Re-lançar para que BullMQ faça retry do job completo
+      throw new Error(`Upload para storage falhou após DSP OK: ${uploadErr.message}`);
+    }
 
     // 8b. Gerar preview 60s MP3 para exibição no modal (não crítico — não bloqueia entrega)
     let previewAfterKey = null;

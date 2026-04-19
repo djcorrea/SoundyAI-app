@@ -31,6 +31,55 @@ const B2_BUCKET_NAME = process.env.B2_BUCKET_NAME;
 const B2_DOWNLOAD_URL = process.env.B2_DOWNLOAD_URL;
 
 // =============================================================================
+// HELPERS DE VALIDAÇÃO
+// =============================================================================
+
+/**
+ * Normaliza o endpoint B2: garante protocolo https:// e remove trailing slash.
+ * Causa raiz do "Invalid URL": o AWS SDK v3 faz `new URL(endpoint)` internamente.
+ * Se o endpoint não tiver protocolo (ex: "s3.us-east-005.backblazeb2.com"),
+ * new URL() lança "Invalid URL". Esse helper corrige silenciosamente.
+ *
+ * @param {string} endpoint
+ * @returns {string} endpoint normalizado
+ */
+function normalizeEndpoint(endpoint) {
+  if (!endpoint || typeof endpoint !== 'string') return endpoint;
+  const trimmed = endpoint.trim().replace(/\/+$/, ''); // remove trailing slashes
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
+/**
+ * Valida se uma string é uma URL absoluta válida.
+ * @param {string} url
+ * @returns {{ valid: boolean, error?: string }}
+ */
+function validateUrl(url) {
+  try {
+    new URL(url);
+    return { valid: true };
+  } catch (e) {
+    return { valid: false, error: e.message };
+  }
+}
+
+/**
+ * Sanitiza uma storage key: remove barras iniciais e caracteres problemáticos.
+ * @param {string} key
+ * @returns {string}
+ */
+function sanitizeKey(key) {
+  if (!key || typeof key !== 'string') return key;
+  return key
+    .replace(/^\/+/, '')        // remove barras iniciais
+    .replace(/\s+/g, '_')       // substitui espaços por underscore
+    .replace(/[^\w.\-/]/g, '_'); // mantém apenas alfanum, ponto, hífen, barra
+}
+
+// =============================================================================
 // CLIENTE B2 (lazy — require do AWS SDK ocorre apenas aqui, na 1ª chamada real)
 // =============================================================================
 
@@ -51,6 +100,17 @@ function getClient() {
       throw new Error(`Backblaze B2 configuration missing: ${missing.join(', ')}`);
     }
 
+    // Normalizar endpoint: garante https:// e sem trailing slash
+    // FIX "Invalid URL": o AWS SDK v3 faz new URL(endpoint) internamente.
+    // Se B2_ENDPOINT não tiver protocolo, lança "Invalid URL" no client.send().
+    const normalizedEndpoint = normalizeEndpoint(B2_ENDPOINT);
+    const endpointCheck = validateUrl(normalizedEndpoint);
+    if (!endpointCheck.valid) {
+      throw new Error(
+        `B2_ENDPOINT inválido após normalização: "${B2_ENDPOINT}" → "${normalizedEndpoint}": ${endpointCheck.error}`
+      );
+    }
+
     // Carregar AWS SDK v3 somente aqui (lazy) — ~15-20MB economizados no idle
     if (!_S3Client) {
       const s3Pkg = require('@aws-sdk/client-s3');
@@ -63,14 +123,21 @@ function getClient() {
 
     _client = new _S3Client({
       region: 'us-east-005',
-      endpoint: B2_ENDPOINT,
+      endpoint: normalizedEndpoint,
+      // CRÍTICO para Backblaze B2: o SDK usa virtual-hosted por padrão
+      // (https://{bucket}.{host}/{key}), mas B2 exige path-style
+      // (https://{host}/{bucket}/{key}). Sem isso, a URL construída falha.
+      forcePathStyle: true,
       credentials: {
         accessKeyId: B2_KEY_ID,
         secretAccessKey: B2_APP_KEY
       }
     });
 
-    logger.info({ endpoint: B2_ENDPOINT, bucket: B2_BUCKET_NAME }, 'Backblaze B2 client initialized (lazy)');
+    logger.info(
+      { endpoint: normalizedEndpoint, bucket: B2_BUCKET_NAME },
+      'Backblaze B2 client initialized (lazy, forcePathStyle=true)'
+    );
   }
   return _client;
 }
@@ -88,22 +155,72 @@ function getClient() {
  * @returns {Promise<string>} Key do objeto no storage
  */
 async function uploadFile(key, buffer, contentType = 'audio/wav') {
-  try {
-    const client = getClient(); // garante que _PutObjectCommand está carregado
-    const command = new _PutObjectCommand({
-      Bucket: B2_BUCKET_NAME,
-      Key: key,
-      Body: buffer,
-      ContentType: contentType
-    });
+  const safeKey = sanitizeKey(key);
 
-    await client.send(command);
-    logger.info({ key, size: buffer.length, contentType }, 'File uploaded');
-    return key;
-  } catch (error) {
-    logger.error({ key, error: error.message }, 'Upload failed');
-    throw new Error(`B2 upload failed: ${error.message}`);
+  // Log estruturado ANTES do upload — visível nos logs do Railway
+  const debugCtx = {
+    endpoint: normalizeEndpoint(B2_ENDPOINT) || '(undefined)',
+    bucket: B2_BUCKET_NAME || '(undefined)',
+    key: safeKey,
+    size: buffer ? buffer.length : 0,
+    contentType,
+  };
+  console.log('[UPLOAD DEBUG]', JSON.stringify(debugCtx));
+  logger.info(debugCtx, 'Starting B2 upload');
+
+  const MAX_ATTEMPTS = 3;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const client = getClient(); // inicializa SDK + valida endpoint
+      const command = new _PutObjectCommand({
+        Bucket: B2_BUCKET_NAME,
+        Key: safeKey,
+        Body: buffer,
+        ContentType: contentType,
+      });
+
+      await client.send(command);
+      logger.info({ key: safeKey, size: buffer.length, contentType, attempt }, 'File uploaded successfully');
+      return safeKey;
+
+    } catch (error) {
+      lastError = error;
+      logger.warn(
+        { key: safeKey, endpoint: debugCtx.endpoint, bucket: debugCtx.bucket, attempt, error: error.message },
+        `Upload attempt ${attempt}/${MAX_ATTEMPTS} failed`
+      );
+      console.error(`[UPLOAD ERROR] attempt=${attempt}/${MAX_ATTEMPTS} key="${safeKey}" endpoint="${debugCtx.endpoint}" bucket="${debugCtx.bucket}" error="${error.message}"`);
+
+      // Não retentar em caso de erros permanentes (configuração inválida)
+      const isPermanent = (
+        error.message.includes('Invalid URL') ||
+        error.message.includes('configuration missing') ||
+        error.message.includes('credentials') ||
+        error.message.includes('B2_ENDPOINT inválido')
+      );
+      if (isPermanent) {
+        logger.error(
+          { key: safeKey, endpoint: debugCtx.endpoint, error: error.message },
+          'Upload falhou com erro permanente — sem retry'
+        );
+        break; // sai do loop, vai para o throw abaixo
+      }
+
+      // Backoff exponencial: 1s, 2s (não espera na última tentativa)
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise(r => setTimeout(r, attempt * 1000));
+      }
+    }
   }
+
+  // Todas as tentativas falharam — lançar erro detalhado
+  throw new Error(
+    `B2 upload failed após ${MAX_ATTEMPTS} tentativas` +
+    ` [endpoint="${debugCtx.endpoint}" bucket="${debugCtx.bucket}" key="${safeKey}"]: ` +
+    lastError.message
+  );
 }
 
 /**
@@ -245,7 +362,15 @@ async function uploadInput(fileBuffer, jobId) {
  */
 async function uploadOutput(filePath, jobId) {
   const key = `output/${jobId}_master.wav`;
-  const buffer = await fs.readFile(filePath);
+
+  // Ler arquivo local — falha aqui indica problema no pipeline, não no storage
+  let buffer;
+  try {
+    buffer = await fs.readFile(filePath);
+  } catch (readError) {
+    throw new Error(`uploadOutput: falha ao ler arquivo local "${filePath}": ${readError.message}`);
+  }
+
   return uploadFile(key, buffer, 'audio/wav');
 }
 
