@@ -44,7 +44,7 @@ workerPool.on('error', (err) => {
  */
 
 const { Worker } = require('bullmq');
-const { execFile, fork } = require('child_process');
+const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
@@ -68,10 +68,7 @@ const logger = createServiceLogger('automaster-worker');
 
 const WORKER_CONCURRENCY = parseInt(process.env.AUTOMASTER_CONCURRENCY || '1', 10);
 const TIMEOUT_MS = 300000; // 300 segundos (5 minutos) - aumentado para áudios longos
-// 🏗️ ARCH OPT: fork-per-job em vez de execFile — processo isolado, memória liberada após cada job
-const AUTOMASTER_JOB_SCRIPT = path.resolve(__dirname, '../automaster/automaster-job.cjs');
-// Timeout do fork = timeout máximo do pipeline interno (11min) + 60s margem
-const JOB_FORK_TIMEOUT_MS = 720000; // 12 minutos
+const MASTER_PIPELINE_SCRIPT = path.resolve(__dirname, '../automaster/master-pipeline.cjs');
 const TMP_BASE_DIR = path.resolve(__dirname, '../tmp');
 
 const JOB_ID_REGEX = /^[a-zA-Z0-9_-]+$/;
@@ -150,90 +147,66 @@ async function cleanupJobWorkspace(jobId) {
 }
 
 // ============================================================================
-// EXECUÇÃO DO PIPELINE (via fork — processo isolado com IPC)
-// 🏗️ NOVA ARQUITETURA: cada job roda em processo filho próprio.
-//    Ao encerrar (process.exit(0)), o OS recupera TODO o heap daquele job.
-//    Sem acúmulo de memória entre execuções.
+// EXECUÇÃO DO PIPELINE
 // ============================================================================
 
 async function executePipeline(isolatedInput, isolatedOutput, mode, jobLogger, safeMode = false) {
-  jobLogger.info({ mode, safeMode }, 'Forking automaster-job (processo isolado por job)');
+  jobLogger.info({ mode, safeMode }, 'Executando pipeline');
+
+  const pipelineFlags = [];
+  if (safeMode) pipelineFlags.push('--safe-mode');
 
   return new Promise((resolve, reject) => {
-    // fork() cria processo Node.js filho com canal IPC pré-configurado
-    const child = fork(AUTOMASTER_JOB_SCRIPT, [], {
-      env: process.env,
-      silent: false, // herda stderr/stdout — logs aparecem diretamente no Railway
-    });
+    execFile(
+      'node',
+      [MASTER_PIPELINE_SCRIPT, isolatedInput, isolatedOutput, mode, ...pipelineFlags],
+      {
+        timeout: TIMEOUT_MS,
+        maxBuffer: 10 * 1024 * 1024,
+        killSignal: 'SIGTERM',
+        encoding: 'utf8'
+      },
+      (error, stdout, stderr) => {
+        // Logar stderr para diagnóstico (sem bloquear o fluxo)
+        if (stderr && stderr.trim()) {
+          jobLogger.info({ stderr: stderr.trim().substring(0, 2000) }, 'Pipeline stderr (diagnóstico)');
+        }
 
-    let settled = false;
-    let safetyTimer = null;
+        // stdout com JSON válido tem prioridade sobre exit code
+        // Exit code não-zero pode ser intencional (ex.: ABORT_UNSAFE_INPUT)
+        const rawOut = stdout && stdout.trim();
+        if (rawOut) {
+          const lines = rawOut.split('\n');
+          const lastLine = lines[lines.length - 1];
 
-    function settle(result) {
-      if (!settled) {
-        settled = true;
-        if (safetyTimer) clearTimeout(safetyTimer);
-        resolve(result);
+          jobLogger.info({
+            totalLines: lines.length,
+            lastLinePreview: lastLine.substring(0, 100)
+          }, 'Pipeline output received');
+
+          try {
+            const result = JSON.parse(lastLine);
+            return resolve({
+              pipelineResult: result,
+              stdout: rawOut,
+              stderr: stderr ? stderr.trim() : ''
+            });
+          } catch (parseErr) {
+            jobLogger.error({ lastLine }, 'Failed to parse pipeline JSON');
+            // Cair no reject abaixo
+          }
+        }
+
+        // Sem stdout ou JSON inválido: aí sim reportar o erro real
+        if (error) {
+          jobLogger.error({ error: error.message, code: error.code, stderr }, 'Pipeline execution failed');
+          return reject(error);
+        }
+
+        jobLogger.error({ stdout, stderr }, 'Pipeline returned empty stdout');
+        return reject(new Error('Pipeline returned empty output'));
       }
-    }
-
-    function fail(err) {
-      if (!settled) {
-        settled = true;
-        if (safetyTimer) clearTimeout(safetyTimer);
-        reject(err);
-      }
-    }
-
-    // Timeout de segurança — garante que o fork não fica pendurado para sempre
-    // O pipeline interno já tem seu próprio timeout (11min); este é a última defesa
-    safetyTimer = setTimeout(() => {
-      jobLogger.error({ mode }, `automaster-job TIMEOUT após ${JOB_FORK_TIMEOUT_MS / 1000}s — matando processo filho`);
-      try { child.kill('SIGTERM'); } catch (_) {}
-      setTimeout(() => { try { child.kill('SIGKILL'); } catch (_) {} }, 5000);
-      fail(new Error(`automaster-job timeout (${JOB_FORK_TIMEOUT_MS / 1000}s)`));
-    }, JOB_FORK_TIMEOUT_MS);
-
-    // Não impedir que o worker encerre caso apenas o timer esteja ativo
-    if (safetyTimer.unref) safetyTimer.unref();
-
-    // Enviar dados do job imediatamente — IPC bufferiza até o filho estar pronto
-    child.send({
-      inputPath: isolatedInput,
-      outputPath: isolatedOutput,
-      mode,
-      safeMode,
-    });
-
-    child.on('message', (msg) => {
-      if (!msg) return;
-
-      if (msg.success === true) {
-        jobLogger.info({
-          pipelineStatus: msg.pipelineResult && msg.pipelineResult.status,
-          pipelineSuccess: msg.pipelineResult && msg.pipelineResult.success,
-        }, 'automaster-job retornou sucesso via IPC');
-        settle({
-          pipelineResult: msg.pipelineResult,
-          stdout: msg.stdout || '',
-          stderr: msg.stderr || '',
-        });
-      } else if (msg.success === false) {
-        jobLogger.error({ error: msg.error, code: msg.code }, 'automaster-job retornou falha via IPC');
-        fail(new Error(msg.error || 'automaster-job retornou falha sem mensagem de erro'));
-      }
-    });
-
-    child.on('exit', (code, signal) => {
-      // Se resultado já foi resolvido (settled=true), exit é esperado — ignorar
-      // Caso contrário: processo saiu antes de enviar resultado = erro
-      fail(new Error(`automaster-job encerrou inesperadamente (code=${code}, signal=${signal})`));
-    });
-
-    child.on('error', (err) => {
-      jobLogger.error({ error: err.message }, 'Erro ao criar/comunicar com automaster-job');
-      fail(err);
-    });
+    );
   });
 }
 
@@ -501,42 +474,12 @@ async function processJob(job) {
     }
 
     // 8. Upload output para storage (90%)
-    // FAILSAFE: se o upload falhar, o job NÃO é descartado — o DSP já processou com sucesso.
-    // O status é marcado como 'upload_failed' para que o usuário seja notificado
-    // e o sistema possa retentar o upload sem reprocessar o áudio.
     await job.updateProgress(90);
     await jobStore.updateProgress(jobId, 90);
     console.log('[PIPELINE] Step 3: upload start', { source: isolatedOutput, jobId });
-
-    let outputKey;
-    let uploadFailed = false;
-    let uploadError = null;
-    try {
-      outputKey = await storageService.uploadOutput(isolatedOutput, jobId);
-      console.log('[PIPELINE] Step 3: upload ok', { outputKey });
-      jobLogger.info({ outputKey }, 'Output enviado ao storage');
-    } catch (uploadErr) {
-      // Upload falhou — mas o arquivo DSP existe localmente ainda (cleanup só ocorre no step 9)
-      uploadFailed = true;
-      uploadError = uploadErr;
-      jobLogger.error(
-        { error: uploadErr.message, isolatedOutput },
-        'UPLOAD FAILED — DSP completou com sucesso mas storage upload falhou'
-      );
-      console.error('[PIPELINE] Step 3: upload FAILED:', uploadErr.message);
-
-      // Marcar como upload_failed no Redis para diagnóstico e possível retry manual
-      await jobStore.updateJobStatus(jobId, 'upload_failed', {
-        error_code: 'UPLOAD_FAILED',
-        error_message: uploadErr.message.substring(0, 500),
-        dsp_completed: '1',         // confirma que o DSP foi bem-sucedido
-        local_path: isolatedOutput, // path temporário (será limpo pelo cleanup)
-        progress: 90,
-      });
-
-      // Re-lançar para que BullMQ faça retry do job completo
-      throw new Error(`Upload para storage falhou após DSP OK: ${uploadErr.message}`);
-    }
+    const outputKey = await storageService.uploadOutput(isolatedOutput, jobId);
+    console.log('[PIPELINE] Step 3: upload ok', { outputKey });
+    jobLogger.info({ outputKey }, 'Output enviado ao storage');
 
     // 8b. Gerar preview 60s MP3 para exibição no modal (não crítico — não bloqueia entrega)
     let previewAfterKey = null;
