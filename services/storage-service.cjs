@@ -86,13 +86,22 @@ function getClient() {
     }
 
     // 4. Criar client com valores lidos agora (não constantes de módulo)
+    // 🔴 forcePathStyle: true — CRÍTICO para Backblaze B2
+    // O AWS SDK v3 usa virtual-hosted-style por padrão (bucket.endpoint/key)
+    // O B2 exige path-style (endpoint/bucket/key) → sem isso gera "Invalid URL"
+    console.error('[S3 FINAL CONFIG]', {
+      endpoint,
+      forcePathStyle: true,
+    });
+
     _client = new _S3Client({
       region: 'us-east-005',
       endpoint: endpoint,
       credentials: {
         accessKeyId: keyId,
         secretAccessKey: appKey
-      }
+      },
+      forcePathStyle: true,
     });
 
     logger.info({ endpoint, bucket: bucketName }, 'Backblaze B2 client initialized (lazy)');
