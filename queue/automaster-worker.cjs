@@ -61,6 +61,7 @@ const fsSync = require('fs');
 const crypto = require('crypto');
 const redis = require('./redis-connection.cjs');
 const storageService = require('../services/storage-service.cjs');
+console.log('[WORKER USING STORAGE]', require.resolve('../services/storage-service.cjs'));
 const { createServiceLogger, createJobLogger } = require('../services/logger.cjs');
 const jobStore = require('../services/job-store.cjs');
 const jobLock = require('../services/job-lock.cjs');

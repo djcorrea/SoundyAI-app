@@ -1,3 +1,6 @@
+// [AUDIT] Confirmar qual arquivo storage-service está sendo carregado em runtime
+console.log('[STORAGE FILE LOADED]', __filename);
+
 /**
  * Storage Service - Backblaze B2
  * 
@@ -109,7 +112,8 @@ function getClient() {
  * @returns {Promise<string>} Key do objeto no storage
  */
 async function uploadFile(key, buffer, contentType = 'audio/wav') {
-  // Logging diagnóstico obrigatório — expõe EXATAMENTE o que está disponível
+  console.log('[UPLOAD FUNCTION EXECUTING]', { key, contentType, bufferSize: buffer?.length ?? 'null' });
+  // Logging diagnóstico completo — expõe EXATAMENTE o que está disponível
   console.log('[STORAGE AUDIT] uploadFile()', {
     B2_ENDPOINT:    process.env.B2_ENDPOINT    || '(undefined)',
     B2_BUCKET_NAME: process.env.B2_BUCKET_NAME || '(undefined)',
