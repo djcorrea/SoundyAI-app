@@ -1,5 +1,8 @@
 ﻿// server.js
 
+// [BOOT] Log antes de qualquer supressão — console.error nunca é noop'd
+console.error('[BOOT]', { file: 'server.js (root)', pid: process.pid, entrypoint: 'railway.json startCommand: node server.js' });
+
 // ============================================================================
 // 🔇 CONTROLE GLOBAL DE LOGS — Variável Railway: DEBUG_LOGS=true
 // Padrão (sem a variável): nenhum log aparece nos logs do Railway.

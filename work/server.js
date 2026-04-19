@@ -1,6 +1,9 @@
 // server.js - API PRINCIPAL DO SOUNDYAI (REDIS WORKERS ONLY)
 // 🚀 ARQUITETURA REFATORADA: Apenas API - Workers Redis responsáveis por processamento
 
+// [BOOT] Log imediato — identifica qual serviço está rodando este arquivo
+console.error('[BOOT]', { file: 'work/server.js', pid: process.pid, entrypoint: 'Procfile web: node work/server.js' });
+
 import "dotenv/config";
 import express from "express";
 import cors from "cors";

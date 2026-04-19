@@ -1,7 +1,10 @@
 require('dotenv').config();
 
+// [BOOT] Log IMEDIATO de boot — console.error bypassa qualquer supressão
+console.error('[BOOT]', { file: __filename, pid: process.pid, entrypoint: 'queue/automaster-worker.cjs' });
+
 // [ENV WORKER] Log imediato de boot — confirma se env vars B2 chegaram ao processo filho
-console.log('[ENV WORKER] B2 env vars no boot do worker:', {
+console.error('[ENV WORKER] B2 env vars no boot do worker:', {
   B2_ENDPOINT:     process.env.B2_ENDPOINT    || '(undefined)',
   B2_BUCKET_NAME:  process.env.B2_BUCKET_NAME || '(undefined)',
   B2_KEY_ID:       process.env.B2_KEY_ID      ? '(set)' : '(undefined)',
@@ -61,7 +64,7 @@ const fsSync = require('fs');
 const crypto = require('crypto');
 const redis = require('./redis-connection.cjs');
 const storageService = require('../services/storage-service.cjs');
-console.log('[WORKER USING STORAGE]', require.resolve('../services/storage-service.cjs'));
+console.error('[WORKER USING STORAGE]', require.resolve('../services/storage-service.cjs'));
 const { createServiceLogger, createJobLogger } = require('../services/logger.cjs');
 const jobStore = require('../services/job-store.cjs');
 const jobLock = require('../services/job-lock.cjs');

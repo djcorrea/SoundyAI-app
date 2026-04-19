@@ -1,4 +1,8 @@
 require('dotenv').config();
+
+// [BOOT] Log imediato — identifica se este arquivo está sendo executado em produção
+console.error('[BOOT]', { file: __filename, pid: process.pid, entrypoint: 'workers/automaster-worker.cjs' });
+
 /**
  * ============================================================================
  * AUTOMASTER WORKER - EXECUÇÃO ISOLADA E STATELESS

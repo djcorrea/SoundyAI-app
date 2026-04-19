@@ -1,5 +1,6 @@
 // [AUDIT] Confirmar qual arquivo storage-service está sendo carregado em runtime
-console.log('[STORAGE FILE LOADED]', __filename);
+// console.ERROR (não console.log) para bypassar qualquer supressão de logs
+console.error('[STORAGE FILE LOADED]', __filename);
 
 /**
  * Storage Service - Backblaze B2
@@ -47,7 +48,7 @@ function getClient() {
     const downloadUrl = process.env.B2_DOWNLOAD_URL;
 
     // Log diagnóstico — expõe o que realmente está disponível no processo filho
-    console.log('[STORAGE AUDIT] getClient() iniciando', {
+    console.error('[STORAGE AUDIT] getClient() iniciando', {
       B2_ENDPOINT:      endpoint      || '(undefined)',
       B2_BUCKET_NAME:   bucketName    || '(undefined)',
       B2_KEY_ID:        keyId         ? '(set)' : '(undefined)',
@@ -112,9 +113,9 @@ function getClient() {
  * @returns {Promise<string>} Key do objeto no storage
  */
 async function uploadFile(key, buffer, contentType = 'audio/wav') {
-  console.log('[UPLOAD FUNCTION EXECUTING]', { key, contentType, bufferSize: buffer?.length ?? 'null' });
+  console.error('[UPLOAD FUNCTION EXECUTING]', { key, contentType, bufferSize: buffer?.length ?? 'null' });
   // Logging diagnóstico completo — expõe EXATAMENTE o que está disponível
-  console.log('[STORAGE AUDIT] uploadFile()', {
+  console.error('[STORAGE AUDIT] uploadFile()', {
     B2_ENDPOINT:    process.env.B2_ENDPOINT    || '(undefined)',
     B2_BUCKET_NAME: process.env.B2_BUCKET_NAME || '(undefined)',
     B2_KEY_ID:      process.env.B2_KEY_ID      ? '(set)' : '(undefined)',
