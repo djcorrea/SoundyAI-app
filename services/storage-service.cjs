@@ -39,19 +39,42 @@ let _S3Client, _PutObjectCommand, _GetObjectCommand, _DeleteObjectCommand, _getS
 
 function getClient() {
   if (!_client) {
-    // Validação de env vars adiada para o momento de uso real
+    // Ler env vars AGORA (não das constantes de módulo) para diagnóstico preciso em runtime
+    const endpoint   = process.env.B2_ENDPOINT;
+    const keyId      = process.env.B2_KEY_ID;
+    const appKey     = process.env.B2_APP_KEY;
+    const bucketName = process.env.B2_BUCKET_NAME;
+    const downloadUrl = process.env.B2_DOWNLOAD_URL;
+
+    // Log diagnóstico — expõe o que realmente está disponível no processo filho
+    console.log('[STORAGE AUDIT] getClient() iniciando', {
+      B2_ENDPOINT:      endpoint      || '(undefined)',
+      B2_BUCKET_NAME:   bucketName    || '(undefined)',
+      B2_KEY_ID:        keyId         ? '(set)' : '(undefined)',
+      B2_APP_KEY:       appKey        ? '(set)' : '(undefined)',
+      B2_DOWNLOAD_URL:  downloadUrl   || '(undefined)',
+    });
+
+    // 1. Validação de presença
     const missing = [];
-    if (!B2_ENDPOINT) missing.push('B2_ENDPOINT');
-    if (!B2_KEY_ID) missing.push('B2_KEY_ID');
-    if (!B2_APP_KEY) missing.push('B2_APP_KEY');
-    if (!B2_BUCKET_NAME) missing.push('B2_BUCKET_NAME');
-    if (!B2_DOWNLOAD_URL) missing.push('B2_DOWNLOAD_URL');
+    if (!endpoint)    missing.push('B2_ENDPOINT');
+    if (!keyId)       missing.push('B2_KEY_ID');
+    if (!appKey)      missing.push('B2_APP_KEY');
+    if (!bucketName)  missing.push('B2_BUCKET_NAME');
+    if (!downloadUrl) missing.push('B2_DOWNLOAD_URL');
 
     if (missing.length > 0) {
       throw new Error(`Backblaze B2 configuration missing: ${missing.join(', ')}`);
     }
 
-    // Carregar AWS SDK v3 somente aqui (lazy) — ~15-20MB economizados no idle
+    // 2. Validação de formato — garante que não chegue URL inválida ao SDK
+    if (!endpoint.startsWith('http')) {
+      throw new Error(
+        `B2_ENDPOINT inválido: "${endpoint}" — deve começar com http:// ou https://`
+      );
+    }
+
+    // 3. Carregar AWS SDK v3 somente aqui (lazy) — ~15-20MB economizados no idle
     if (!_S3Client) {
       const s3Pkg = require('@aws-sdk/client-s3');
       _S3Client = s3Pkg.S3Client;
@@ -61,16 +84,17 @@ function getClient() {
       _getSignedUrl = require('@aws-sdk/s3-request-presigner').getSignedUrl;
     }
 
+    // 4. Criar client com valores lidos agora (não constantes de módulo)
     _client = new _S3Client({
       region: 'us-east-005',
-      endpoint: B2_ENDPOINT,
+      endpoint: endpoint,
       credentials: {
-        accessKeyId: B2_KEY_ID,
-        secretAccessKey: B2_APP_KEY
+        accessKeyId: keyId,
+        secretAccessKey: appKey
       }
     });
 
-    logger.info({ endpoint: B2_ENDPOINT, bucket: B2_BUCKET_NAME }, 'Backblaze B2 client initialized (lazy)');
+    logger.info({ endpoint, bucket: bucketName }, 'Backblaze B2 client initialized (lazy)');
   }
   return _client;
 }
@@ -88,10 +112,21 @@ function getClient() {
  * @returns {Promise<string>} Key do objeto no storage
  */
 async function uploadFile(key, buffer, contentType = 'audio/wav') {
+  // Logging diagnóstico obrigatório — expõe EXATAMENTE o que está disponível
+  console.log('[STORAGE AUDIT] uploadFile()', {
+    B2_ENDPOINT:    process.env.B2_ENDPOINT    || '(undefined)',
+    B2_BUCKET_NAME: process.env.B2_BUCKET_NAME || '(undefined)',
+    B2_KEY_ID:      process.env.B2_KEY_ID      ? '(set)' : '(undefined)',
+    B2_APP_KEY:     process.env.B2_APP_KEY     ? '(set)' : '(undefined)',
+    key,
+    bufferSize:     buffer?.length ?? 'null',
+  });
+
   try {
-    const client = getClient(); // garante que _PutObjectCommand está carregado
+    const client = getClient(); // garante que _PutObjectCommand está carregado e validado
+    const bucket = process.env.B2_BUCKET_NAME; // leitura fresca, idêntica ao que getClient() usou
     const command = new _PutObjectCommand({
-      Bucket: B2_BUCKET_NAME,
+      Bucket: bucket,
       Key: key,
       Body: buffer,
       ContentType: contentType
@@ -113,14 +148,15 @@ async function uploadFile(key, buffer, contentType = 'audio/wav') {
  * @returns {Promise<Buffer>} Conteúdo do arquivo
  */
 async function downloadFile(key) {
-  const baseUrl = B2_DOWNLOAD_URL.replace(/\/$/, '');
-  const url = `${baseUrl}/file/${B2_BUCKET_NAME}/${key}`;
+  const baseUrl = (process.env.B2_DOWNLOAD_URL || '').replace(/\/$/, '');
+  const bucket  = process.env.B2_BUCKET_NAME || '';
+  const url = `${baseUrl}/file/${bucket}/${key}`;
 
   console.log('[B2 URL]', url);
   console.log('[INPUT KEY]', key);
 
   if (!url || !url.startsWith('http')) {
-    throw new Error(`Invalid B2 URL: ${url}`);
+    throw new Error(`Invalid B2 URL: "${url}" — verifique B2_DOWNLOAD_URL e B2_BUCKET_NAME`);
   }
 
   try {
@@ -148,7 +184,7 @@ async function getFileStream(key) {
   try {
     const client = getClient(); // garante que _GetObjectCommand está carregado
     const command = new _GetObjectCommand({
-      Bucket: B2_BUCKET_NAME,
+      Bucket: process.env.B2_BUCKET_NAME,
       Key: key
     });
     const response = await client.send(command);
@@ -176,7 +212,7 @@ async function getFileStream(key) {
 async function generateSignedUrl(key, expiresInSeconds = 300, filename = null) {
   try {
     const commandParams = {
-      Bucket: B2_BUCKET_NAME,
+      Bucket: process.env.B2_BUCKET_NAME,
       Key: key,
     };
 
@@ -208,7 +244,7 @@ async function deleteFile(key) {
   try {
     const client = getClient(); // garante que _DeleteObjectCommand está carregado
     const command = new _DeleteObjectCommand({
-      Bucket: B2_BUCKET_NAME,
+      Bucket: process.env.B2_BUCKET_NAME,
       Key: key
     });
 
