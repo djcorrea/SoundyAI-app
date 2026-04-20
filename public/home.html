@@ -3516,6 +3516,7 @@ function renderModeSelection() {
 
     // Inicia o processamento com pequeno delay para o feedback visual ser percebido
     // Guard client-side: bloqueia antes de iniciar qualquer processamento
+    console.log('[FreeMaster] freeMasterUsed no localStorage:', localStorage.getItem('freeMasterUsed'));
     if (shouldBlockFreeMaster()) {
       renderLimitModal();
       return;
@@ -3755,7 +3756,8 @@ function renderModeSelection() {
           || err.code === 'NO_CREDITS'       || _runErrMsg === 'NO_CREDITS') {
         if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
         if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
-        try { localStorage.setItem('freeMasterUsed', 'true'); } catch (_) {}
+        // NÃO setar freeMasterUsed aqui: o usuário pode ter atingido limite por fingerprint
+        // sem ter concluído nenhuma master. A flag só é setada ao status=completed.
         renderLimitModal();
         return;
       }
@@ -4451,6 +4453,8 @@ function renderModeSelection() {
     if (btn) { btn.textContent = 'Criando conta…'; btn.disabled = true; }
     try {
       await window.__homeRegisterWithEmail(email, pass);
+      // Garante estado limpo para conta nova — flag não herda sessoões anteriores
+      try { localStorage.removeItem('freeMasterUsed'); } catch (_) {}
       _onLoginSuccess();
     } catch (err) {
       if (btn) { btn.textContent = 'Criar conta'; btn.disabled = false; }
