@@ -3737,8 +3737,8 @@ function renderModeSelection() {
     }
 
     try {
-      // Guard client-side: já usou master gratuita → abre modal de limite antes de chamar backend
-      if (localStorage.getItem('freeMasterUsed') === 'true') {
+      // Guard client-side: só bloqueia se o usuário JÁ concluiu a primeira master gratuita
+      if (shouldBlockFreeMaster()) {
         renderLimitModal();
         return;
       }
@@ -3749,19 +3749,20 @@ function renderModeSelection() {
       startPollingJob(jobId);
     } catch (err) {
       var _runErrMsg = err.message || '';
-      // ── FREE_LIMIT_REACHED: limite diário/fingerprint atingido ──────────
+      // ── FREE_LIMIT_REACHED: limite atingido no backend ──────────────────
       if (err.code === 'FREE_LIMIT_REACHED' || _runErrMsg === 'FREE_LIMIT_REACHED') {
         if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
         if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
-        renderLimitModal();
+        // Modal de limite só se já usou a master gratuita; caso contrário, erro genérico
+        if (shouldBlockFreeMaster()) { renderLimitModal(); } else { renderErrorState('Limite de processamento atingido. Tente novamente mais tarde.'); }
         return;
       }
-      // ── NO_CREDITS: abre upgrade modal, não erro genérico ──────────
+      // ── NO_CREDITS: sem créditos no backend ─────────────────────────────
       if (err.code === 'NO_CREDITS' || _runErrMsg === 'NO_CREDITS') {
-        // Para animações antes de mostrar modal
         if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
         if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
-        renderLimitModal();
+        // Modal de limite só se já usou a master gratuita; caso contrário, erro genérico
+        if (shouldBlockFreeMaster()) { renderLimitModal(); } else { renderErrorState('Créditos insuficientes. Tente novamente ou contate o suporte.'); }
         return;
       }
       if (_runErrMsg === 'NOT_AUTHENTICATED') {
@@ -4126,6 +4127,11 @@ function renderModeSelection() {
       + '<p style="margin:0;font-size:.73rem;color:#7878aa;line-height:1.4;">' + desc + '</p>'
       + '</div>'
       + '</div>';
+  }
+
+  // ── GUARD: decide se bloqueia nova master (única fonte de verdade) ───────
+  function shouldBlockFreeMaster() {
+    return localStorage.getItem('freeMasterUsed') === 'true';
   }
 
   // ── MODAL: LIMITE GRATUITO ATINGIDO (fluxo de masterização) ─────────────
