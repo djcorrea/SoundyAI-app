@@ -95,7 +95,7 @@ function getClient() {
     });
 
     _client = new _S3Client({
-      region: 'us-east-005',
+      region: 'us-east-1', // FIX: SDK v3 falha com region custom do B2; endpoint sobrescreve a URL
       endpoint: endpoint,
       credentials: {
         accessKeyId: keyId,
