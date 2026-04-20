@@ -568,6 +568,9 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
     // Usuários com plano pago ignoram este bloco.
     const _usageUid  = req.user.uid;
     const _userPlan  = await getUserPlan(_usageUid).catch(() => 'free');
+
+    console.log('[AUTOMASTER] uid:', _usageUid, '| plan:', _userPlan);
+
     if (_userPlan === 'free') {
       const _ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
                || req.ip
@@ -575,6 +578,8 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
       const _fp = (typeof req.body.fingerprintId === 'string')
                   ? req.body.fingerprintId.trim().substring(0, 128)
                   : '';
+
+      console.log('[AUTOMASTER] fingerprintId recebido:', _fp ? _fp.substring(0, 12) + '…' : '(vazio)', '| ip:', _ip);
 
       if (!_fp) {
         // Sem fingerprintId: pode ser falha no carregamento do script — aplica apenas IP check

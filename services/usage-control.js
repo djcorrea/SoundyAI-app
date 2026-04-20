@@ -74,21 +74,37 @@ export function isIPAllowed(ip) {
 // isFingerprintAllowed
 // ───────────────────────────────────────────────────────────────────────────
 /**
- * Verifica se o fingerprintId pode gerar uma free master (1 por 24h).
- * Consulta Firestore: usage_control/{fingerprintId}.
+ * Verifica se o par userId+fingerprintId pode gerar uma free master (1 por 24h).
+ *
+ * IMPORTANTE: a chave é `{userId}_{fingerprintId}` — cada conta tem seu próprio
+ * contador independente de dispositivo. Isso garante que um novo usuário no mesmo
+ * dispositivo não herde o bloqueio de outra conta.
+ *
+ * Consulta Firestore: usage_control/{userId}_{fingerprintId}
+ *
+ * @param {string} userId
  * @param {string} fingerprintId
  * @returns {Promise<boolean>} true = permitido
  */
-export async function isFingerprintAllowed(fingerprintId) {
+export async function isFingerprintAllowed(userId, fingerprintId) {
+  // Fingerprint inválido (curto ou ausente): permitir — não bloquear usuário legítimo
+  // por falha no carregamento do script de fingerprint no cliente.
   if (!fingerprintId || fingerprintId.length < 8) {
-    console.warn('[USAGE-CONTROL] fingerprintId inválido:', fingerprintId);
-    return false; // inválido → bloquear por segurança
+    console.warn('[USAGE-CONTROL] fingerprintId inválido ou ausente — permitindo (sem bloqueio por fp):', fingerprintId);
+    return true;
   }
   try {
-    const db   = getFirestore();
-    const snap = await db.collection(USAGE_COLL).doc(fingerprintId).get();
+    const db    = getFirestore();
+    const docId = `${userId}_${fingerprintId}`;
+    const snap  = await db.collection(USAGE_COLL).doc(docId).get();
+
+    console.log('[USAGE-CONTROL] isFingerprintAllowed — docId:', docId, '| exists:', snap.exists);
+
     if (!snap.exists) return true; // nunca usou → permitido
     const data = snap.data();
+
+    console.log('[USAGE-CONTROL] freeUsedToday:', data.freeUsedToday, '| lastUsedAt:', data.lastUsedAt);
+
     if (!data.freeUsedToday) return true;
     const lastUsed = typeof data.lastUsedAt === 'number' ? data.lastUsedAt : 0;
     return (Date.now() - lastUsed) >= TTL_24H;
@@ -107,25 +123,28 @@ export async function isFingerprintAllowed(fingerprintId) {
  *
  * Regras (em ordem de verificação):
  *  1. IP: máximo 1 free master por 24h por IP (in-memory)
- *  2. Fingerprint: máximo 1 free master por 24h por device (Firestore)
+ *  2. Fingerprint+userId: máximo 1 free master por 24h por conta+device (Firestore)
  *
  * @param {{ userId: string, fingerprintId: string, ip: string }} params
  * @returns {Promise<{ allowed: boolean, reason?: string }>}
  */
 export async function checkFreeUsage({ userId, fingerprintId, ip }) {
+  console.log('[USAGE-CONTROL] checkFreeUsage — uid:', userId, '| fp:', fingerprintId?.substring(0, 8), '| ip:', ip);
+
   // 1. IP check (rápido, sem I/O)
   if (!isIPAllowed(ip)) {
     console.log('[USAGE-CONTROL] IP bloqueado:', ip, 'uid:', userId);
     return { allowed: false, reason: 'IP_LIMIT_REACHED' };
   }
 
-  // 2. Fingerprint check (Firestore)
-  const fpAllowed = await isFingerprintAllowed(fingerprintId);
+  // 2. Fingerprint+userId check (Firestore — escopado por conta)
+  const fpAllowed = await isFingerprintAllowed(userId, fingerprintId);
   if (!fpAllowed) {
-    console.log('[USAGE-CONTROL] Fingerprint bloqueado:', fingerprintId?.substring(0, 8), 'uid:', userId);
+    console.log('[USAGE-CONTROL] Fingerprint bloqueado — uid:', userId, 'fp:', fingerprintId?.substring(0, 8));
     return { allowed: false, reason: 'FINGERPRINT_LIMIT_REACHED' };
   }
 
+  console.log('[USAGE-CONTROL] Acesso permitido — uid:', userId);
   return { allowed: true };
 }
 
@@ -134,8 +153,10 @@ export async function checkFreeUsage({ userId, fingerprintId, ip }) {
 // ───────────────────────────────────────────────────────────────────────────
 /**
  * Registra o uso do free trial para userId + fingerprintId + IP.
- * Deve ser chamado APÓS o job ser enfileirado com sucesso.
+ * Deve ser chamado APÓS o job ser concluído com sucesso.
  * Operação fire-and-forget — não lança exceções para o caller.
+ *
+ * Chave Firestore: usage_control/{userId}_{fingerprintId}
  *
  * @param {{ userId: string, fingerprintId: string, ip: string }} params
  */
@@ -147,21 +168,37 @@ export async function registerFreeUsage({ userId, fingerprintId, ip }) {
     _ipUsageMap.set(ip, now);
   }
 
-  // 2. Salvar no Firestore: usage_control/{fingerprintId}
-  if (fingerprintId && fingerprintId.length >= 8) {
+  // 2. Salvar no Firestore: usage_control/{userId}_{fingerprintId}
+  if (userId && fingerprintId && fingerprintId.length >= 8) {
     try {
-      const db = getFirestore();
-      await db.collection(USAGE_COLL).doc(fingerprintId).set({
+      const db    = getFirestore();
+      const docId = `${userId}_${fingerprintId}`;
+      await db.collection(USAGE_COLL).doc(docId).set({
         userId,
         fingerprintId,
         ip,
         freeUsedToday: true,
         lastUsedAt:    now,
       }, { merge: true });
-      console.log('[USAGE-CONTROL] Uso registrado — fp:', fingerprintId?.substring(0, 8), '| uid:', userId, '| ip:', ip);
+      console.log('[USAGE-CONTROL] Uso registrado — docId:', docId, '| uid:', userId, '| ip:', ip);
     } catch (err) {
       // Non-fatal: registro é melhor esforço
       console.warn('[USAGE-CONTROL] registerFreeUsage Firestore error (non-fatal):', err.message);
+    }
+  } else if (userId && (!fingerprintId || fingerprintId.length < 8)) {
+    // Sem fingerprint válido: registrar apenas por userId para rastrear uso
+    try {
+      const db = getFirestore();
+      await db.collection(USAGE_COLL).doc(`${userId}_nofp`).set({
+        userId,
+        fingerprintId: '',
+        ip,
+        freeUsedToday: true,
+        lastUsedAt:    now,
+      }, { merge: true });
+      console.log('[USAGE-CONTROL] Uso registrado (sem fp) — uid:', userId, '| ip:', ip);
+    } catch (err) {
+      console.warn('[USAGE-CONTROL] registerFreeUsage (nofp) Firestore error (non-fatal):', err.message);
     }
   }
 }
