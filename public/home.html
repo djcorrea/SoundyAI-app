@@ -3676,6 +3676,8 @@ function renderModeSelection() {
             renderErrorState('Processamento concluído, mas URL de download ausente. Contate o suporte.');
             return;
           }
+          // Marca que a master gratuita foi utilizada (guard client-side para próximas tentativas)
+          try { localStorage.setItem('freeMasterUsed', 'true'); } catch (_) {}
           renderResultState(s);
         } else if (s.status === 'needs_confirmation') {
           clearInterval(_state._masterPollTimer);
@@ -3735,6 +3737,12 @@ function renderModeSelection() {
     }
 
     try {
+      // Guard client-side: já usou master gratuita → abre modal de limite antes de chamar backend
+      if (localStorage.getItem('freeMasterUsed') === 'true') {
+        renderLimitModal();
+        return;
+      }
+
       renderProcessingState(mode);
       var jobId = await startAutomasterJob(mode);
       _state.masterJobId = jobId;
