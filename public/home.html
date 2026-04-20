@@ -3516,7 +3516,8 @@ function renderModeSelection() {
 
     // Inicia o processamento com pequeno delay para o feedback visual ser percebido
     // Guard client-side: bloqueia antes de iniciar qualquer processamento
-    console.log('[FreeMaster] freeMasterUsed no localStorage:', localStorage.getItem('freeMasterUsed'));
+    var _dbgKey = _freeMasterKey();
+    console.log('[FreeMaster] key:', _dbgKey, '| value:', localStorage.getItem(_dbgKey));
     if (shouldBlockFreeMaster()) {
       renderLimitModal();
       return;
@@ -3682,8 +3683,8 @@ function renderModeSelection() {
             renderErrorState('Processamento concluído, mas URL de download ausente. Contate o suporte.');
             return;
           }
-          // Marca que a master gratuita foi utilizada (guard client-side para próximas tentativas)
-          try { localStorage.setItem('freeMasterUsed', 'true'); } catch (_) {}
+          // Marca que a master gratuita foi utilizada — chave escopada por uid
+          try { localStorage.setItem(_freeMasterKey(), 'true'); } catch (_) {}
           renderResultState(s);
         } else if (s.status === 'needs_confirmation') {
           clearInterval(_state._masterPollTimer);
@@ -4126,8 +4127,15 @@ function renderModeSelection() {
   }
 
   // ── GUARD: decide se bloqueia nova master (única fonte de verdade) ───────
+  // Chave escopada por uid para evitar herança entre contas/sessões.
+  function _freeMasterKey() {
+    var auth = window.__firebaseAuth || null;
+    var uid  = auth && auth.currentUser ? auth.currentUser.uid : null;
+    return uid ? ('freeMasterUsed_' + uid) : 'freeMasterUsed';
+  }
+
   function shouldBlockFreeMaster() {
-    return localStorage.getItem('freeMasterUsed') === 'true';
+    return localStorage.getItem(_freeMasterKey()) === 'true';
   }
 
   // ── MODAL: LIMITE GRATUITO ATINGIDO (fluxo de masterização) ─────────────
@@ -4395,6 +4403,8 @@ function renderModeSelection() {
     }
     try {
       await window.__homeLoginWithGoogle();
+      // Limpa chave genérica legada (sem uid) ao fazer login
+      try { localStorage.removeItem('freeMasterUsed'); } catch (_) {}
       _onLoginSuccess();
     } catch (err) {
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
@@ -4418,6 +4428,8 @@ function renderModeSelection() {
     if (btn) { btn.textContent = 'Entrando…'; btn.disabled = true; }
     try {
       await window.__homeLoginWithEmail(email, pass);
+      // Limpa chave genérica legada (sem uid) ao fazer login
+      try { localStorage.removeItem('freeMasterUsed'); } catch (_) {}
       _onLoginSuccess();
     } catch (err) {
       if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; }
@@ -4453,7 +4465,7 @@ function renderModeSelection() {
     if (btn) { btn.textContent = 'Criando conta…'; btn.disabled = true; }
     try {
       await window.__homeRegisterWithEmail(email, pass);
-      // Garante estado limpo para conta nova — flag não herda sessoões anteriores
+      // Conta nova: remove chave genérica legada e qualquer estado anterior
       try { localStorage.removeItem('freeMasterUsed'); } catch (_) {}
       _onLoginSuccess();
     } catch (err) {
@@ -4880,7 +4892,20 @@ import {
 window.__firebaseAuth = auth;
 window.__firebaseDb = db;
 window.__firebaseAuthReady = window.__firebaseAuthReady || new Promise(function (resolve) {
-  var unsub = onAuthStateChanged(auth, function (user) { unsub(); resolve(user); });
+  var unsub = onAuthStateChanged(auth, function (user) {
+    unsub();
+    // Debug: estado de auth e flag de master gratuita ao carregar a página
+    var legacyKey = 'freeMasterUsed';
+    var scopedKey = user ? ('freeMasterUsed_' + user.uid) : legacyKey;
+    console.log('[FreeMaster] Auth:', user ? ('uid=' + user.uid) : 'não autenticado');
+    console.log('[FreeMaster] freeMasterUsed (genérica):', localStorage.getItem(legacyKey));
+    console.log('[FreeMaster] freeMasterUsed (escopada):', localStorage.getItem(scopedKey));
+    // Sem usuário autenticado: remove chave genérica legada para evitar bloqueio indevido
+    if (!user) {
+      try { localStorage.removeItem(legacyKey); } catch (_) {}
+    }
+    resolve(user);
+  });
 });
 
 /** Login com Google via popup — resolve com UserCredential */
