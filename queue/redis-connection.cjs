@@ -17,32 +17,37 @@ const Redis = require('ioredis');
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
+// NOTA: lazyConnect=true foi REMOVIDO intencionalmente.
+// BullMQ não chama .connect() em instâncias lazy — resulta em "Connection is closed" no boot.
+// O retryStrategy abaixo garante reconexão automática sem crashar o processo.
 const redis = new Redis(REDIS_URL, {
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
-  // 🧹 MEMORY OPT: Não conectar no construtor — conecta na 1ª operação real
-  // Reduz TCP handshake + buffer de socket durante idle do serviço
-  lazyConnect: true,
   retryStrategy(times) {
-    const delay = Math.min(times * 50, 2000);
+    const delay = Math.min(times * 200, 5000);
+    console.log(`[REDIS RETRY] Tentativa ${times} — próxima em ${delay}ms`);
     return delay;
   },
   reconnectOnError(err) {
-    console.error('[REDIS] Reconnect on error:', err.message);
+    console.error('[REDIS] Reconectando após erro:', err.message);
     return true;
   }
 });
 
 redis.on('connect', () => {
-  console.log('[REDIS] Conectado com sucesso');
+  console.log('[REDIS] Conectando...');
+});
+
+redis.on('ready', () => {
+  console.log('[REDIS] Pronto para receber comandos');
 });
 
 redis.on('error', (err) => {
   console.error('[REDIS] Erro de conexão:', err.message);
 });
 
-redis.on('ready', () => {
-  console.log('[REDIS] Pronto para receber comandos');
+redis.on('close', () => {
+  console.warn('[REDIS] Conexão encerrada. Aguardando reconexão automática...');
 });
 
 module.exports = redis;

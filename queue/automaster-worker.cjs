@@ -754,41 +754,53 @@ async function processJob(job) {
 }
 
 // ============================================================================
-// WORKER BULLMQ
+// WORKER BULLMQ — INICIALIZAÇÃO RESILIENTE
 // ============================================================================
 
-const worker = new Worker(QUEUE_NAME, processJob, {
-  connection: redis,
-  concurrency: WORKER_CONCURRENCY
-});
+let worker = null;
+let isShuttingDown = false;
 
-console.log('[WORKER] Attached to queue:', QUEUE_NAME);
+function initWorker() {
+  try {
+    worker = new Worker(QUEUE_NAME, processJob, {
+      connection: redis,
+      concurrency: WORKER_CONCURRENCY
+    });
 
-worker.on('completed', (job, result) => {
-  if (result && result.skipped === true) {
-    logger.info({ jobId: job.id, reason: result.reason }, 'Job skipped');
-  } else {
-    logger.info({ jobId: job.id, duration_ms: result ? result.duration_ms : undefined }, 'Job concluído');
+    console.log('[WORKER INIT] Attached to queue:', QUEUE_NAME);
+
+    worker.on('completed', (job, result) => {
+      if (result && result.skipped === true) {
+        logger.info({ jobId: job.id, reason: result.reason }, 'Job skipped');
+      } else {
+        logger.info({ jobId: job.id, duration_ms: result ? result.duration_ms : undefined }, 'Job concluído');
+      }
+    });
+
+    worker.on('failed', (job, err) => {
+      logger.error({ jobId: job.id, error: err.message }, 'Job falhou');
+    });
+
+    worker.on('error', (err) => {
+      logger.error({ error: err.message }, '[WORKER INIT] Erro interno do worker');
+    });
+
+    worker.on('ready', () => {
+      logger.info({ concurrency: WORKER_CONCURRENCY }, '[WORKER INIT] Worker pronto e processando jobs');
+    });
+
+    logger.info({ concurrency: WORKER_CONCURRENCY }, '[WORKER INIT] Worker BullMQ inicializado com sucesso');
+  } catch (err) {
+    logger.error({ error: err.message }, '[WORKER INIT] Falha ao inicializar worker. Tentando novamente em 3s...');
+    setTimeout(initWorker, 3000);
   }
-});
+}
 
-worker.on('failed', (job, err) => {
-  logger.error({ jobId: job.id, error: err.message }, 'Job falhou');
-});
-
-worker.on('error', (err) => {
-  logger.error({ error: err.message }, 'Erro interno do worker');
-});
-
-worker.on('ready', () => {
-  logger.info({ concurrency: WORKER_CONCURRENCY }, 'Worker pronto');
-});
+initWorker();
 
 // ============================================================================
 // GRACEFUL SHUTDOWN
 // ============================================================================
-
-let isShuttingDown = false;
 
 async function gracefulShutdown(signal) {
   if (isShuttingDown) {
@@ -800,13 +812,15 @@ async function gracefulShutdown(signal) {
   logger.info({ signal }, 'Iniciando graceful shutdown');
 
   try {
-    // 1. Pausar consumo da fila
-    await worker.pause();
-    logger.info('Fila pausada, aguardando jobs ativos');
+    if (worker) {
+      // 1. Pausar consumo da fila
+      await worker.pause();
+      logger.info('Fila pausada, aguardando jobs ativos');
 
-    // 2. Aguardar jobs ativos finalizarem
-    await worker.close();
-    logger.info('Todos os jobs ativos finalizados');
+      // 2. Aguardar jobs ativos finalizarem
+      await worker.close();
+      logger.info('Todos os jobs ativos finalizados');
+    }
 
     // 3. Fechar conexão Redis
     await redis.quit();
