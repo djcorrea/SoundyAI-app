@@ -3745,7 +3745,7 @@ function renderModeSelection() {
       if (err.code === 'FREE_LIMIT_REACHED' || _runErrMsg === 'FREE_LIMIT_REACHED') {
         if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
         if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
-        renderUpgradeModal();
+        renderLimitModal();
         return;
       }
       // ── NO_CREDITS: abre upgrade modal, não erro genérico ──────────
@@ -3753,7 +3753,7 @@ function renderModeSelection() {
         // Para animações antes de mostrar modal
         if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
         if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
-        renderUpgradeModal();
+        renderLimitModal();
         return;
       }
       if (_runErrMsg === 'NOT_AUTHENTICATED') {
@@ -4116,6 +4116,99 @@ function renderModeSelection() {
       + '<div>'
       + '<p style="margin:0 0 .1rem;font-size:.83rem;font-weight:700;color:#d4cfff;">' + title + '</p>'
       + '<p style="margin:0;font-size:.73rem;color:#7878aa;line-height:1.4;">' + desc + '</p>'
+      + '</div>'
+      + '</div>';
+  }
+
+  // ── MODAL: LIMITE GRATUITO ATINGIDO (fluxo de masterização) ─────────────
+  window.renderLimitModal = function renderLimitModal() {
+    if (document.getElementById('hmLimitModal')) return;
+
+    var overlay = document.createElement('div');
+    overlay.id = 'hmLimitModal';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;'
+      + 'background:rgba(0,0,0,.9);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);'
+      + 'display:flex;align-items:center;justify-content:center;padding:1.25rem;';
+
+    overlay.innerHTML = '<div style="'
+      + 'background:linear-gradient(168deg,#0d0b1f 0%,#110d28 55%,#0f0b22 100%);'
+      + 'border:1px solid rgba(124,58,237,.38);border-radius:24px;'
+      + 'padding:2.75rem 2.25rem 2.25rem;width:100%;max-width:440px;text-align:center;position:relative;'
+      + 'box-shadow:0 0 80px rgba(124,58,237,.2),0 0 0 1px rgba(124,58,237,.05),0 32px 100px rgba(0,0,0,.75);">'
+
+      /* close */
+      + '<button onclick="document.getElementById(\'hmLimitModal\').remove()" style="'
+      +   'position:absolute;top:14px;right:16px;background:none;border:none;'
+      +   'color:#5a5a8a;font-size:1.15rem;cursor:pointer;line-height:1;">&#10005;</button>'
+
+      /* icon */
+      + '<div style="width:62px;height:62px;border-radius:50%;margin:0 auto 1.25rem;'
+      +   'background:radial-gradient(circle,rgba(124,58,237,.22) 0%,rgba(124,58,237,.04) 100%);'
+      +   'border:1.5px solid rgba(167,139,250,.45);'
+      +   'display:flex;align-items:center;justify-content:center;font-size:1.75rem;'
+      +   'box-shadow:0 0 28px rgba(124,58,237,.3);">🎚️</div>'
+
+      /* label */
+      + '<p style="font-size:.63rem;letter-spacing:.28em;text-transform:uppercase;'
+      +   'color:rgba(167,139,250,.6);margin:0 0 .55rem;font-weight:700;">AutoMaster</p>'
+
+      /* título */
+      + '<h2 style="font-size:1.45rem;font-weight:900;color:#f5f0ff;'
+      +   'margin:0 0 .75rem;letter-spacing:.01em;line-height:1.25;">Você já usou sua master gratuita</h2>'
+
+      /* subtítulo */
+      + '<p style="font-size:.88rem;color:#a0a0c8;margin:0 0 .5rem;line-height:1.6;">'
+      +   'Para continuar masterizando suas músicas, ative um plano.'
+      + '</p>'
+
+      /* texto de valor */
+      + '<p style="font-size:.8rem;color:rgba(167,139,250,.7);margin:0 0 1.75rem;line-height:1.6;font-style:italic;">'
+      +   'Desbloqueie o AutoMaster completo e processe quantas faixas quiser.'
+      + '</p>'
+
+      /* benefícios */
+      + '<div style="display:flex;flex-direction:column;gap:.5rem;margin:0 0 2rem;text-align:left;">'
+      +   _limitCard('♾️', 'Masters ilimitadas', 'Uso justo — processe quantas quiser')
+      +   _limitCard('🎛️', 'Todos os modos de intensidade', 'Leve, Médio, Forte e Máximo')
+      +   _limitCard('💿', 'Qualidade profissional', 'Download em resolução máxima')
+      +   _limitCard('🔓', 'Sem limitações', 'Acesso completo ao AutoMaster')
+      + '</div>'
+
+      /* CTA */
+      + '<button '
+      +   'onclick="window.location.href=\'/planos.html\'" '
+      +   'onmouseover="this.style.transform=\'scale(1.03)\';this.style.boxShadow=\'0 14px 44px rgba(124,58,237,.65)\';" '
+      +   'onmouseout="this.style.transform=\'scale(1)\';this.style.boxShadow=\'0 8px 32px rgba(124,58,237,.45)\';" '
+      +   'style="display:block;width:100%;padding:1rem 1rem;'
+      +   'background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7);'
+      +   'color:#fff;border-radius:14px;font-weight:900;font-size:1rem;'
+      +   'border:none;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;'
+      +   'box-shadow:0 8px 32px rgba(124,58,237,.45);'
+      +   'transition:transform .18s ease,box-shadow .18s ease;">'
+      +   'VER PLANOS'
+      + '</button>'
+
+      /* voltar */
+      + '<button onclick="document.getElementById(\'hmLimitModal\').remove()" style="'
+      +   'margin-top:.85rem;background:none;border:none;color:#4a4a7a;'
+      +   'font-size:.8rem;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">'
+      +   'Voltar'
+      + '</button>'
+
+      + '</div>';
+
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+  };
+
+  function _limitCard(icon, title, desc) {
+    return '<div style="display:flex;align-items:center;gap:.9rem;padding:.7rem 1rem;'
+      + 'background:rgba(124,58,237,.06);'
+      + 'border:1px solid rgba(124,58,237,.2);border-radius:12px;">'
+      + '<span style="font-size:1.2rem;flex-shrink:0;">' + icon + '</span>'
+      + '<div>'
+      + '<p style="margin:0 0 .1rem;font-size:.82rem;font-weight:700;color:#d4cfff;">' + title + '</p>'
+      + '<p style="margin:0;font-size:.72rem;color:#7878aa;line-height:1.4;">' + desc + '</p>'
       + '</div>'
       + '</div>';
   }
