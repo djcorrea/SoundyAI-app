@@ -3044,7 +3044,7 @@
       + playerHtml
       + '<div class="am-result-actions">'
       +   (_state.downloadBlocked
-          ? '<button class="am-download-btn" type="button" onclick="downloadMaster()" style="background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7);opacity:.9;">🔒 DESBLOQUEAR DOWNLOAD</button>'
+          ? '<button class="am-download-btn" type="button" onclick="downloadMaster()" style="background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7);opacity:.9;">🔒 BAIXAR MINHA MASTER AGORA</button>'
           : '<button class="am-download-btn" type="button" onclick="downloadMaster()">⬇ BAIXAR FAIXA MASTERIZADA</button>')
       +   '<button class="am-secondary-btn" type="button" onclick="location.href=\'home.html\'">Masterizar outra faixa</button>'
       + '</div>'
@@ -4023,39 +4023,37 @@ function renderModeSelection() {
     overlay.innerHTML = '<div style="'
       + 'background:linear-gradient(160deg,#0d0b1f 0%,#100e26 100%);'
       + 'border:1px solid rgba(124,58,237,.35);border-radius:22px;'
-      + 'padding:2.5rem 2rem;width:100%;max-width:400px;text-align:center;position:relative;'
-      + 'box-shadow:0 0 60px rgba(124,58,237,.15),0 24px 80px rgba(0,0,0,.55);">'
+      + 'padding:3rem 2.25rem 2.5rem;width:100%;max-width:420px;text-align:center;position:relative;'
+      + 'box-shadow:0 0 60px rgba(124,58,237,.18),0 24px 80px rgba(0,0,0,.6);">'
       /* close */
       + '<button onclick="document.getElementById(\'hmUpgradeModal\').remove()" style="'
       +   'position:absolute;top:14px;right:16px;background:none;border:none;'
       +   'color:#6060a0;font-size:1.2rem;cursor:pointer;">&#10005;</button>'
       /* icon */
-      + '<div style="width:56px;height:56px;border-radius:50%;margin:0 auto 1.25rem;'
-      +   'background:rgba(124,58,237,.15);border:1.5px solid rgba(124,58,237,.4);'
-      +   'display:flex;align-items:center;justify-content:center;font-size:1.6rem;'
-      +   'box-shadow:0 0 24px rgba(124,58,237,.3);">⚡</div>'
+      + '<div style="width:60px;height:60px;border-radius:50%;margin:0 auto 1.5rem;'
+      +   'background:rgba(124,58,237,.15);border:1.5px solid rgba(124,58,237,.45);'
+      +   'display:flex;align-items:center;justify-content:center;font-size:1.75rem;'
+      +   'box-shadow:0 0 28px rgba(124,58,237,.35);">⚡</div>'
       /* copy */
-      + '<p style="font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(167,139,250,.65);margin:0 0 .5rem;font-weight:700;">AutoMaster</p>'
-      + '<h2 style="font-size:1.35rem;font-weight:800;color:#f0ecff;margin:0 0 .6rem;letter-spacing:.04em;">Desbloqueie o poder total</h2>'
-      + '<p style="font-size:.83rem;color:#6060a0;margin:0 0 1.5rem;line-height:1.55;">Você já usou sua master gratuita.<br>Assine um plano e continue masterizando.</p>'
+      + '<p style="font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(167,139,250,.65);margin:0 0 .6rem;font-weight:700;">AutoMaster</p>'
+      + '<h2 style="font-size:1.5rem;font-weight:800;color:#f0ecff;margin:0 0 .85rem;letter-spacing:.02em;line-height:1.25;">Sua master está pronta 🔥</h2>'
+      + '<p style="font-size:.88rem;color:#a0a0c8;margin:0 0 .5rem;line-height:1.6;">Você já ouviu a diferença. Agora baixe sua versão final em alta qualidade.</p>'
+      + '<p style="font-size:.82rem;color:rgba(167,139,250,.8);margin:0 0 1.75rem;font-style:italic;">Percebeu o ganho de volume e impacto no seu som?</p>'
       /* bullets */
-      + '<div style="text-align:left;margin:0 auto 1.75rem;max-width:280px;">'
-      +   _upgradeCheckItem('Masters ilimitadas (fair use)')
-      +   _upgradeCheckItem('Preview A/B completo')
-      +   _upgradeCheckItem('Download em alta qualidade')
-      +   _upgradeCheckItem('Todos os 4 modos de intensidade')
+      + '<div style="text-align:left;margin:0 auto 2rem;max-width:290px;">'
+      +   _upgradeCheckItem('Download em qualidade máxima')
+      +   _upgradeCheckItem('Pronto para Spotify e plataformas')
+      +   _upgradeCheckItem('Sem perda de qualidade')
       + '</div>'
       /* CTA */
-      + '<a href="/planos.html" style="'
-      +   'display:inline-block;width:100%;padding:.85rem 1rem;'
+      + '<button onclick="window.location.href=\'/planos.html\'" style="'
+      +   'display:block;width:100%;padding:.95rem 1rem;'
       +   'background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7);'
-      +   'color:#fff;border-radius:13px;font-weight:800;font-size:.9rem;'
-      +   'text-decoration:none;letter-spacing:.04em;text-transform:uppercase;'
-      +   'box-shadow:0 6px 28px rgba(124,58,237,.45);'
-      + '">Ver Planos</a>'
-      + '<button onclick="resetMasterFlow();document.getElementById(\'hmUpgradeModal\').remove()" style="'
-      +   'margin-top:.85rem;background:none;border:none;color:#4a4a7a;font-size:.8rem;'
-      +   'cursor:pointer;text-decoration:underline;text-underline-offset:3px;">Cancelar</button>'
+      +   'color:#fff;border-radius:13px;font-weight:800;font-size:.95rem;'
+      +   'border:none;cursor:pointer;letter-spacing:.05em;text-transform:uppercase;'
+      +   'box-shadow:0 8px 32px rgba(124,58,237,.5);transition:opacity .15s;'
+      + '">BAIXAR MINHA MASTER</button>'
+      + '<p style="margin:.9rem 0 0;font-size:.78rem;color:#5a5a8a;">Ative um plano para liberar o download</p>'
       + '</div>';
     document.body.appendChild(overlay);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
