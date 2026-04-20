@@ -3515,6 +3515,11 @@ function renderModeSelection() {
     });
 
     // Inicia o processamento com pequeno delay para o feedback visual ser percebido
+    // Guard client-side: bloqueia antes de iniciar qualquer processamento
+    if (shouldBlockFreeMaster()) {
+      renderLimitModal();
+      return;
+    }
     // TODO Fase 3: iniciar DSP após seleção de modo
     // startMasterProcessing(resolveFileKey(), mode);
     setTimeout(function () { window.runMasterInHome(mode); }, 300);
@@ -3737,32 +3742,21 @@ function renderModeSelection() {
     }
 
     try {
-      // Guard client-side: só bloqueia se o usuário JÁ concluiu a primeira master gratuita
-      if (shouldBlockFreeMaster()) {
-        renderLimitModal();
-        return;
-      }
-
       renderProcessingState(mode);
       var jobId = await startAutomasterJob(mode);
       _state.masterJobId = jobId;
       startPollingJob(jobId);
     } catch (err) {
       var _runErrMsg = err.message || '';
-      // ── FREE_LIMIT_REACHED: limite atingido no backend ──────────────────
-      if (err.code === 'FREE_LIMIT_REACHED' || _runErrMsg === 'FREE_LIMIT_REACHED') {
+      // ── FREE_LIMIT_REACHED / NO_CREDITS: backend é autoridade ───────────
+      // Mostra limitModal sempre que o backend confirmar o limite,
+      // e sincroniza a flag local para evitar futuras chamadas desnecessárias.
+      if (err.code === 'FREE_LIMIT_REACHED' || _runErrMsg === 'FREE_LIMIT_REACHED'
+          || err.code === 'NO_CREDITS'       || _runErrMsg === 'NO_CREDITS') {
         if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
         if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
-        // Modal de limite só se já usou a master gratuita; caso contrário, erro genérico
-        if (shouldBlockFreeMaster()) { renderLimitModal(); } else { renderErrorState('Limite de processamento atingido. Tente novamente mais tarde.'); }
-        return;
-      }
-      // ── NO_CREDITS: sem créditos no backend ─────────────────────────────
-      if (err.code === 'NO_CREDITS' || _runErrMsg === 'NO_CREDITS') {
-        if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
-        if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
-        // Modal de limite só se já usou a master gratuita; caso contrário, erro genérico
-        if (shouldBlockFreeMaster()) { renderLimitModal(); } else { renderErrorState('Créditos insuficientes. Tente novamente ou contate o suporte.'); }
+        try { localStorage.setItem('freeMasterUsed', 'true'); } catch (_) {}
+        renderLimitModal();
         return;
       }
       if (_runErrMsg === 'NOT_AUTHENTICATED') {
