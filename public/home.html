@@ -4049,40 +4049,36 @@ function renderModeSelection() {
       +   'position:absolute;top:12px;right:14px;background:none;border:none;'
       +   'color:#5a5a8a;font-size:1.1rem;cursor:pointer;line-height:1;">&#10005;</button>'
 
-      /* ── HEADER ── */
-      + '<div style="width:52px;height:52px;border-radius:50%;margin:0 auto .85rem;'
+      /* ── ICON + LABEL ── */
+      + '<div style="width:52px;height:52px;border-radius:50%;margin:0 auto .65rem;'
       +   'background:radial-gradient(circle,rgba(124,58,237,.28) 0%,rgba(124,58,237,.05) 100%);'
       +   'border:1.5px solid rgba(167,139,250,.55);'
       +   'display:flex;align-items:center;justify-content:center;font-size:1.5rem;'
       +   'animation:hmIconPulse 2.6s ease-in-out infinite;">⚡</div>'
       + '<p style="font-size:.6rem;letter-spacing:.25em;text-transform:uppercase;'
-      +   'color:rgba(167,139,250,.6);margin:0 0 .4rem;font-weight:700;">AutoMaster</p>'
-      + '<h2 style="font-size:1.4rem;font-weight:900;color:#f5f0ff;'
-      +   'margin:0 0 .35rem;letter-spacing:.01em;line-height:1.2;">Sua master está pronta 🔥</h2>'
-      + '<p style="font-size:.82rem;color:rgba(167,139,250,.75);margin:0 0 1.1rem;line-height:1.5;">'
-      +   'Você já ouviu a diferença.<br>Sua master está pronta. Mas ainda não foi liberada.'
+      +   'color:rgba(167,139,250,.6);margin:0 0 .9rem;font-weight:700;">AutoMaster</p>'
+
+      /* ── 1. TEXTO PRINCIPAL ── */
+      + '<p style="font-size:.9rem;font-weight:700;color:#e8e2ff;margin:0 0 1rem;line-height:1.55;">'
+      +   'Você já ouviu a diferença.<br>'
+      +   '<span style="font-weight:400;color:rgba(167,139,250,.8);">Sua master está pronta, mas ainda não foi liberada.</span>'
       + '</p>'
 
-      /* ── 1 CARD (Alta Qualidade apenas) ── */
-      + '<div style="display:flex;flex-direction:column;gap:.4rem;margin:0 0 1.1rem;">'
-      +   _upgradeCard('\uD83C\uDFA7', 'Alta Qualidade', 'Arquivo WAV pronto para download')
-      + '</div>'
-
-      /* ── BLOCO DE PERDA ── */
-      + '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.28);'
-      +   'border-radius:10px;padding:.6rem .85rem;margin:0 0 .5rem;text-align:left;">'
-      +   '<p style="margin:0;font-size:.78rem;color:#fca5a5;font-weight:600;line-height:1.4;">'
-      +     '⚠️ Sem um plano, você não poderá baixar este resultado em wav'
+      /* ── 2. BLOCO DE PERDA ── */
+      + '<div style="background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.3);'
+      +   'border-radius:10px;padding:.65rem 1rem;margin:0 0 .6rem;text-align:center;">'
+      +   '<p style="margin:0;font-size:.8rem;color:#fca5a5;font-weight:700;line-height:1.4;">'
+      +     '⚠️ Sem um plano, você não poderá baixar este resultado em WAV'
       +   '</p>'
       + '</div>'
 
-      /* ── MICRO-URGÊNCIA ── */
-      + '<p style="font-size:.73rem;font-weight:700;color:rgba(167,139,250,.9);'
-      +   'letter-spacing:.04em;text-transform:uppercase;margin:0 0 .75rem;">'
+      /* ── 3. MICRO-URGÊNCIA ── */
+      + '<p style="font-size:.72rem;font-weight:700;color:rgba(167,139,250,.85);'
+      +   'letter-spacing:.05em;text-transform:uppercase;margin:0 0 .85rem;">'
       +   'Ative agora e desbloqueie instantaneamente'
       + '</p>'
 
-      /* ── CTA ── */
+      /* ── 4. BOTÃO PRINCIPAL ── */
       + '<button '
       +   'onclick="window.location.href=\'/planos.html\'" '
       +   'onmouseover="this.style.transform=\'scale(1.03)\';this.style.boxShadow=\'0 14px 44px rgba(124,58,237,.72)\';" '
@@ -4095,7 +4091,12 @@ function renderModeSelection() {
       +   'transition:transform .18s ease,box-shadow .18s ease;">'
       +   'DESBLOQUEAR MINHA MASTER AGORA'
       + '</button>'
-      + '<p style="margin:.6rem 0 0;font-size:.72rem;color:#6b6b9a;">A partir de R$0,97/dia &bull; acesso imediato</p>'
+
+      /* ── 5. TEXTO DE PREÇO ── */
+      + '<p style="margin:.6rem 0 .9rem;font-size:.72rem;color:#6b6b9a;">A partir de R$0,97/dia &bull; acesso imediato</p>'
+
+      /* ── 6. CARD DE BENEFÍCIO (rodapé) ── */
+      + _upgradeCard('\uD83C\uDFA7', 'Alta Qualidade', 'Arquivo WAV pronto para download')
 
       + '</div>';
 
