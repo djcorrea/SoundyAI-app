@@ -4059,23 +4059,33 @@ function renderModeSelection() {
       +   'color:rgba(167,139,250,.6);margin:0 0 .4rem;font-weight:700;">AutoMaster</p>'
       + '<h2 style="font-size:1.4rem;font-weight:900;color:#f5f0ff;'
       +   'margin:0 0 .35rem;letter-spacing:.01em;line-height:1.2;">Sua master está pronta 🔥</h2>'
-      + '<p style="font-size:.82rem;color:rgba(167,139,250,.75);margin:0 0 1.1rem;font-style:italic;">'
-      +   'Você já ouviu a diferença. Baixe agora em alta qualidade.'
+      + '<p style="font-size:.82rem;color:rgba(167,139,250,.75);margin:0 0 1.1rem;line-height:1.5;">'
+      +   'Você já ouviu a diferença.<br>Sua master está pronta. Mas ainda não foi liberada.'
       + '</p>'
 
-      /* ── 2 CARDS ── */
+      /* ── 1 CARD (Alta Qualidade apenas) ── */
       + '<div style="display:flex;flex-direction:column;gap:.4rem;margin:0 0 1.1rem;">'
-      +   _upgradeCard('\uD83C\uDFA7', 'Alta Qualidade', 'Download pronto para uso profissional')
-      +   _upgradeCard('\uD83D\uDE80', 'Pronto pra Streaming', 'Spotify, SoundCloud, shows')
+      +   _upgradeCard('\uD83C\uDFA7', 'Alta Qualidade', 'Arquivo WAV pronto para download')
       + '</div>'
 
-      /* ── CTA ── */
-      + '<p style="font-size:.74rem;font-weight:600;color:rgba(196,181,253,.8);margin:0 0 .6rem;">'
-      +   'Seu arquivo já está pronto para download'
+      /* ── BLOCO DE PERDA ── */
+      + '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.28);'
+      +   'border-radius:10px;padding:.6rem .85rem;margin:0 0 .5rem;text-align:left;">'
+      +   '<p style="margin:0;font-size:.78rem;color:#fca5a5;font-weight:600;line-height:1.4;">'
+      +     '⚠️ Sem um plano, você não poderá baixar este resultado em wav'
+      +   '</p>'
+      + '</div>'
+
+      /* ── MICRO-URGÊNCIA ── */
+      + '<p style="font-size:.73rem;font-weight:700;color:rgba(167,139,250,.9);'
+      +   'letter-spacing:.04em;text-transform:uppercase;margin:0 0 .75rem;">'
+      +   'Ative agora e desbloqueie instantaneamente'
       + '</p>'
+
+      /* ── CTA ── */
       + '<button '
       +   'onclick="window.location.href=\'/planos.html\'" '
-      +   'onmouseover="this.style.transform=\'scale(1.03)\';this.style.boxShadow=\'0 14px 44px rgba(124,58,237,.65)\';" '
+      +   'onmouseover="this.style.transform=\'scale(1.03)\';this.style.boxShadow=\'0 14px 44px rgba(124,58,237,.72)\';" '
       +   'onmouseout="this.style.transform=\'scale(1)\';this.style.boxShadow=\'0 8px 32px rgba(124,58,237,.5)\';" '
       +   'style="display:block;width:100%;padding:.9rem 1rem;'
       +   'background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7);'
@@ -4083,9 +4093,9 @@ function renderModeSelection() {
       +   'border:none;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;'
       +   'box-shadow:0 8px 32px rgba(124,58,237,.5);'
       +   'transition:transform .18s ease,box-shadow .18s ease;">'
-      +   'BAIXAR MASTER FINAL'
+      +   'DESBLOQUEAR MINHA MASTER AGORA'
       + '</button>'
-      + '<p style="margin:.65rem 0 0;font-size:.72rem;color:#4a4a7a;">Libere o download ativando seu plano</p>'
+      + '<p style="margin:.6rem 0 0;font-size:.72rem;color:#6b6b9a;">A partir de R$0,97/dia &bull; acesso imediato</p>'
 
       + '</div>';
 
