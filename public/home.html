@@ -4042,71 +4042,51 @@ function renderModeSelection() {
     overlay.innerHTML = '<div style="'
       + 'background:linear-gradient(168deg,#0d0b1f 0%,#110d28 55%,#0f0b22 100%);'
       + 'border:1px solid rgba(124,58,237,.42);border-radius:24px;'
-      + 'padding:2.75rem 2.25rem 2.25rem;width:100%;max-width:440px;text-align:center;position:relative;'
-      + 'box-shadow:0 0 90px rgba(124,58,237,.25),0 0 0 1px rgba(124,58,237,.06),0 32px 100px rgba(0,0,0,.75);">'
+      + 'padding:1.75rem 1.75rem 1.5rem;width:100%;max-width:400px;text-align:center;position:relative;'
+      + 'box-shadow:0 0 70px rgba(124,58,237,.22),0 24px 80px rgba(0,0,0,.7);">'
 
       /* ── CLOSE ── */
       + '<button onclick="document.getElementById(\'hmUpgradeModal\').remove()" style="'
-      +   'position:absolute;top:14px;right:16px;background:none;border:none;'
-      +   'color:#5a5a8a;font-size:1.15rem;cursor:pointer;line-height:1;">&#10005;</button>'
+      +   'position:absolute;top:12px;right:14px;background:none;border:none;'
+      +   'color:#5a5a8a;font-size:1.1rem;cursor:pointer;line-height:1;">&#10005;</button>'
 
-      /* ── BLOCO 1: HEADER ── */
-      + '<div style="margin:0 auto 1.85rem;">'
-      /* icon com pulse */
-      + '<div style="width:66px;height:66px;border-radius:50%;margin:0 auto 1rem;'
+      /* ── HEADER ── */
+      + '<div style="width:52px;height:52px;border-radius:50%;margin:0 auto .85rem;'
       +   'background:radial-gradient(circle,rgba(124,58,237,.28) 0%,rgba(124,58,237,.05) 100%);'
       +   'border:1.5px solid rgba(167,139,250,.55);'
-      +   'display:flex;align-items:center;justify-content:center;font-size:1.9rem;'
+      +   'display:flex;align-items:center;justify-content:center;font-size:1.5rem;'
       +   'animation:hmIconPulse 2.6s ease-in-out infinite;">⚡</div>'
-      /* label */
-      + '<p style="font-size:.63rem;letter-spacing:.28em;text-transform:uppercase;'
-      +   'color:rgba(167,139,250,.6);margin:0 0 .55rem;font-weight:700;">AutoMaster</p>'
-      /* título */
-      + '<h2 style="font-size:1.7rem;font-weight:900;color:#f5f0ff;'
-      +   'margin:0;letter-spacing:.01em;line-height:1.2;">Sua master está pronta 🔥</h2>'
-      + '</div>'
-
-      /* ── BLOCO 2: CONFIRMAÇÃO ── */
-      + '<p style="font-size:.97rem;font-weight:600;color:#d4cfff;margin:0 0 .55rem;line-height:1.5;">'
-      +   'Você já ouviu a diferença.'
+      + '<p style="font-size:.6rem;letter-spacing:.25em;text-transform:uppercase;'
+      +   'color:rgba(167,139,250,.6);margin:0 0 .4rem;font-weight:700;">AutoMaster</p>'
+      + '<h2 style="font-size:1.4rem;font-weight:900;color:#f5f0ff;'
+      +   'margin:0 0 .35rem;letter-spacing:.01em;line-height:1.2;">Sua master está pronta 🔥</h2>'
+      + '<p style="font-size:.82rem;color:rgba(167,139,250,.75);margin:0 0 1.1rem;font-style:italic;">'
+      +   'Você já ouviu a diferença. Baixe agora em alta qualidade.'
       + '</p>'
 
-      /* ── BLOCO 3: PROVA ── */
-      + '<p style="font-size:.82rem;color:rgba(167,139,250,.78);'
-      +   'margin:0 0 1.85rem;line-height:1.65;font-style:italic;">'
-      +   'Mais volume. Mais impacto. Pronto pra bater forte em qualquer sistema.'
-      + '</p>'
-
-      /* ── BLOCO 4: MINI-CARDS ── */
-      + '<div style="display:flex;flex-direction:column;gap:.55rem;margin:0 0 1.85rem;">'
+      /* ── 2 CARDS ── */
+      + '<div style="display:flex;flex-direction:column;gap:.4rem;margin:0 0 1.1rem;">'
       +   _upgradeCard('\uD83C\uDFA7', 'Alta Qualidade', 'Download pronto para uso profissional')
       +   _upgradeCard('\uD83D\uDE80', 'Pronto pra Streaming', 'Spotify, SoundCloud, shows')
-      +   _upgradeCard('⚡', 'Sem perda', 'Preserva a qualidade original')
       + '</div>'
 
-      /* ── BLOCO 5: CTA ── */
-      /* urgência */
-      + '<p style="font-size:.78rem;font-weight:600;color:rgba(196,181,253,.85);'
-      +   'margin:0 0 .85rem;letter-spacing:.02em;">'
+      /* ── CTA ── */
+      + '<p style="font-size:.74rem;font-weight:600;color:rgba(196,181,253,.8);margin:0 0 .6rem;">'
       +   'Seu arquivo já está pronto para download'
       + '</p>'
-      /* botão */
       + '<button '
       +   'onclick="window.location.href=\'/planos.html\'" '
       +   'onmouseover="this.style.transform=\'scale(1.03)\';this.style.boxShadow=\'0 14px 44px rgba(124,58,237,.65)\';" '
       +   'onmouseout="this.style.transform=\'scale(1)\';this.style.boxShadow=\'0 8px 32px rgba(124,58,237,.5)\';" '
-      +   'style="display:block;width:100%;padding:1.05rem 1rem;'
+      +   'style="display:block;width:100%;padding:.9rem 1rem;'
       +   'background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7);'
-      +   'color:#fff;border-radius:14px;font-weight:900;font-size:1rem;'
+      +   'color:#fff;border-radius:13px;font-weight:900;font-size:.95rem;'
       +   'border:none;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;'
       +   'box-shadow:0 8px 32px rgba(124,58,237,.5);'
       +   'transition:transform .18s ease,box-shadow .18s ease;">'
       +   'BAIXAR MINHA MASTER AGORA'
       + '</button>'
-      /* subtexto */
-      + '<p style="margin:.85rem 0 0;font-size:.74rem;color:#4a4a7a;line-height:1.5;">'
-      +   'Libere o download ativando seu plano'
-      + '</p>'
+      + '<p style="margin:.65rem 0 0;font-size:.72rem;color:#4a4a7a;">Libere o download ativando seu plano</p>'
 
       + '</div>';
 
@@ -4115,13 +4095,13 @@ function renderModeSelection() {
   };
 
   function _upgradeCard(icon, title, desc) {
-    return '<div style="display:flex;align-items:center;gap:.9rem;padding:.75rem 1rem;'
+    return '<div style="display:flex;align-items:center;gap:.75rem;padding:.55rem .85rem;'
       + 'background:rgba(124,58,237,.07);'
-      + 'border:1px solid rgba(124,58,237,.22);border-radius:13px;text-align:left;">'
-      + '<span style="font-size:1.35rem;flex-shrink:0;">' + icon + '</span>'
+      + 'border:1px solid rgba(124,58,237,.22);border-radius:11px;text-align:left;">'
+      + '<span style="font-size:1.15rem;flex-shrink:0;">' + icon + '</span>'
       + '<div>'
-      + '<p style="margin:0 0 .1rem;font-size:.83rem;font-weight:700;color:#d4cfff;">' + title + '</p>'
-      + '<p style="margin:0;font-size:.73rem;color:#7878aa;line-height:1.4;">' + desc + '</p>'
+      + '<p style="margin:0 0 .05rem;font-size:.8rem;font-weight:700;color:#d4cfff;">' + title + '</p>'
+      + '<p style="margin:0;font-size:.7rem;color:#7878aa;line-height:1.3;">' + desc + '</p>'
       + '</div>'
       + '</div>';
   }
@@ -4151,45 +4131,38 @@ function renderModeSelection() {
     overlay.innerHTML = '<div style="'
       + 'background:linear-gradient(168deg,#0d0b1f 0%,#110d28 55%,#0f0b22 100%);'
       + 'border:1px solid rgba(124,58,237,.38);border-radius:24px;'
-      + 'padding:2.75rem 2.25rem 2.25rem;width:100%;max-width:440px;text-align:center;position:relative;'
-      + 'box-shadow:0 0 80px rgba(124,58,237,.2),0 0 0 1px rgba(124,58,237,.05),0 32px 100px rgba(0,0,0,.75);">'
+      + 'padding:1.75rem 1.75rem 1.5rem;width:100%;max-width:400px;text-align:center;position:relative;'
+      + 'box-shadow:0 0 70px rgba(124,58,237,.18),0 24px 80px rgba(0,0,0,.7);">'
 
       /* close */
       + '<button onclick="document.getElementById(\'hmLimitModal\').remove()" style="'
-      +   'position:absolute;top:14px;right:16px;background:none;border:none;'
-      +   'color:#5a5a8a;font-size:1.15rem;cursor:pointer;line-height:1;">&#10005;</button>'
+      +   'position:absolute;top:12px;right:14px;background:none;border:none;'
+      +   'color:#5a5a8a;font-size:1.1rem;cursor:pointer;line-height:1;">&#10005;</button>'
 
       /* icon */
-      + '<div style="width:62px;height:62px;border-radius:50%;margin:0 auto 1.25rem;'
+      + '<div style="width:52px;height:52px;border-radius:50%;margin:0 auto .85rem;'
       +   'background:radial-gradient(circle,rgba(124,58,237,.22) 0%,rgba(124,58,237,.04) 100%);'
       +   'border:1.5px solid rgba(167,139,250,.45);'
-      +   'display:flex;align-items:center;justify-content:center;font-size:1.75rem;'
-      +   'box-shadow:0 0 28px rgba(124,58,237,.3);">🎚️</div>'
+      +   'display:flex;align-items:center;justify-content:center;font-size:1.5rem;'
+      +   'box-shadow:0 0 22px rgba(124,58,237,.28);">&#127898;</div>'
 
       /* label */
-      + '<p style="font-size:.63rem;letter-spacing:.28em;text-transform:uppercase;'
-      +   'color:rgba(167,139,250,.6);margin:0 0 .55rem;font-weight:700;">AutoMaster</p>'
+      + '<p style="font-size:.6rem;letter-spacing:.25em;text-transform:uppercase;'
+      +   'color:rgba(167,139,250,.6);margin:0 0 .4rem;font-weight:700;">AutoMaster</p>'
 
       /* título */
-      + '<h2 style="font-size:1.45rem;font-weight:900;color:#f5f0ff;'
-      +   'margin:0 0 .75rem;letter-spacing:.01em;line-height:1.25;">Você já usou sua master gratuita</h2>'
+      + '<h2 style="font-size:1.3rem;font-weight:900;color:#f5f0ff;'
+      +   'margin:0 0 .45rem;letter-spacing:.01em;line-height:1.25;">Você já usou sua master gratuita</h2>'
 
       /* subtítulo */
-      + '<p style="font-size:.88rem;color:#a0a0c8;margin:0 0 .5rem;line-height:1.6;">'
-      +   'Para continuar masterizando suas músicas, ative um plano.'
-      + '</p>'
-
-      /* texto de valor */
-      + '<p style="font-size:.8rem;color:rgba(167,139,250,.7);margin:0 0 1.75rem;line-height:1.6;font-style:italic;">'
-      +   'Desbloqueie o AutoMaster completo e processe quantas faixas quiser.'
+      + '<p style="font-size:.82rem;color:#a0a0c8;margin:0 0 1rem;line-height:1.55;">'
+      +   'Para continuar, ative um plano e processe quantas faixas quiser.'
       + '</p>'
 
       /* benefícios */
-      + '<div style="display:flex;flex-direction:column;gap:.5rem;margin:0 0 2rem;text-align:left;">'
+      + '<div style="display:flex;flex-direction:column;gap:.4rem;margin:0 0 1.1rem;text-align:left;">'
       +   _limitCard('♾️', 'Masters ilimitadas', 'Uso justo — processe quantas quiser')
-      +   _limitCard('🎛️', 'Todos os modos de intensidade', 'Leve, Médio, Forte e Máximo')
       +   _limitCard('💿', 'Qualidade profissional', 'Download em resolução máxima')
-      +   _limitCard('🔓', 'Sem limitações', 'Acesso completo ao AutoMaster')
       + '</div>'
 
       /* CTA */
@@ -4197,9 +4170,9 @@ function renderModeSelection() {
       +   'onclick="window.location.href=\'/planos.html\'" '
       +   'onmouseover="this.style.transform=\'scale(1.03)\';this.style.boxShadow=\'0 14px 44px rgba(124,58,237,.65)\';" '
       +   'onmouseout="this.style.transform=\'scale(1)\';this.style.boxShadow=\'0 8px 32px rgba(124,58,237,.45)\';" '
-      +   'style="display:block;width:100%;padding:1rem 1rem;'
+      +   'style="display:block;width:100%;padding:.9rem 1rem;'
       +   'background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7);'
-      +   'color:#fff;border-radius:14px;font-weight:900;font-size:1rem;'
+      +   'color:#fff;border-radius:13px;font-weight:900;font-size:.95rem;'
       +   'border:none;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;'
       +   'box-shadow:0 8px 32px rgba(124,58,237,.45);'
       +   'transition:transform .18s ease,box-shadow .18s ease;">'
@@ -4208,8 +4181,8 @@ function renderModeSelection() {
 
       /* voltar */
       + '<button onclick="document.getElementById(\'hmLimitModal\').remove()" style="'
-      +   'margin-top:.85rem;background:none;border:none;color:#4a4a7a;'
-      +   'font-size:.8rem;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">'
+      +   'margin-top:.6rem;background:none;border:none;color:#4a4a7a;'
+      +   'font-size:.75rem;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">'
       +   'Voltar'
       + '</button>'
 
@@ -4220,13 +4193,13 @@ function renderModeSelection() {
   };
 
   function _limitCard(icon, title, desc) {
-    return '<div style="display:flex;align-items:center;gap:.9rem;padding:.7rem 1rem;'
+    return '<div style="display:flex;align-items:center;gap:.75rem;padding:.55rem .85rem;'
       + 'background:rgba(124,58,237,.06);'
-      + 'border:1px solid rgba(124,58,237,.2);border-radius:12px;">'
-      + '<span style="font-size:1.2rem;flex-shrink:0;">' + icon + '</span>'
+      + 'border:1px solid rgba(124,58,237,.2);border-radius:11px;">'
+      + '<span style="font-size:1.1rem;flex-shrink:0;">' + icon + '</span>'
       + '<div>'
-      + '<p style="margin:0 0 .1rem;font-size:.82rem;font-weight:700;color:#d4cfff;">' + title + '</p>'
-      + '<p style="margin:0;font-size:.72rem;color:#7878aa;line-height:1.4;">' + desc + '</p>'
+      + '<p style="margin:0 0 .05rem;font-size:.8rem;font-weight:700;color:#d4cfff;">' + title + '</p>'
+      + '<p style="margin:0;font-size:.7rem;color:#7878aa;line-height:1.3;">' + desc + '</p>'
       + '</div>'
       + '</div>';
   }
