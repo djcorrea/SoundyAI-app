@@ -1525,37 +1525,6 @@
     }
     .am-secondary-btn:hover { border-color: rgba(167,139,250,.4); color: #c0c0e0; background: rgba(167,139,250,.06); }
 
-    /* ── Metrics compact (mix-not-apt state) ──────────────────────── */
-    .am-metrics--compact { margin-bottom: 1rem; }
-    .am-metrics--compact .am-comp-panel { padding: .55rem .75rem .65rem; }
-    .am-metrics--compact .am-comp-header { font-size: .57rem; margin-bottom: .5rem; }
-    .am-metrics--compact .am-comp-metrics { gap: .25rem; }
-    .am-metrics--compact .am-comp-metric { padding: .12rem .3rem; }
-    .am-metrics--compact .am-comp-metric-label { font-size: .57rem; }
-    .am-metrics--compact .am-comp-metric-value-before { font-size: .82rem; }
-    .am-metrics--compact .am-comp-metric-value-after  { font-size: .88rem; }
-
-    /* ── Mix-not-apt UX banner ─────────────────────────────────────── */
-    .am-mna-banner { max-width: 520px; margin: 0 auto 1rem; border-radius: 14px; background: rgba(255,59,59,.06); border: 1px solid rgba(255,59,59,.2); overflow: hidden; }
-    .am-mna-main   { padding: 1rem 1.2rem .7rem; }
-    .am-mna-title  { font-size: .88rem; font-weight: 700; color: #ff6b6b; margin: 0 0 .45rem; line-height: 1.4; }
-    .am-mna-sub    { font-size: .75rem; font-weight: 700; color: rgba(255,255,255,.75); margin: 0 0 .25rem; }
-    .am-mna-text   { font-size: .75rem; color: rgba(255,255,255,.6); margin: 0 0 .5rem; line-height: 1.5; }
-    .am-mna-section { margin-bottom: .55rem; }
-    .am-mna-list { margin: .2rem 0 0 1.1rem; padding: 0; font-size: .73rem; color: rgba(255,255,255,.58); line-height: 1.65; }
-    .am-mna-highlight { font-size: .78rem; color: rgba(255,255,255,.72); margin: .45rem 0 .25rem; font-style: italic; line-height: 1.5; }
-    .am-mna-note { font-size: .68rem; color: rgba(255,255,255,.35); margin: 0; }
-    .am-mna-cta-block { padding: .8rem 1.2rem .9rem; background: rgba(124,58,237,.07); border-top: 1px solid rgba(124,58,237,.18); }
-    .am-mna-cta-title { font-size: .8rem; font-weight: 700; color: rgba(167,139,250,.9); margin: 0 0 .3rem; }
-    .am-mna-analyze-btn {
-      margin-top: .6rem; width: 100%; padding: .62rem 1.25rem;
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      color: #fff; border: none; border-radius: 10px;
-      font-size: .84rem; font-weight: 700; cursor: pointer; letter-spacing: .02em;
-      box-shadow: 0 4px 18px rgba(124,58,237,.38); transition: box-shadow .2s, transform .15s;
-    }
-    .am-mna-analyze-btn:hover { box-shadow: 0 6px 28px rgba(124,58,237,.55); transform: translateY(-1px); }
-
     /* ── Error ────────────────────────────────────────────────────── */
     .am-error-icon {
       width: 60px; height: 60px; border-radius: 50%;
@@ -2997,7 +2966,7 @@
         + '</div>';
     }).join('');
 
-    var comparisonHtml = '<div class="am-comparison-block' + (_mixNotApt ? ' am-metrics--compact' : '') + '">'
+    var comparisonHtml = '<div class="am-comparison-block">'
       + '<div class="am-comp-panel am-comp-panel--before">'
       +   '<div class="am-comp-header am-comp-header--before">ANTES</div>'
       +   '<div class="am-comp-metrics">' + beforeMetrics + '</div>'
@@ -3050,29 +3019,15 @@
 
     var mixNotAptBanner = '';
     if (_mixNotApt) {
-      mixNotAptBanner = '<div class="am-mna-banner">'
-        + '<div class="am-mna-main">'
-        +   '<p class="am-mna-title">⚠️ Sua música já está no limite</p>'
-        +   '<p class="am-mna-text">Ela foi enviada muito alta ou com distorção.<br>Não é possível aumentar o volume sem prejudicar a qualidade.</p>'
-        +   '<div class="am-mna-section">'
-        +     '<p class="am-mna-sub">🎧 O que fizemos</p>'
-        +     '<p class="am-mna-text">Corrigimos os picos e removemos distorções<br>para deixar o áudio mais limpo e seguro.</p>'
-        +   '</div>'
-        +   '<div class="am-mna-section">'
-        +     '<p class="am-mna-sub">🔊 Resultado na prática</p>'
-        +     '<ul class="am-mna-list">'
-        +       '<li>Não distorce em som alto ou paredão</li>'
-        +       '<li>Mantém clareza mesmo em volume máximo</li>'
-        +       '<li>Soa mais profissional em qualquer sistema</li>'
-        +     '</ul>'
-        +   '</div>'
-        +   '<p class="am-mna-highlight">👉 Pode parecer um pouco mais baixa,<br>mas vai tocar muito melhor no mundo real.</p>'
-        +   '<p class="am-mna-note">É assim que músicas profissionais são preparadas para tocar alto sem distorcer.</p>'
-        + '</div>'
-        + '<div class="am-mna-cta-block">'
-        +   '<p class="am-mna-cta-title">💡 Quer mais volume de verdade?</p>'
-        +   '<p class="am-mna-text">Você precisa de headroom na mix.<br>Analise sua música e veja exatamente o que ajustar.</p>'
-        +   '<button class="am-mna-analyze-btn" type="button" onclick="window.__amTriggerAnalysis()">Analisar minha música</button>'
+      mixNotAptBanner = '<div style="'
+        + 'max-width:520px;margin:16px auto 24px auto;padding:14px 18px;border-radius:12px;'
+        + 'background:rgba(255,59,59,0.08);border:1px solid rgba(255,59,59,0.25);'
+        + 'display:flex;gap:0.75rem;align-items:flex-start;">'
+        + '<div style="font-size:1.1rem;line-height:1.5;flex-shrink:0;margin-top:1px;">⚠️</div>'
+        + '<div style="display:flex;flex-direction:column;gap:0.35rem;">'
+        +   '<p style="font-size:0.83rem;font-weight:600;color:#ff4d4d;margin:0;">Sua mix já está muito alta ou clipando.</p>'
+        +   '<p style="font-size:13px;color:rgba(255,255,255,0.8);margin:0;">Aplicamos uma masterização conservadora para evitar distorção.</p>'
+        +   '<p style="font-size:12px;color:rgba(255,255,255,0.45);margin:0;">💡 Analise sua mix e corrija o headroom antes de masterizar novamente.</p>'
         + '</div>'
         + '</div>';
     }
@@ -3358,61 +3313,6 @@
       var el = document.getElementById(id);
       if (el) el.addEventListener('timeupdate', _amUpdateBar);
     });
-
-    // ── Disparar análise a partir do resultado (botão "Analisar minha música") ──
-    // Definido aqui para fechar sobre _abPlaying (local desta função) e sobre
-    // resolveFileKey/resolveFileName/setState/showError (private do IIFE pai).
-    window.__amTriggerAnalysis = function () {
-      // 1. Capturar fileKey/fileName ANTES do reset (resetMasterFlow limpa alguns campos)
-      var _fk = resolveFileKey();
-      var _fn = resolveFileName();
-
-      // 2. Validações defensivas
-      if (!_fk) {
-        showError('Áudio original não encontrado. Por favor, envie sua faixa novamente.');
-        return;
-      }
-      if (typeof window.runAnalysisFromFileKey !== 'function') {
-        showError('Motor de análise não disponível. Por favor, recarregue a página.');
-        return;
-      }
-
-      // 3. Pausar o player A/B antes de sair do resultado
-      if (_abPlaying) {
-        var _pa_elB = document.getElementById('amAudioBefore');
-        var _pa_elA = document.getElementById('amAudioAfter');
-        if (_pa_elB) { try { _pa_elB.pause(); } catch (_) {} }
-        if (_pa_elA) { try { _pa_elA.pause(); } catch (_) {} }
-        _abPlaying = false;
-        window.__amCurrentAB = null;
-      }
-
-      // 4. Garantir o hook displayModalResults → setState('done') → openAnalysisModal()
-      //    (mesmo padrão usado em runAnalysis())
-      if (window.displayModalResults && !window.displayModalResults.__homePatched__) {
-        var _origDisp = window.displayModalResults;
-        window.displayModalResults = function homeDisplayWrapper(analysis) {
-          setState('done');
-          if (analysis) window.__VERDICT_SOURCE_DATA__ = analysis;
-          var _r = _origDisp.apply(this, arguments);
-          window.displayModalResults = _origDisp;
-          return _r;
-        };
-        window.displayModalResults.__homePatched__    = true;
-        window.displayModalResults.__verdictPatched__ = _origDisp.__verdictPatched__ || false;
-      }
-
-      // 5. Restaurar o hub (limpa timers, restaura HTML original, re-binds)
-      window.resetMasterFlow();
-
-      // 6. Forçar transição para 'analyzing' (bypassar guard de estado repetido)
-      _currentHubState = '';
-      setState('analyzing');
-
-      // 7. Disparar análise com o fileKey já existente — sem novo upload
-      debugLog('[HOME-MNA] Iniciando análise a partir do resultado. fileKey:', _fk);
-      window.runAnalysisFromFileKey(_fk, _fn || 'audio');
-    };
   }
 
   /* ── Render: erro ────────────────────────────────────────────────────────── */
