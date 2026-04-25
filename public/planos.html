@@ -303,9 +303,9 @@
         // Stripe Checkout Handler - NÃO MODIFICAR
         async function handleStripeCheckout(plan) {
             try {
-                // Tracking: início do checkout
+                // Tracking: início do checkout (await garante envio antes do redirect Stripe)
                 if (typeof window.track === 'function') {
-                    window.track('checkout_started', { plan: plan });
+                    await window.track('checkout_started', { plan: plan });
                 }
 
                 // ✅ Verificar se usuário está autenticado usando variável global
