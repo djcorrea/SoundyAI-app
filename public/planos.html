@@ -289,6 +289,8 @@
 
         // ✅ VARIÁVEL GLOBAL para armazenar usuário autenticado
         window.currentUser = null;
+        // Expõe instância de auth para getUserSafe() no event-tracker.js
+        window.__firebaseAuth = auth;
 
         // ✅ MONITORAR ESTADO DE AUTENTICAÇÃO
         onAuthStateChanged(auth, (user) => {

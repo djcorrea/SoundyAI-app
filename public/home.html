@@ -2811,11 +2811,6 @@
 
   // ── ANALYSIS TRIGGER ──────────────────────────────────────
   function runAnalysis() {
-    // Tracking: clique em analisar
-    if (typeof window.track === 'function') {
-      window.track('clicked_analyze', { fileName: _state.fileName || null });
-    }
-
     if (_currentHubState !== 'uploaded') {
       showError('Envie um arquivo antes de iniciar a análise.');
       return;
@@ -2837,6 +2832,11 @@
       return;
     }
     // ───────────────────────────────────────────────────────────────────────
+
+    // Tracking: clique em analisar (após auth validado — garante userId/email)
+    if (typeof window.track === 'function') {
+      window.track('clicked_analyze', { fileName: _state.fileName || null });
+    }
 
     if (typeof window.runAnalysisFromFileKey !== 'function') {
       showError('Motor não pronto. Por favor, aguarde um momento e tente novamente.');
@@ -3631,16 +3631,40 @@ function renderModeSelection() {
     });
 
     // Inicia o processamento com pequeno delay para o feedback visual ser percebido
-    // Guard client-side: bloqueia antes de iniciar qualquer processamento
+    // Guard client-side: consulta Firestore primeiro para validar plano atual.
+    // Usuários pagos (paid_plan / studio_unlimited) nunca são bloqueados pelo localStorage.
     var _dbgKey = _freeMasterKey();
     console.log('[FreeMaster] key:', _dbgKey, '| value:', localStorage.getItem(_dbgKey));
-    if (shouldBlockFreeMaster()) {
-      renderLimitModal();
-      return;
-    }
-    // TODO Fase 3: iniciar DSP após seleção de modo
-    // startMasterProcessing(resolveFileKey(), mode);
-    setTimeout(function () { window.runMasterInHome(mode); }, 300);
+
+    checkMasterDownloadAccess().then(function (access) {
+      var isPaidPlan = (access.reason === 'paid_plan' || access.reason === 'studio_unlimited');
+
+      if (isPaidPlan) {
+        // Plano pago confirmado pelo Firestore: limpa flag legada e prossegue
+        try { localStorage.removeItem(_freeMasterKey()); } catch (_) {}
+        debugLog('[HOME-MASTER] Plano pago confirmado (' + access.reason + ') — flag local limpa, prosseguindo.');
+        setTimeout(function () { window.runMasterInHome(mode); }, 300);
+        return;
+      }
+
+      // Plano free: aplica guard local normalmente
+      if (shouldBlockFreeMaster()) {
+        renderLimitModal();
+        return;
+      }
+
+      // TODO Fase 3: iniciar DSP após seleção de modo
+      // startMasterProcessing(resolveFileKey(), mode);
+      setTimeout(function () { window.runMasterInHome(mode); }, 300);
+    }).catch(function (err) {
+      // Falha de rede / Firestore indisponível: cai no guard local como fallback
+      debugWarn('[HOME-MASTER] checkMasterDownloadAccess falhou, usando guard local:', err.message);
+      if (shouldBlockFreeMaster()) {
+        renderLimitModal();
+        return;
+      }
+      setTimeout(function () { window.runMasterInHome(mode); }, 300);
+    });
   };
 
   /**

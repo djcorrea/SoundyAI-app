@@ -5,11 +5,11 @@
  * 
  * - Gera/reutiliza sessionId via localStorage
  * - Aguarda resolução do Firebase Auth antes de pegar o token
- * - Suporta home.html (__firebaseAuthReady) e planos.html (window.currentUser)
+ * - Usa window.__firebaseAuth (exposto por home.html e planos.html)
  * - Envia POST /api/track e retorna Promise (suporta await no call site)
  * - Nunca lança exceção — não deve impactar fluxo principal
  *
- * @version 1.1.0
+ * @version 1.2.0
  */
 (function () {
   'use strict';
@@ -36,38 +36,41 @@
     }
   }
 
-  // ── Obter token Firebase aguardando resolução de auth ─────────────────
+  // ── Resolver usuário autenticado de forma segura ────────────────────────
   //
-  // Estratégia em ordem de prioridade:
-  //  1. window.__firebaseAuthReady — Promise criada por home.html que resolve
-  //     com o usuário na primeira mudança de estado (segura para await)
-  //  2. window.currentUser — variável global populada via onAuthStateChanged
-  //     em planos.html; já estará preenchida quando o usuário clicar
-  //  3. window.__firebaseAuth.currentUser — fallback direto (menos seguro
-  //     em page load, mas útil em contextos onde auth já está resolvido)
+  // Usa window.__firebaseAuth.currentUser como fonte mais atualizada.
+  // Se currentUser ainda for null (auth ainda inicializando), aguarda o
+  // primeiro disparo de onAuthStateChanged, que sempre resolve com o
+  // estado real (user ou null) — nunca fica preso indefinidamente.
   //
+  async function getUserSafe() {
+    try {
+      var auth = window.__firebaseAuth;
+      if (!auth) return null;
+
+      // Se o usuário já está disponível, retornar imediatamente
+      if (auth.currentUser) return auth.currentUser;
+
+      // Aguardar o primeiro disparo de onAuthStateChanged.
+      // Firebase sempre dispara uma vez com o estado atual (user ou null).
+      return await new Promise(function (resolve) {
+        var unsub = auth.onAuthStateChanged(function (user) {
+          unsub();       // desinscrito após 1ª chamada
+          resolve(user); // resolve com user OU null — ambos tratados
+        });
+      });
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function getUserTokenSafe() {
     try {
-      // Prioridade 1: __firebaseAuthReady (home.html)
-      if (window.__firebaseAuthReady) {
-        var user = await window.__firebaseAuthReady;
-        if (!user) return null;
-        return await user.getIdToken(false);
-      }
-
-      // Prioridade 2: window.currentUser (planos.html)
-      if (window.currentUser) {
-        return await window.currentUser.getIdToken(false);
-      }
-
-      // Prioridade 3: currentUser direto (já resolvido em contextos tardios)
-      var auth = window.__firebaseAuth;
-      if (auth && auth.currentUser) {
-        return await auth.currentUser.getIdToken(false);
-      }
-
-      return null;
-    } catch (_) {
+      var user = await getUserSafe();
+      if (!user) return null;
+      return await user.getIdToken(false);
+    } catch (e) {
+      console.warn('[event-tracker] Token error:', e.message);
       return null;
     }
   }

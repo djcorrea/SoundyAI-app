@@ -80,6 +80,8 @@ router.post('/', async (req, res) => {
       sessionId,
       email,
       timestamp: Date.now(),
+      isoDate: new Date().toISOString(),
+      readableDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
       data: safeData,
     });
 
