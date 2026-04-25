@@ -7,6 +7,9 @@
     
     <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
     <script src="logger.js"></script>
+
+    <!-- Tracking de funil de conversão -->
+    <script src="event-tracker.js"></script>
     
     <!-- Google tag (gtag.js) - GA4 + Google Ads -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
@@ -300,6 +303,11 @@
         // Stripe Checkout Handler - NÃO MODIFICAR
         async function handleStripeCheckout(plan) {
             try {
+                // Tracking: início do checkout (await garante envio antes do redirect Stripe)
+                if (typeof window.track === 'function') {
+                    await window.track('checkout_started', { plan: plan });
+                }
+
                 // ✅ Verificar se usuário está autenticado usando variável global
                 if (!window.currentUser) {
                     alert('Você precisa estar logado para assinar um plano. Redirecionando para login...');
@@ -362,6 +370,11 @@
     <script>
         // Google Analytics 4 - Event Tracking para Planos
         document.addEventListener('DOMContentLoaded', () => {
+            // Tracking: página de planos visualizada
+            if (typeof window.track === 'function') {
+                window.track('plans_viewed', {});
+            }
+
             // Função auxiliar para enviar eventos
             function sendGA4Event(eventName, params = {}) {
                 if (typeof gtag === 'function') {
