@@ -303,6 +303,9 @@ import waitlistRouter from "./api/waitlist.js";
 // 🚀 LAUNCH: Sistema de disparo de e-mails de lançamento
 import launchRouter from "./api/launch.js";
 
+// 📊 TRACKING: Funil de conversão
+import trackRoute from "./api/track.js";
+
 // ═══════════════════════════════════════════════════════════════════
 // 🔓 ROTAS ANÔNIMAS - DESATIVADAS 2026-02-02 (Forçar login obrigatório)
 // ✅ Para reativar: descomente o bloco abaixo e reimporte os handlers
@@ -414,6 +417,10 @@ console.log('   - DELETE /api/history/:id (remover análise do histórico)');
 
 // 📧 WAITLIST: Cadastro na lista de espera com envio de e-mail
 app.use("/api/waitlist", waitlistRouter);
+
+// 📊 TRACKING: Funil de conversão (fire-and-forget, sempre responde 200)
+app.use("/api/track", trackRoute);
+console.log('📊 [TRACKING] Rota registrada: POST /api/track');
 
 // ═══════════════════════════════════════════════════════════════════
 // 🔗 REFERRAL SYSTEM V3: Sistema de Afiliados (backend-first)

@@ -11,6 +11,9 @@
   <!-- Logger — deve ser o PRIMEIRO script -->
   <script src="logger.js"></script>
 
+  <!-- Tracking de funil de conversão -->
+  <script src="event-tracker.js"></script>
+
   <!-- ── CSS STACK — mesma ordem do analyze.html ── -->
   <link rel="stylesheet" href="style.css?v=20250810">
   <link rel="stylesheet" href="audio-analyzer.css?v=20250810">
@@ -2777,6 +2780,11 @@
 
   // ── ANALYSIS TRIGGER ──────────────────────────────────────
   function runAnalysis() {
+    // Tracking: clique em analisar
+    if (typeof window.track === 'function') {
+      window.track('clicked_analyze', { fileName: _state.fileName || null });
+    }
+
     if (_currentHubState !== 'uploaded') {
       showError('Envie um arquivo antes de iniciar a análise.');
       return;
@@ -2911,6 +2919,15 @@
   function renderResultState(data) {
     var container = document.getElementById('uploadHub');
     if (!container) return;
+
+    // Tracking: resultado da master exibido
+    if (typeof window.track === 'function') {
+      window.track('result_viewed', {
+        jobId:    _state.masterJobId || null,
+        mode:     _state.masterMode  || null,
+        blocked:  _state.downloadBlocked ? true : false,
+      });
+    }
 
     if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
     if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
@@ -3910,6 +3927,14 @@ function renderModeSelection() {
    * URL lida de _state.downloadUrl (nunca de atributo HTML — segurança).
    */
   window.downloadMaster = async function downloadMaster() {
+    // Tracking: clique em baixar/desbloquear master
+    if (typeof window.track === 'function') {
+      window.track('clicked_unlock', {
+        jobId:   _state.masterJobId   || null,
+        blocked: _state.downloadBlocked ? true : false,
+      });
+    }
+
     var url = _state.downloadUrl || '';
 
     // Guard 0: download bloqueado pelo backend (free user esgotou limite)

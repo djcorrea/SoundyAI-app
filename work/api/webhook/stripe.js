@@ -7,6 +7,7 @@ import getStripe, { STRIPE_PRICE_IDS, getPlanFromPriceId } from '../../lib/strip
 import { applySubscription, cancelSubscription, downgradeToFree } from '../../lib/user/userPlans.js';
 import { isEventProcessed, markEventAsProcessed } from '../../lib/stripe/idempotency.js';
 import { addAutomasterCredits, AUTOMASTER_CREDITS_PER_PLAN } from '../../lib/automaster/credits.js';
+import { getFirestore } from '../../../firebase/admin.js';
 
 const router = express.Router();
 
@@ -311,6 +312,25 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
     currentPeriodEnd: currentPeriodEnd.toISOString(),
     status: 'success',
   });
+
+  // Tracking: compra confirmada (fire-and-forget — não bloqueia resposta ao Stripe)
+  try {
+    const db = getFirestore();
+    await db.collection('events').add({
+      event:     'purchase',
+      userId:    uid,
+      sessionId: `stripe-${eventId}`,
+      email:     fullSession.customer_details?.email || null,
+      timestamp: Date.now(),
+      data: {
+        plan,
+        subscriptionId,
+        priceId: priceId || null,
+      },
+    });
+  } catch (trackErr) {
+    console.error('[STRIPE WEBHOOK] Erro ao salvar evento purchase (não fatal):', trackErr.message);
+  }
 
   return { status: 'success', uid, plan };
 }
