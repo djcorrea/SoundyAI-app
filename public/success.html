@@ -855,6 +855,9 @@
         }
 
         onAuthStateChanged(auth, function(user) {
+            // Fluxo de master única é tratado separadamente abaixo — não executar aqui
+            if (urlParams.get('masterId')) return;
+
             if (!user) {
                 log('âŒ [SUCCESS] NÃ£o autenticado');
                 showMessage('Você precisa estar logado para confirmar seu plano.', 'error');
@@ -928,6 +931,89 @@
         });
 
         log('ðŸ“ˆ [SUCCESS] Evento de conversÃ£o iniciado - session:', sessionId);
-    </script>
+        // ─── FLUXO MASTER ÚNICA: se masterId presente na URL, tratar compra avulsa ─────
+        const _masterIdSuccess = urlParams.get('masterId');
+        if (_masterIdSuccess) {
+            log('🎚️ [SUCCESS] Fluxo single_master detectado — masterId:', _masterIdSuccess);
+
+            // Ocultar elementos do fluxo de assinatura que não se aplicam
+            if (redirectNotice) redirectNotice.style.display = 'none';
+
+            // Atualizar títulos para o contexto de master única
+            if (planNameEl)   { planNameEl.textContent  = 'AutoMaster — Download Avulso'; planNameEl.classList.remove('loading'); }
+            if (planStatusEl) { planStatusEl.textContent = '⏳ Verificando pagamento...'; planStatusEl.classList.remove('loading'); }
+
+            let _masterVerifyAttempts = 0;
+            const _MAX_ATTEMPTS = 10;
+
+            async function verifyMasterPaid() {
+                _masterVerifyAttempts++;
+                log('🔍 [SUCCESS] Verificando master status — tentativa:', _masterVerifyAttempts);
+                try {
+                    const user = window.__firebaseAuth?.currentUser;
+                    if (!user) {
+                        if (_masterVerifyAttempts < _MAX_ATTEMPTS) {
+                            setTimeout(verifyMasterPaid, 2000);
+                        } else {
+                            showMessage('Não foi possível verificar o pagamento. Acesse a página de masterização para baixar.', 'warning');
+                        }
+                        return;
+                    }
+
+                    const idToken = await user.getIdToken();
+                    // Na última tentativa, acionar verificação direta no Stripe (?verify=true)
+                    // para cobrir o caso em que o webhook falhou mas o pagamento foi processado.
+                    const _verifyParam = (_masterVerifyAttempts >= _MAX_ATTEMPTS) ? '&verify=true' : '';
+                    const resp = await fetch('/api/automaster/master-status?masterId=' + encodeURIComponent(_masterIdSuccess) + _verifyParam, {
+                        headers: { 'Authorization': 'Bearer ' + idToken }
+                    });
+
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    const data = await resp.json();
+                    log('📊 [SUCCESS] Master status:', data.status);
+
+                    if (data.status === 'paid') {
+                        if (planStatusEl) planStatusEl.textContent = '✅ Pagamento confirmado';
+                        showMessage('✅ Pagamento confirmado! Clique abaixo para baixar sua master.', 'info');
+
+                        // Criar botão de download
+                        const _dlBtn = document.createElement('a');
+                        _dlBtn.href = `/api/automaster/download/${encodeURIComponent(_masterIdSuccess)}?token=${encodeURIComponent(idToken)}`;
+                        _dlBtn.className = 'plan-action-button';
+                        _dlBtn.style.cssText = 'display:inline-block;margin-top:1.5rem;padding:1rem 2rem;background:linear-gradient(135deg,#8b5cf6,#4f8ef7);color:#fff;border-radius:12px;text-decoration:none;font-weight:700;font-size:1rem;';
+                        _dlBtn.textContent = '📥 Baixar minha master (WAV)';
+                        _dlBtn.setAttribute('download', '');
+
+                        const _container = document.querySelector('.plan-info') || document.querySelector('.success-card') || document.body;
+                        _container.appendChild(_dlBtn);
+
+                        // Limpar localStorage
+                        try { localStorage.removeItem('pendingMasterId'); } catch(_e) {}
+                    } else if (_masterVerifyAttempts < _MAX_ATTEMPTS) {
+                        // Webhook ainda não processou — aguardar e tentar novamente
+                        setTimeout(verifyMasterPaid, 3000);
+                    } else {
+                        showMessage('Seu pagamento está sendo processado. Volte à página de masterização para baixar.', 'warning');
+                    }
+                } catch (verifyErr) {
+                    log('❌ [SUCCESS] Erro ao verificar master:', verifyErr.message);
+                    if (_masterVerifyAttempts < _MAX_ATTEMPTS) {
+                        setTimeout(verifyMasterPaid, 3000);
+                    } else {
+                        showMessage('Erro ao verificar pagamento. Acesse a página de masterização para tentar novamente.', 'error');
+                    }
+                }
+            }
+
+            // Aguardar Firebase auth estar pronto antes de verificar
+            onAuthStateChanged(auth, function(user) {
+                if (user) verifyMasterPaid();
+                else {
+                    showMessage('Você precisa estar logado para confirmar o pagamento.', 'error');
+                    setTimeout(function() { window.location.href = '/login.html'; }, 3000);
+                }
+            });
+        }
+        // ─────────────────────────────────────────────────────────────────────────────    </script>
 </body>
 </html>

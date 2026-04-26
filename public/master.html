@@ -1092,7 +1092,8 @@ body .neon-accent-br{
     </div>
 
     <div class="am-actions" style="flex-direction:column;gap:.75rem;">
-      <a href="/planos.html"
+      <a id="downloadCTALink"
+         href="/planos.html"
          class="btn btn-primary"
          style="width:100%;padding:1rem;text-decoration:none;font-weight:700;background:linear-gradient(135deg,#8b5cf6,#4f8ef7);border:none;"
          onclick="closeDownloadCTAModal()">
@@ -1116,6 +1117,7 @@ body .neon-accent-br{
 const automasterState = {
   mode: null, file: null, fileName: null,
   fileKey: null, fromHomeFlow: false, jobId: null,
+  masterId: null,        // ID da master para compra avulsa (= jobId após conclusão)
   fingerprintId: null,   // device fingerprint para controle de uso free
   downloadBlocked: false, // true quando plano free bloqueia download
   preAnalysis: { apt:null, lufs:null, truePeak:null, headroom:null, clipping:null, tonalBalance:null, recommendedMode:null, message:null },
@@ -1432,6 +1434,11 @@ async function startProcessing() {
   const mn = normalizeMode(automasterState.mode);
   if (!isValidMode(mn)) { alert(`Erro interno: Modo inválido "${automasterState.mode}".`); backToDecision(); return; }
 
+  // Limpar estado de masterização anterior antes de iniciar novo job.
+  // Evita que o CTA e o localStorage apontem para uma master de sessão anterior.
+  automasterState.masterId = null;
+  try { localStorage.removeItem('pendingMasterId'); } catch (_e) {}
+
   showModal('processingModal');
   document.getElementById('processingLoading').style.display = 'block';
   document.getElementById('processingError').style.display   = 'none';
@@ -1479,6 +1486,15 @@ async function startProcessing() {
         truePeakAfter:  sd.metrics?.truePeakAfter  ?? null
       }
     };
+
+    // Salvar masterId para fluxo de compra avulsa
+    const _mid = sd.masterId || automasterState.jobId;
+    if (_mid) {
+      automasterState.masterId = _mid;
+      try { localStorage.setItem('pendingMasterId', _mid); } catch(_e) {}
+      const _ctaBtn = document.getElementById('downloadCTALink');
+      if (_ctaBtn) _ctaBtn.href = '/planos.html?masterId=' + encodeURIComponent(_mid);
+    }
 
     // Fluxo análise OU preview disponível → sempre abrir previewModal
     if (automasterState.fromHomeFlow || automasterState.result.previewBefore || automasterState.result.previewAfter) {
@@ -1629,6 +1645,15 @@ async function confirmSafeMastering() {
         truePeakAfter:  sd.metrics?.truePeakAfter  ?? null
       }
     };
+
+    // Salvar masterId para fluxo de compra avulsa (fluxo confirmSafeMastering)
+    const _midConfirm = sd.masterId || jobId;
+    if (_midConfirm) {
+      automasterState.masterId = _midConfirm;
+      try { localStorage.setItem('pendingMasterId', _midConfirm); } catch(_e) {}
+      const _ctaBtnC = document.getElementById('downloadCTALink');
+      if (_ctaBtnC) _ctaBtnC.href = '/planos.html?masterId=' + encodeURIComponent(_midConfirm);
+    }
     // Fluxo análise OU preview disponível → sempre abrir previewModal
     if (automasterState.fromHomeFlow || automasterState.result.previewBefore || automasterState.result.previewAfter) openPreviewModal();
     else openResultModal();

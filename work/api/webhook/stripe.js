@@ -145,7 +145,66 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
   console.log(`📦 [STRIPE CHECKOUT] Session ID: ${session.id}`);
   console.log(`   Mode: ${session.mode}`);
   console.log(`   Payment Status: ${session.payment_status}`);
-  
+
+  // ─── COMPRA AVULSA: master única ─────────────────────────────────────────
+  // Verificar antes de qualquer lógica de subscription
+  if (session.metadata?.type === 'single_master') {
+    console.log(`🎚️ [STRIPE CHECKOUT] Compra avulsa detectada (single_master)`);
+
+    if (session.payment_status !== 'paid') {
+      console.log(`⏭️ [STRIPE CHECKOUT] Single master: pagamento não confirmado: ${session.payment_status}`);
+      await markEventAsProcessed(eventId, {
+        eventType: 'checkout.session.completed',
+        sessionId: session.id,
+        type: 'single_master',
+        result: 'payment_not_confirmed',
+      });
+      return { status: 'ignored', reason: 'payment_not_confirmed' };
+    }
+
+    const masterId = session.metadata.masterId;
+    const uid = session.metadata.uid || session.client_reference_id;
+
+    if (!masterId || !uid) {
+      console.error(`❌ [STRIPE CHECKOUT] Single master: masterId ou uid ausente`);
+      await markEventAsProcessed(eventId, {
+        eventType: 'checkout.session.completed',
+        sessionId: session.id,
+        type: 'single_master',
+        result: 'missing_metadata',
+      });
+      return { status: 'error', error: 'missing_metadata' };
+    }
+
+    try {
+      await getFirestore().collection('masters').doc(masterId).set(
+        {
+          status: 'paid',
+          paidAt: new Date(),
+          stripeSessionId: session.id,
+          userId: uid,
+        },
+        { merge: true }
+      );
+      console.log(`✅ [STRIPE CHECKOUT] Single master paga — masterId: ${masterId}, uid: ${uid}`);
+    } catch (dbErr) {
+      console.error(`❌ [STRIPE CHECKOUT] Erro ao atualizar master no Firestore: ${dbErr.message}`);
+      // Não marcar como processado para o Stripe poder retentar
+      return { status: 'error', error: 'firestore_update_failed' };
+    }
+
+    await markEventAsProcessed(eventId, {
+      eventType: 'checkout.session.completed',
+      sessionId: session.id,
+      type: 'single_master',
+      masterId,
+      uid,
+      result: 'single_master_paid',
+    });
+    return { status: 'processed', type: 'single_master', masterId };
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Apenas processar subscriptions
   if (session.mode !== 'subscription') {
     console.log(`⏭️ [STRIPE CHECKOUT] Ignorado (mode: ${session.mode})`);
