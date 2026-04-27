@@ -1146,33 +1146,30 @@ app.get('/api/automaster/download/:jobId', async (req, res) => {
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
-    // ── PAYWALL: Bloquear download para usuários com plano free ──────────────
+    // ── PAYWALL: Plano pago OU crédito avulso (creditsLimit > creditsUsed) ───
     const _dlUserPaid = await hasPaidPlan(uid).catch(() => false);
+
+    let _dlHasCredit = false;
     if (!_dlUserPaid) {
-      // Verificar crédito avulso comprado (single_credit checkout)
-      const _credDb  = getFirestore();
-      const _userRef = _credDb.collection('usuarios').doc(uid);
-      let   _creditConsumed = false;
       try {
-        _creditConsumed = await _credDb.runTransaction(async (tx) => {
-          const snap = await tx.get(_userRef);
-          const c    = snap.exists ? (snap.data()?.credits || 0) : 0;
-          if (c <= 0) return false;
-          tx.update(_userRef, { credits: c - 1 });
-          return true;
-        });
-      } catch (txErr) {
-        console.error('[AUTOMASTER-DOWNLOAD] Erro ao consumir crédito avulso:', txErr.message);
+        const _snap = await getFirestore().collection('usuarios').doc(uid).get();
+        const _data = _snap.exists ? (_snap.data() || {}) : {};
+        const _used  = Math.max(typeof _data.creditsUsed  === 'number' ? _data.creditsUsed  : 0, 0);
+        const _limit = Math.max(typeof _data.creditsLimit === 'number' ? _data.creditsLimit : 0, 0);
+        _dlHasCredit = _limit > _used;
+        console.log(`[AUTOMASTER-DOWNLOAD] Crédito avulso — uid: ${uid} | creditsUsed: ${_used} | creditsLimit: ${_limit} | hasCredit: ${_dlHasCredit}`);
+      } catch (_snapErr) {
+        console.error('[AUTOMASTER-DOWNLOAD] Erro ao verificar crédito avulso:', _snapErr.message);
       }
-      if (!_creditConsumed) {
-        console.log('[AUTOMASTER-DOWNLOAD] Bloqueado (free + sem crédito avulso) — uid:', uid, 'jobId:', jobId);
-        return res.status(403).json({
-          error:   'FREE_USED',
-          code:    'FREE_USED',
-          message: 'Download disponível apenas para planos pagos. Faça upgrade para baixar sua master.',
-        });
-      }
-      console.log('[AUTOMASTER-DOWNLOAD] Crédito avulso consumido — uid:', uid, 'jobId:', jobId);
+    }
+
+    if (!_dlUserPaid && !_dlHasCredit) {
+      console.log('[AUTOMASTER-DOWNLOAD] Bloqueado (free + sem crédito) — uid:', uid, 'jobId:', jobId);
+      return res.status(403).json({
+        error:   'FREE_USED',
+        code:    'FREE_USED',
+        message: 'Download disponível apenas para planos pagos. Faça upgrade para baixar sua master.',
+      });
     }
     // ─────────────────────────────────────────────────────────────────────────
 

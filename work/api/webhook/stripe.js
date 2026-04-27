@@ -881,11 +881,16 @@ async function handleInvoicePaymentFailed(event, eventId, timestamp) {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HANDLER: checkout.session.completed → mode: 'payment' + type: 'single_credit'
-// Incrementa users/{uid}.credits em +1 de forma atômica e idempotente.
+//
+// Compatível com o sistema existente de creditsUsed/creditsLimit:
+//   creditsLimit += 1   → usuário ganha 1 crédito no saldo do mês
+//   creditsUsed  -= 1   → desfaz o consumo da master grátis já processada
+//
+// Resultado: a mesma master fica liberada para download sem reprocessar.
 // ═══════════════════════════════════════════════════════════════════════════════
 async function handleSingleCreditPayment(session, eventId) {
-  const uid     = session.metadata?.uid || session.client_reference_id;
-  const jobId   = session.metadata?.jobId || '';
+  const uid       = session.metadata?.uid || session.client_reference_id;
+  const jobId     = session.metadata?.jobId || '';
   const sessionId = session.id;
 
   console.log(`💳 [SINGLE-CREDIT] Pagamento avulso — uid: ${uid} | session: ${sessionId} | jobId: ${jobId}`);
@@ -913,29 +918,39 @@ async function handleSingleCreditPayment(session, eventId) {
     return { status: 'ignored', reason: 'payment_not_confirmed' };
   }
 
-  // Adicionar 1 crédito avulso em transação atômica
+  // Ajustar creditsLimit/creditsUsed em transação atômica.
+  // Não cria campo novo — usa exatamente os mesmos campos do sistema existente.
   const db      = getFirestore();
   const userRef = db.collection('usuarios').doc(uid);
 
   try {
     await db.runTransaction(async (tx) => {
-      const snap    = await tx.get(userRef);
-      const current = snap.exists ? (snap.data()?.credits || 0) : 0;
-      tx.set(userRef, { credits: current + 1 }, { merge: true });
+      const snap = await tx.get(userRef);
+      const data = snap.exists ? snap.data() : {};
+
+      const currentLimit = Math.max(typeof data.creditsLimit === 'number' ? data.creditsLimit : 0, 0);
+      const currentUsed  = Math.max(typeof data.creditsUsed  === 'number' ? data.creditsUsed  : 0, 0);
+
+      // +1 no limite → o usuário agora tem 1 crédito disponível
+      // -1 no usado  → desfaz o consumo da master grátis já processada
+      tx.set(userRef, {
+        creditsLimit: currentLimit + 1,
+        creditsUsed:  Math.max(currentUsed - 1, 0),
+      }, { merge: true });
     });
 
-    console.log(`✅ [SINGLE-CREDIT] Crédito adicionado — uid: ${uid}`);
+    console.log(`✅ [SINGLE-CREDIT] creditsLimit+1 / creditsUsed-1 aplicado — uid: ${uid}`);
   } catch (err) {
-    console.error(`❌ [SINGLE-CREDIT] Erro ao adicionar crédito: ${err.message}`);
+    console.error(`❌ [SINGLE-CREDIT] Erro ao ajustar créditos: ${err.message}`);
     await markEventAsProcessed(eventId, {
       eventType: 'checkout.session.completed',
       sessionId,
       uid,
       type: 'single_credit',
-      error: 'credit_add_failed',
+      error: 'credit_adjust_failed',
       errorMessage: err.message,
     });
-    return { status: 'error', error: 'credit_add_failed' };
+    return { status: 'error', error: 'credit_adjust_failed' };
   }
 
   await markEventAsProcessed(eventId, {
