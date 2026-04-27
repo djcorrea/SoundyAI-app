@@ -4174,12 +4174,14 @@ function renderModeSelection() {
       var _s = document.createElement('style');
       _s.id = 'hmUpgradeModalStyles';
       _s.textContent = [
-        '@keyframes hmModalIn{from{opacity:0;transform:scale(.93) translateY(14px)}to{opacity:1;transform:scale(1) translateY(0)}}',
-        '@keyframes hmIconPulse{0%,100%{box-shadow:0 0 28px rgba(124,58,237,.55),0 0 0 0 rgba(124,58,237,.2)}50%{box-shadow:0 0 54px rgba(167,139,250,.85),0 0 0 15px rgba(124,58,237,0)}}',
-        '#hmUpgradeModal .hm-cta{transition:transform .18s ease,box-shadow .18s ease}',
-        '#hmUpgradeModal .hm-cta:hover{transform:translateY(-2px)!important;box-shadow:0 0 48px rgba(147,51,234,.9),0 14px 50px rgba(147,51,234,.6)!important}',
-        '#hmUpgradeModal .hm-plans{transition:border-color .18s ease,background .18s ease}',
-        '#hmUpgradeModal .hm-plans:hover{border-color:rgba(124,58,237,.65)!important;background:rgba(124,58,237,.1)!important}',
+        '@keyframes hmModalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}',
+        '@keyframes hmIconPulse{0%,100%{box-shadow:0 0 20px rgba(123,44,255,.6),0 0 0 0 rgba(123,44,255,.2)}50%{box-shadow:0 0 40px rgba(255,77,157,.7),0 0 0 12px rgba(123,44,255,0)}}',
+        /* glass border pseudo-element */
+        '#hmUpgradeModal .hm-box::before{content:"";position:absolute;inset:0;border-radius:20px;padding:1px;background:linear-gradient(120deg,#7b2cff,#00d4ff,#ff4d9d);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.5;pointer-events:none;}',
+        '#hmUpgradeModal .hm-cta{transition:all .35s cubic-bezier(.22,1,.36,1)}',
+        '#hmUpgradeModal .hm-cta:hover{transform:scale(1.05)!important;filter:brightness(1.1);box-shadow:0 0 25px rgba(123,44,255,.8),0 0 60px rgba(255,77,157,.5)!important}',
+        '#hmUpgradeModal .hm-plans{transition:all .35s cubic-bezier(.22,1,.36,1)}',
+        '#hmUpgradeModal .hm-plans:hover{border-color:rgba(123,44,255,.65)!important;background:rgba(123,44,255,.1)!important}',
         '#hmUpgradeModal .hm-close{transition:background .15s ease}',
         '#hmUpgradeModal .hm-close:hover{background:rgba(255,255,255,.18)!important}'
       ].join('');
@@ -4189,21 +4191,25 @@ function renderModeSelection() {
     var overlay = document.createElement('div');
     overlay.id = 'hmUpgradeModal';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;'
-      + 'background:rgba(0,0,0,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);'
+      + 'background:radial-gradient(circle at 50% 40%,rgba(120,0,255,.25),transparent 60%),radial-gradient(circle at center,rgba(0,0,0,.95),#000);'
+      + 'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);'
       + 'display:flex;align-items:center;justify-content:center;padding:1rem;';
 
-    overlay.innerHTML = `<div style="
-        background:linear-gradient(168deg,#0d0b1f 0%,#110d28 60%,#0f0b22 100%);
-        border:1px solid rgba(124,58,237,.48);
-        border-radius:24px;
+    overlay.innerHTML = `<div class="hm-box" style="
+        background:radial-gradient(circle at 50% 30%,rgba(140,0,255,.25),transparent 60%),rgba(20,10,40,.55);
+        background-image:linear-gradient(rgba(255,255,255,.02),rgba(255,255,255,.02));
+        backdrop-filter:blur(20px);
+        -webkit-backdrop-filter:blur(20px);
+        border:1px solid rgba(255,255,255,.08);
+        border-radius:20px;
         padding:2rem 1.75rem 1.5rem;
         width:100%;max-width:420px;
         text-align:center;
         position:relative;
-        box-shadow:0 0 80px rgba(124,58,237,.28),0 24px 80px rgba(0,0,0,.7);
-        animation:hmModalIn .35s cubic-bezier(.22,1,.36,1) both;
+        box-shadow:0 0 60px rgba(123,44,255,.35),0 0 120px rgba(255,77,157,.15),inset 0 0 30px rgba(255,255,255,.03);
+        animation:hmModalIn .4s ease both;
         font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-        overflow:visible;">
+        overflow:hidden;">
 
       <!-- FECHAR -->
       <button class="hm-close" onclick="document.getElementById('hmUpgradeModal').remove()" style="
@@ -4220,8 +4226,8 @@ function renderModeSelection() {
       <div style="
         width:56px;height:56px;border-radius:50%;
         margin:0 auto .5rem;
-        background:radial-gradient(circle,rgba(124,58,237,.38) 0%,rgba(124,58,237,.06) 100%);
-        border:1.5px solid rgba(167,139,250,.6);
+        background:linear-gradient(135deg,#7b2cff,#ff4d9d);
+        box-shadow:0 0 20px rgba(123,44,255,.6);
         display:flex;align-items:center;justify-content:center;
         font-size:1.55rem;
         animation:hmIconPulse 2.8s ease-in-out infinite;">&#x26A1;</div>
@@ -4230,17 +4236,17 @@ function renderModeSelection() {
       <p style="font-size:.58rem;letter-spacing:.3em;text-transform:uppercase;color:rgba(167,139,250,.6);margin:0 0 .6rem;font-weight:800;">AUTOMASTER</p>
 
       <!-- TÍTULO -->
-      <h2 style="font-size:1.45rem;font-weight:800;color:#f0ecff;margin:0 0 .55rem;line-height:1.25;">Sua master est&#225; pronta!</h2>
+      <h2 style="font-size:1.45rem;font-weight:800;color:#fff;margin:0 0 .55rem;line-height:1.25;">Sua master est&#225; pronta!</h2>
 
       <!-- SUBTÍTULO -->
-      <p style="font-size:.82rem;color:rgba(167,139,250,.72);margin:0 0 1.3rem;line-height:1.6;">
+      <p style="font-size:.82rem;color:rgba(255,255,255,.7);margin:0 0 1.3rem;line-height:1.6;">
         Voc&#234; j&#225; ouviu a diferen&#231;a.<br>
         Desbloqueie agora para baixar sua master<br>em alta qualidade.
       </p>
 
       <!-- BENEFÍCIOS 3 COLUNAS -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.55rem;margin:0 0 1.15rem;">
-        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
+        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
           <div style="display:flex;justify-content:center;margin-bottom:.3rem;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round">
               <line x1="4" y1="20" x2="4" y2="12"/><line x1="8" y1="20" x2="8" y2="6"/>
@@ -4251,7 +4257,7 @@ function renderModeSelection() {
           <p style="margin:0 0 .2rem;font-size:.7rem;font-weight:700;color:#d4cfff;">Qualidade Premium</p>
           <p style="margin:0;font-size:.6rem;color:rgba(120,120,160,.75);line-height:1.35;">Arquivo WAV 24bit/48kHz pronto para uso.</p>
         </div>
-        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
+        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
           <div style="display:flex;justify-content:center;margin-bottom:.3rem;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -4260,7 +4266,7 @@ function renderModeSelection() {
           <p style="margin:0 0 .2rem;font-size:.7rem;font-weight:700;color:#d4cfff;">100% Seguro</p>
           <p style="margin:0;font-size:.6rem;color:rgba(120,120,160,.75);line-height:1.35;">Pagamento processado pela Stripe.</p>
         </div>
-        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
+        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
           <div style="display:flex;justify-content:center;margin-bottom:.3rem;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
@@ -4273,21 +4279,23 @@ function renderModeSelection() {
 
       <!-- CARD PRINCIPAL -->
       <div style="
-        background:rgba(124,58,237,.1);
-        border:1.5px solid rgba(124,58,237,.52);
+        background:rgba(255,255,255,.06);
+        border:1px solid rgba(255,255,255,.08);
         border-radius:14px;
         padding:.9rem 1rem;
         display:flex;align-items:center;justify-content:space-between;
         margin:0 0 1rem;
         position:relative;
-        box-shadow:0 0 24px rgba(124,58,237,.2);
+        backdrop-filter:blur(10px);
+        -webkit-backdrop-filter:blur(10px);
+        box-shadow:0 0 20px rgba(123,44,255,.15);
         text-align:left;">
         <span style="
           position:absolute;top:-11px;left:14px;
-          background:linear-gradient(90deg,#7c3aed,#a855f7);
+          background:linear-gradient(90deg,#7b2cff,#ff4d9d);
           color:#fff;font-size:.54rem;font-weight:800;letter-spacing:.12em;
-          padding:.22rem .7rem;border-radius:20px;text-transform:uppercase;
-          box-shadow:0 2px 10px rgba(124,58,237,.45);">MELHOR ESCOLHA</span>
+          padding:.22rem .7rem;border-radius:999px;text-transform:uppercase;
+          box-shadow:0 0 10px rgba(123,44,255,.6);">MELHOR ESCOLHA</span>
         <div style="display:flex;align-items:center;gap:.75rem;">
           <div style="
             width:42px;height:42px;border-radius:50%;
@@ -4306,7 +4314,7 @@ function renderModeSelection() {
           </div>
         </div>
         <div style="text-align:right;flex-shrink:0;">
-          <p style="margin:0 0 .06rem;font-size:1.2rem;font-weight:900;color:#f0ecff;">R$ 3,99</p>
+          <p style="margin:0 0 .06rem;font-size:1.2rem;font-weight:900;color:#f0ecff;text-shadow:0 0 10px rgba(255,255,255,.6),0 0 20px rgba(255,77,157,.4);">R$ 3,99</p>
           <p style="margin:0;font-size:.62rem;color:rgba(167,139,250,.65);">Pagamento &#250;nico</p>
         </div>
       </div>
@@ -4314,11 +4322,11 @@ function renderModeSelection() {
       <!-- BOTÃO CTA -->
       <button id="hmBtnSingleCredit" class="hm-cta" onclick="__startSingleCreditCheckout(this)" style="
         display:block;width:100%;padding:1rem;
-        background:linear-gradient(135deg,#7c3aed 0%,#9333ea 50%,#a855f7 100%);
-        color:#fff;border-radius:14px;font-weight:900;font-size:.93rem;
+        background:linear-gradient(135deg,#7b2cff,#ff4d9d);
+        color:#fff;border-radius:14px;font-weight:600;font-size:.93rem;
         border:none;cursor:pointer;letter-spacing:.05em;
-        box-shadow:0 0 30px rgba(147,51,234,.6),0 8px 32px rgba(147,51,234,.4);
-        margin-bottom:.85rem;">
+        box-shadow:0 0 35px rgba(123,44,255,1),0 0 80px rgba(255,77,157,.6);
+        margin-bottom:.85rem;letter-spacing:.5px;">
         &#x1F512; DESBLOQUEAR AGORA &#8212; R$ 3,99
       </button>
 
