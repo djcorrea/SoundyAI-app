@@ -65,19 +65,14 @@ router.post('/create-checkout-session', async (req, res) => {
         ? `https://${req.get('host')}`
         : `${req.protocol}://${req.get('host')}`;
 
+      const priceId = process.env.STRIPE_PRICE_SINGLE || 'price_1TQxlUCOXidjqeFinJEiXgFs';
+
       const session = await stripeInstance.checkout.sessions.create({
         mode: 'payment',
         payment_method_types: ['card'],
         line_items: [
           {
-            price_data: {
-              currency: 'brl',
-              unit_amount: 399, // R$3,99 em centavos
-              product_data: {
-                name: 'AutoMaster — 1 download',
-                description: 'Baixe sua faixa masterizada em WAV',
-              },
-            },
+            price: priceId,
             quantity: 1,
           },
         ],
