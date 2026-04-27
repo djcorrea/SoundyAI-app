@@ -4170,98 +4170,178 @@ function renderModeSelection() {
   window.renderUpgradeModal = function renderUpgradeModal() {
     if (document.getElementById('hmUpgradeModal')) return;
 
-    // Inject keyframe animation once
     if (!document.getElementById('hmUpgradeModalStyles')) {
-      var styleEl = document.createElement('style');
-      styleEl.id = 'hmUpgradeModalStyles';
-      styleEl.textContent = '@keyframes hmIconPulse{'
-        + '0%,100%{box-shadow:0 0 28px rgba(124,58,237,.4),0 0 0 0 rgba(124,58,237,.2)}'
-        + '50%{box-shadow:0 0 48px rgba(167,139,250,.7),0 0 0 12px rgba(124,58,237,0)}'
-        + '}';
-      document.head.appendChild(styleEl);
+      var _s = document.createElement('style');
+      _s.id = 'hmUpgradeModalStyles';
+      _s.textContent = [
+        '@keyframes hmModalIn{from{opacity:0;transform:scale(.93) translateY(14px)}to{opacity:1;transform:scale(1) translateY(0)}}',
+        '@keyframes hmIconPulse{0%,100%{box-shadow:0 0 28px rgba(124,58,237,.55),0 0 0 0 rgba(124,58,237,.2)}50%{box-shadow:0 0 54px rgba(167,139,250,.85),0 0 0 15px rgba(124,58,237,0)}}',
+        '#hmUpgradeModal .hm-cta{transition:transform .18s ease,box-shadow .18s ease}',
+        '#hmUpgradeModal .hm-cta:hover{transform:translateY(-2px)!important;box-shadow:0 0 48px rgba(147,51,234,.9),0 14px 50px rgba(147,51,234,.6)!important}',
+        '#hmUpgradeModal .hm-plans{transition:border-color .18s ease,background .18s ease}',
+        '#hmUpgradeModal .hm-plans:hover{border-color:rgba(124,58,237,.65)!important;background:rgba(124,58,237,.1)!important}',
+        '#hmUpgradeModal .hm-close{transition:background .15s ease}',
+        '#hmUpgradeModal .hm-close:hover{background:rgba(255,255,255,.18)!important}'
+      ].join('');
+      document.head.appendChild(_s);
     }
 
     var overlay = document.createElement('div');
     overlay.id = 'hmUpgradeModal';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;'
-      + 'background:rgba(0,0,0,.9);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);'
-      + 'display:flex;align-items:center;justify-content:center;padding:1.25rem;';
+      + 'background:rgba(0,0,0,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);'
+      + 'display:flex;align-items:center;justify-content:center;padding:1rem;';
 
-    overlay.innerHTML = '<div style="'
-      + 'background:linear-gradient(168deg,#0d0b1f 0%,#110d28 55%,#0f0b22 100%);'
-      + 'border:1px solid rgba(124,58,237,.42);border-radius:24px;'
-      + 'padding:1.75rem 1.75rem 1.5rem;width:100%;max-width:400px;text-align:center;position:relative;'
-      + 'box-shadow:0 0 70px rgba(124,58,237,.22),0 24px 80px rgba(0,0,0,.7);">'
+    overlay.innerHTML = `<div style="
+        background:linear-gradient(168deg,#0d0b1f 0%,#110d28 60%,#0f0b22 100%);
+        border:1px solid rgba(124,58,237,.48);
+        border-radius:24px;
+        padding:2rem 1.75rem 1.5rem;
+        width:100%;max-width:420px;
+        text-align:center;
+        position:relative;
+        box-shadow:0 0 80px rgba(124,58,237,.28),0 24px 80px rgba(0,0,0,.7);
+        animation:hmModalIn .35s cubic-bezier(.22,1,.36,1) both;
+        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        overflow:visible;">
 
-      /* ── CLOSE ── */
-      + '<button onclick="document.getElementById(\'hmUpgradeModal\').remove()" style="'
-      +   'position:absolute;top:12px;right:14px;background:none;border:none;'
-      +   'color:#5a5a8a;font-size:1.1rem;cursor:pointer;line-height:1;">&#10005;</button>'
+      <!-- FECHAR -->
+      <button class="hm-close" onclick="document.getElementById('hmUpgradeModal').remove()" style="
+        position:absolute;top:14px;right:14px;
+        width:28px;height:28px;
+        background:rgba(255,255,255,.08);
+        border:1px solid rgba(255,255,255,.15);
+        border-radius:50%;
+        color:rgba(255,255,255,.65);font-size:.75rem;
+        cursor:pointer;padding:0;line-height:1;
+        display:flex;align-items:center;justify-content:center;">&#x2715;</button>
 
-      /* ── ICON + LABEL ── */
-      + '<div style="width:52px;height:52px;border-radius:50%;margin:0 auto .65rem;'
-      +   'background:radial-gradient(circle,rgba(124,58,237,.28) 0%,rgba(124,58,237,.05) 100%);'
-      +   'border:1.5px solid rgba(167,139,250,.55);'
-      +   'display:flex;align-items:center;justify-content:center;font-size:1.5rem;'
-      +   'animation:hmIconPulse 2.6s ease-in-out infinite;">⚡</div>'
-      + '<p style="font-size:.6rem;letter-spacing:.25em;text-transform:uppercase;'
-      +   'color:rgba(167,139,250,.6);margin:0 0 .9rem;font-weight:700;">AutoMaster</p>'
+      <!-- ÍCONE -->
+      <div style="
+        width:56px;height:56px;border-radius:50%;
+        margin:0 auto .5rem;
+        background:radial-gradient(circle,rgba(124,58,237,.38) 0%,rgba(124,58,237,.06) 100%);
+        border:1.5px solid rgba(167,139,250,.6);
+        display:flex;align-items:center;justify-content:center;
+        font-size:1.55rem;
+        animation:hmIconPulse 2.8s ease-in-out infinite;">&#x26A1;</div>
 
-      /* ── 1. TEXTO PRINCIPAL ── */
-      + '<p style="font-size:.9rem;font-weight:700;color:#e8e2ff;margin:0 0 1rem;line-height:1.55;">'
-      +   'Você já ouviu a diferença.<br>'
-      +   '<span style="font-weight:400;color:rgba(167,139,250,.8);">Sua master está pronta, mas ainda não foi liberada.</span>'
-      + '</p>'
+      <!-- LABEL -->
+      <p style="font-size:.58rem;letter-spacing:.3em;text-transform:uppercase;color:rgba(167,139,250,.6);margin:0 0 .6rem;font-weight:800;">AUTOMASTER</p>
 
-      /* ── 2. BLOCO DE PERDA ── */
-      + '<div style="background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.3);'
-      +   'border-radius:10px;padding:.65rem 1rem;margin:0 0 .6rem;text-align:center;">'
-      +   '<p style="margin:0;font-size:.8rem;color:#fca5a5;font-weight:700;line-height:1.4;">'
-      +     '⚠️ Sem um plano, você não poderá baixar este resultado em WAV'
-      +   '</p>'
-      + '</div>'
+      <!-- TÍTULO -->
+      <h2 style="font-size:1.45rem;font-weight:800;color:#f0ecff;margin:0 0 .55rem;line-height:1.25;">Sua master est&#225; pronta!</h2>
 
-      /* ── 3. MICRO-URGÊNCIA ── */
-      + '<p style="font-size:.72rem;font-weight:700;color:rgba(167,139,250,.85);'
-      +   'letter-spacing:.05em;text-transform:uppercase;margin:0 0 .85rem;">'
-      +   'Ative agora e desbloqueie instantaneamente'
-      + '</p>'
+      <!-- SUBTÍTULO -->
+      <p style="font-size:.82rem;color:rgba(167,139,250,.72);margin:0 0 1.3rem;line-height:1.6;">
+        Voc&#234; j&#225; ouviu a diferen&#231;a.<br>
+        Desbloqueie agora para baixar sua master<br>em alta qualidade.
+      </p>
 
-      /* ── 4. BOTÃO PRINCIPAL — DOWNLOAD AVULSO ── */
-      + '<button id="hmBtnSingleCredit" '
-      +   'onclick="__startSingleCreditCheckout(this)" '
-      +   'onmouseover="this.style.transform=\'scale(1.03)\';this.style.boxShadow=\'0 14px 44px rgba(0,200,100,.6)\';" '
-      +   'onmouseout="this.style.transform=\'scale(1)\';this.style.boxShadow=\'0 8px 32px rgba(0,200,100,.4)\';" '
-      +   'style="display:block;width:100%;padding:.9rem 1rem;'
-      +   'background:linear-gradient(135deg,#065f46,#059669,#10b981);'
-      +   'color:#fff;border-radius:13px;font-weight:900;font-size:.95rem;'
-      +   'border:none;cursor:pointer;letter-spacing:.04em;'
-      +   'box-shadow:0 8px 32px rgba(0,200,100,.4);'
-      +   'transition:transform .18s ease,box-shadow .18s ease;">'
-      +   '⬇ BAIXAR AGORA &mdash; R$3,99'
-      + '</button>'
+      <!-- BENEFÍCIOS 3 COLUNAS -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.55rem;margin:0 0 1.15rem;">
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
+          <div style="display:flex;justify-content:center;margin-bottom:.3rem;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round">
+              <line x1="4" y1="20" x2="4" y2="12"/><line x1="8" y1="20" x2="8" y2="6"/>
+              <line x1="12" y1="20" x2="12" y2="2"/><line x1="16" y1="20" x2="16" y2="6"/>
+              <line x1="20" y1="20" x2="20" y2="12"/>
+            </svg>
+          </div>
+          <p style="margin:0 0 .2rem;font-size:.7rem;font-weight:700;color:#d4cfff;">Qualidade Premium</p>
+          <p style="margin:0;font-size:.6rem;color:rgba(120,120,160,.75);line-height:1.35;">Arquivo WAV 24bit/48kHz pronto para uso.</p>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
+          <div style="display:flex;justify-content:center;margin-bottom:.3rem;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <p style="margin:0 0 .2rem;font-size:.7rem;font-weight:700;color:#d4cfff;">100% Seguro</p>
+          <p style="margin:0;font-size:.6rem;color:rgba(120,120,160,.75);line-height:1.35;">Pagamento processado pela Stripe.</p>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
+          <div style="display:flex;justify-content:center;margin-bottom:.3rem;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+          </div>
+          <p style="margin:0 0 .2rem;font-size:.7rem;font-weight:700;color:#d4cfff;">Download Imediato</p>
+          <p style="margin:0;font-size:.6rem;color:rgba(120,120,160,.75);line-height:1.35;">Acesso liberado na hora ap&#243;s o pagamento.</p>
+        </div>
+      </div>
 
-      /* ── 5. SEPARADOR ── */
-      + '<p style="margin:.7rem 0 .5rem;font-size:.68rem;color:rgba(120,120,160,.6);'
-      +   'text-transform:uppercase;letter-spacing:.12em;">ou</p>'
+      <!-- CARD PRINCIPAL -->
+      <div style="
+        background:rgba(124,58,237,.1);
+        border:1.5px solid rgba(124,58,237,.52);
+        border-radius:14px;
+        padding:.9rem 1rem;
+        display:flex;align-items:center;justify-content:space-between;
+        margin:0 0 1rem;
+        position:relative;
+        box-shadow:0 0 24px rgba(124,58,237,.2);
+        text-align:left;">
+        <span style="
+          position:absolute;top:-11px;left:14px;
+          background:linear-gradient(90deg,#7c3aed,#a855f7);
+          color:#fff;font-size:.54rem;font-weight:800;letter-spacing:.12em;
+          padding:.22rem .7rem;border-radius:20px;text-transform:uppercase;
+          box-shadow:0 2px 10px rgba(124,58,237,.45);">MELHOR ESCOLHA</span>
+        <div style="display:flex;align-items:center;gap:.75rem;">
+          <div style="
+            width:42px;height:42px;border-radius:50%;
+            background:rgba(124,58,237,.25);
+            border:1px solid rgba(167,139,250,.4);
+            display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </div>
+          <div>
+            <p style="margin:0 0 .1rem;font-size:.9rem;font-weight:800;color:#f0ecff;">Baixar agora</p>
+            <p style="margin:0;font-size:.7rem;color:rgba(167,139,250,.7);">1 download da sua master</p>
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <p style="margin:0 0 .06rem;font-size:1.2rem;font-weight:900;color:#f0ecff;">R$ 3,99</p>
+          <p style="margin:0;font-size:.62rem;color:rgba(167,139,250,.65);">Pagamento &#250;nico</p>
+        </div>
+      </div>
 
-      /* ── 6. BOTÃO SECUNDÁRIO — VER PLANOS ── */
-      + '<button '
-      +   'onclick="window.open(\'/planos.html\',\'_blank\')" '
-      +   'style="display:block;width:100%;padding:.7rem 1rem;'
-      +   'background:transparent;color:rgba(167,139,250,.85);'
-      +   'border:1px solid rgba(124,58,237,.4);border-radius:13px;font-weight:700;font-size:.82rem;'
-      +   'cursor:pointer;transition:border-color .18s ease,color .18s ease;">'
-      +   'Ver planos'
-      + '</button>'
+      <!-- BOTÃO CTA -->
+      <button id="hmBtnSingleCredit" class="hm-cta" onclick="__startSingleCreditCheckout(this)" style="
+        display:block;width:100%;padding:1rem;
+        background:linear-gradient(135deg,#7c3aed 0%,#9333ea 50%,#a855f7 100%);
+        color:#fff;border-radius:14px;font-weight:900;font-size:.93rem;
+        border:none;cursor:pointer;letter-spacing:.05em;
+        box-shadow:0 0 30px rgba(147,51,234,.6),0 8px 32px rgba(147,51,234,.4);
+        margin-bottom:.85rem;">
+        &#x1F512; DESBLOQUEAR AGORA &#8212; R$ 3,99
+      </button>
 
-      /* ── 7. TEXTO DE APOIO ── */
-      + '<p style="margin:.7rem 0 .9rem;font-size:.68rem;color:#6b6b9a;">Planos mensais a partir de R$0,97/dia</p>'
+      <!-- SEPARADOR -->
+      <p style="margin:0 0 .8rem;font-size:.68rem;color:rgba(120,120,160,.5);text-transform:uppercase;letter-spacing:.14em;">ou</p>
 
-      /* ── 8. CARD DE BENEFÍCIO (rodapé) ── */
-      + _upgradeCard('\uD83C\uDFA7', 'Alta Qualidade', 'Arquivo WAV pronto para download')
+      <!-- BOTÃO SECUNDÁRIO -->
+      <button class="hm-plans" onclick="window.open('/planos.html','_blank')" style="
+        display:flex;align-items:center;justify-content:center;gap:.7rem;
+        width:100%;padding:.8rem 1rem;
+        background:rgba(255,255,255,.03);
+        border:1px solid rgba(124,58,237,.32);
+        border-radius:14px;cursor:pointer;">
+        <span style="font-size:1rem;">&#x1F451;</span>
+        <div style="text-align:left;">
+          <p style="margin:0;font-size:.82rem;font-weight:700;color:#c4b8ff;">Ver planos e economizar</p>
+          <p style="margin:0;font-size:.67rem;color:rgba(120,120,160,.7);">Acesse mais downloads por m&#234;s</p>
+        </div>
+      </button>
 
-      + '</div>';
+      <!-- FOOTER -->
+      <p style="margin:.9rem 0 0;font-size:.64rem;color:rgba(120,120,160,.45);">&#x1F512; Compra 100% segura via Stripe</p>
+    </div>`;
 
     document.body.appendChild(overlay);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
