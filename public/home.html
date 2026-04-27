@@ -4227,30 +4227,76 @@ function renderModeSelection() {
       +   'Ative agora e desbloqueie instantaneamente'
       + '</p>'
 
-      /* ── 4. BOTÃO PRINCIPAL ── */
-      + '<button '
-      +   'onclick="window.location.href=\'/planos.html\'" '
-      +   'onmouseover="this.style.transform=\'scale(1.03)\';this.style.boxShadow=\'0 14px 44px rgba(124,58,237,.72)\';" '
-      +   'onmouseout="this.style.transform=\'scale(1)\';this.style.boxShadow=\'0 8px 32px rgba(124,58,237,.5)\';" '
+      /* ── 4. BOTÃO PRINCIPAL — DOWNLOAD AVULSO ── */
+      + '<button id="hmBtnSingleCredit" '
+      +   'onclick="__startSingleCreditCheckout(this)" '
+      +   'onmouseover="this.style.transform=\'scale(1.03)\';this.style.boxShadow=\'0 14px 44px rgba(0,200,100,.6)\';" '
+      +   'onmouseout="this.style.transform=\'scale(1)\';this.style.boxShadow=\'0 8px 32px rgba(0,200,100,.4)\';" '
       +   'style="display:block;width:100%;padding:.9rem 1rem;'
-      +   'background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7);'
+      +   'background:linear-gradient(135deg,#065f46,#059669,#10b981);'
       +   'color:#fff;border-radius:13px;font-weight:900;font-size:.95rem;'
-      +   'border:none;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;'
-      +   'box-shadow:0 8px 32px rgba(124,58,237,.5);'
+      +   'border:none;cursor:pointer;letter-spacing:.04em;'
+      +   'box-shadow:0 8px 32px rgba(0,200,100,.4);'
       +   'transition:transform .18s ease,box-shadow .18s ease;">'
-      +   'DESBLOQUEAR MINHA MASTER AGORA'
+      +   '⬇ BAIXAR AGORA &mdash; R$3,99'
       + '</button>'
 
-      /* ── 5. TEXTO DE PREÇO ── */
-      + '<p style="margin:.6rem 0 .9rem;font-size:.72rem;color:#6b6b9a;">A partir de R$0,97/dia &bull; acesso imediato</p>'
+      /* ── 5. SEPARADOR ── */
+      + '<p style="margin:.7rem 0 .5rem;font-size:.68rem;color:rgba(120,120,160,.6);'
+      +   'text-transform:uppercase;letter-spacing:.12em;">ou</p>'
 
-      /* ── 6. CARD DE BENEFÍCIO (rodapé) ── */
+      /* ── 6. BOTÃO SECUNDÁRIO — VER PLANOS ── */
+      + '<button '
+      +   'onclick="window.open(\'/planos.html\',\'_blank\')" '
+      +   'style="display:block;width:100%;padding:.7rem 1rem;'
+      +   'background:transparent;color:rgba(167,139,250,.85);'
+      +   'border:1px solid rgba(124,58,237,.4);border-radius:13px;font-weight:700;font-size:.82rem;'
+      +   'cursor:pointer;transition:border-color .18s ease,color .18s ease;">'
+      +   'Ver planos'
+      + '</button>'
+
+      /* ── 7. TEXTO DE APOIO ── */
+      + '<p style="margin:.7rem 0 .9rem;font-size:.68rem;color:#6b6b9a;">Planos mensais a partir de R$0,97/dia</p>'
+
+      /* ── 8. CARD DE BENEFÍCIO (rodapé) ── */
       + _upgradeCard('\uD83C\uDFA7', 'Alta Qualidade', 'Arquivo WAV pronto para download')
 
       + '</div>';
 
     document.body.appendChild(overlay);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+  };
+
+  // ── CHECKOUT AVULSO: inicia Stripe checkout para 1 crédito (R$3,99) ──────
+  window.__startSingleCreditCheckout = async function __startSingleCreditCheckout(btn) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Aguarde...'; }
+    try {
+      var token = await getValidIdToken();
+      if (!token) throw new Error('Não autenticado');
+
+      var jobId = _state.masterJobId || '';
+
+      // Salvar jobId localmente para recuperar em success.html
+      if (jobId) localStorage.setItem('sc_pending_job', String(jobId));
+
+      var resp = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': 'Bearer ' + token,
+        },
+        body: JSON.stringify({ plan: 'single_credit', jobId: jobId }),
+      });
+
+      var data = await resp.json();
+      if (!resp.ok || !data.url) throw new Error(data.message || 'Erro ao criar checkout');
+
+      window.location.href = data.url;
+    } catch (err) {
+      debugError('[SINGLE-CREDIT] Erro ao iniciar checkout:', err.message);
+      if (btn) { btn.disabled = false; btn.innerHTML = '⬇ BAIXAR AGORA &mdash; R$3,99'; }
+      alert('Não foi possível iniciar o pagamento. Tente novamente.');
+    }
   };
 
   function _upgradeCard(icon, title, desc) {

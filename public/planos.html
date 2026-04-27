@@ -81,32 +81,6 @@
         </header>
 
         <!-- ===================================
-             CARD MASTER Única (visível apenas quando ?masterId= está na URL)
-             =================================== -->
-        <div id="single-master-card" style="display:none;margin-bottom:2rem;">
-          <div class="pricing-card glass-effect" style="border:1px solid rgba(139,92,246,.5);background:rgba(139,92,246,.07);max-width:420px;margin:0 auto;">
-            <div class="card-header" style="padding-bottom:0.5rem;">
-              <div class="card-icon" style="background:linear-gradient(135deg,rgba(139,92,246,.3),rgba(79,142,247,.3));">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-              </div>
-              <h2 class="card-plan-name">BAIXAR ESTA MASTER</h2>
-              <p class="card-description">Compra única — sem assinatura.</p>
-            </div>
-            <div class="card-price" style="margin:1rem 0;">
-              <span class="price-value" style="font-size:2.5rem;font-weight:800;">R$19,90</span>
-              <span class="price-period" style="color:var(--text-2);"> pag. único</span>
-            </div>
-            <ul class="feature-list" style="margin-bottom:1.5rem;">
-              <li class="feature-item"><span class="feature-check" style="color:var(--success);">&#10003;</span> Download desta master em WAV</li>
-              <li class="feature-item"><span class="feature-check" style="color:var(--success);">&#10003;</span> Sem assinatura recorrente</li>
-            </ul>
-            <button id="btn-single-master" class="plan-button btn-premium" style="background:linear-gradient(135deg,#8b5cf6,#4f8ef7);width:100%;" onclick="handleSingleMasterCheckout()">
-              Baixar minha master
-            </button>
-          </div>
-        </div>
-
-        <!-- ===================================
              GRID DE CARDS
              =================================== -->
         <div class="pricing-grid">
@@ -393,62 +367,6 @@
 
         // Expor função globalmente para os botões
         window.handleStripeCheckout = handleStripeCheckout;
-
-        // ─ CHECKOUT AVULSO: compra de master única ──────────────────────────────
-        // Ler masterId da URL e, se presente, exibir o card de master única
-        const _masterIdFromUrl = new URLSearchParams(window.location.search).get('masterId');
-        if (_masterIdFromUrl) {
-            const _singleCard = document.getElementById('single-master-card');
-            if (_singleCard) _singleCard.style.display = 'block';
-            log('🎚️ [PLANOS] masterId detectado na URL:', _masterIdFromUrl);
-        }
-
-        async function handleSingleMasterCheckout() {
-            const masterId = new URLSearchParams(window.location.search).get('masterId')
-                           || (typeof localStorage !== 'undefined' && localStorage.getItem('pendingMasterId'));
-
-            if (!masterId) {
-                alert('Master não identificada. Volte à página de masterização.');
-                return;
-            }
-            if (!window.currentUser) {
-                alert('Você precisa estar logado. Redirecionando...');
-                window.location.href = 'index.html';
-                return;
-            }
-
-            const btn = document.getElementById('btn-single-master');
-            if (btn) { btn.disabled = true; btn.textContent = 'Aguarde...'; }
-
-            try {
-                const idToken = await window.currentUser.getIdToken();
-                const response = await fetch('/api/stripe/create-single-master-checkout', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${idToken}`
-                    },
-                    body: JSON.stringify({ masterId })
-                });
-
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.message || 'Erro ao criar sessão de checkout');
-                }
-
-                const data = await response.json();
-                if (data.url) {
-                    window.location.href = data.url;
-                } else {
-                    throw new Error('URL de checkout não retornada');
-                }
-            } catch (error) {
-                if (btn) { btn.disabled = false; btn.textContent = 'Baixar minha master'; }
-                alert(`Erro ao processar pagamento: ${error.message}`);
-            }
-        }
-
-        window.handleSingleMasterCheckout = handleSingleMasterCheckout;
     </script>
 
     <script>

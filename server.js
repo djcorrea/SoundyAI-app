@@ -279,8 +279,6 @@ import demoRouter from "./work/api/demo/index.js";
 import stripeCheckoutRouter from "./work/api/stripe/create-checkout-session.js";
 import stripeCancelRouter from "./work/api/stripe/cancel-subscription.js";
 import stripeWebhookRouter from "./work/api/webhook/stripe.js";
-import singleMasterCheckoutRouter from "./work/api/stripe/create-single-master-checkout.js";
-import { getStripe } from "./work/lib/stripe/config.js";
 
 // 🔐 AUTH MIDDLEWARE + CRÉDITOS: AutoMaster
 import { verifyFirebaseToken } from './work/lib/auth/verify-token-middleware.js';
@@ -397,7 +395,6 @@ app.use("/api", presignRoute);
 
 // ✅ STRIPE: Registrar rotas de pagamento (DEPOIS das rotas gerais)
 app.use('/api/stripe', stripeCheckoutRouter);
-app.use('/api/stripe', singleMasterCheckoutRouter);
 app.use('/api/stripe/cancel-subscription', stripeCancelRouter);
 
 // 🔍 VERIFY PURCHASE: Endpoint de verificação manual de compra
@@ -958,23 +955,6 @@ app.get('/api/automaster/status/:jobId', verifyFirebaseToken, async (req, res) =
       consumeJobCredit(req.user.uid, jobId).catch(err =>
         console.error('⚠️ [AUTOMASTER-STATUS] consumeJobCredit error (não fatal):', err.message)
       );
-
-      // ── SALVAR REGISTRO DA MASTER (idempotente) ─────────────────────────────
-      // Garante que exista um documento masters/{jobId} para compra avulsa.
-      // merge:true → nunca sobrescreve status 'paid' se webhook já processou.
-      getFirestore().collection('masters').doc(jobId).set({
-        masterId: jobId,
-        userId: req.user.uid,
-        jobId,
-        fileKey: job.output_key || null,
-        status: 'locked',
-        createdAt: job.finished_at || Date.now(),
-      }, { merge: true }).catch(e =>
-        console.error('⚠️ [AUTOMASTER-STATUS] masters save error (não fatal):', e.message)
-      );
-
-      // Retornar masterId para o frontend (usado no fluxo de compra avulsa)
-      response.masterId = jobId;
     } else if (job.status === 'needs_confirmation') {
       // Problemas técnicos detectados — aguardando confirmação do usuário para masterização segura
       response.status = 'needs_confirmation';
@@ -1167,30 +1147,32 @@ app.get('/api/automaster/download/:jobId', async (req, res) => {
     }
 
     // ── PAYWALL: Bloquear download para usuários com plano free ──────────────
-    // Exceto: usuários que compraram esta master avulsa (status 'paid' no Firestore)
     const _dlUserPaid = await hasPaidPlan(uid).catch(() => false);
     if (!_dlUserPaid) {
-      // Verificar se o usuário pagou por esta master avulsa
-      let _singleMasterPaid = false;
+      // Verificar crédito avulso comprado (single_credit checkout)
+      const _credDb  = getFirestore();
+      const _userRef = _credDb.collection('usuarios').doc(uid);
+      let   _creditConsumed = false;
       try {
-        const _masterSnap = await getFirestore().collection('masters').doc(jobId).get();
-        if (_masterSnap.exists) {
-          const _masterData = _masterSnap.data();
-          _singleMasterPaid = _masterData.status === 'paid' && _masterData.userId === uid;
-        }
-      } catch (masterCheckErr) {
-        console.error('⚠️ [AUTOMASTER-DOWNLOAD] Erro ao verificar masters:', masterCheckErr.message);
+        _creditConsumed = await _credDb.runTransaction(async (tx) => {
+          const snap = await tx.get(_userRef);
+          const c    = snap.exists ? (snap.data()?.credits || 0) : 0;
+          if (c <= 0) return false;
+          tx.update(_userRef, { credits: c - 1 });
+          return true;
+        });
+      } catch (txErr) {
+        console.error('[AUTOMASTER-DOWNLOAD] Erro ao consumir crédito avulso:', txErr.message);
       }
-
-      if (!_singleMasterPaid) {
-        console.log('[AUTOMASTER-DOWNLOAD] Bloqueado (plano free, sem compra avulsa) — uid:', uid, 'jobId:', jobId);
+      if (!_creditConsumed) {
+        console.log('[AUTOMASTER-DOWNLOAD] Bloqueado (free + sem crédito avulso) — uid:', uid, 'jobId:', jobId);
         return res.status(403).json({
           error:   'FREE_USED',
           code:    'FREE_USED',
           message: 'Download disponível apenas para planos pagos. Faça upgrade para baixar sua master.',
         });
       }
-      console.log('[AUTOMASTER-DOWNLOAD] Permitido via compra avulsa — uid:', uid, 'jobId:', jobId);
+      console.log('[AUTOMASTER-DOWNLOAD] Crédito avulso consumido — uid:', uid, 'jobId:', jobId);
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -1269,62 +1251,6 @@ app.get('/api/automaster/download/:jobId', async (req, res) => {
     if (!res.headersSent) {
       return res.status(500).json({ error: 'Falha no download', details: error.message });
     }
-  }
-});
-
-// 🔍 MASTER STATUS: Verifica se uma master avulsa foi paga
-app.get('/api/automaster/master-status', verifyFirebaseToken, async (req, res) => {
-  try {
-    const masterId = req.query.masterId;
-    if (!masterId || typeof masterId !== 'string' || !/^[0-9a-f-]{36}$/i.test(masterId)) {
-      return res.status(400).json({ error: 'masterId inválido' });
-    }
-
-    const db = getFirestore();
-    const masterSnap = await db.collection('masters').doc(masterId).get();
-    if (!masterSnap.exists) {
-      return res.status(404).json({ error: 'master_not_found' });
-    }
-    const masterData = masterSnap.data();
-    if (masterData.userId !== req.user.uid) {
-      return res.status(403).json({ error: 'forbidden' });
-    }
-
-    // Happy path: já está pago no Firestore
-    if (masterData.status === 'paid') {
-      return res.json({ masterId, status: 'paid' });
-    }
-
-    // FALLBACK: verificar diretamente na API do Stripe
-    // Executado APENAS quando o cliente envia ?verify=true (após esgotamento do polling normal).
-    // Resolve o caso em que o webhook falhou mas o pagamento foi processado com sucesso.
-    const shouldVerify = req.query.verify === 'true';
-    if (shouldVerify) {
-      const sessionIdToCheck = masterData.stripeSessionId || masterData.pendingStripeSessionId;
-      if (sessionIdToCheck) {
-        try {
-          const stripe = getStripe();
-          const session = await stripe.checkout.sessions.retrieve(sessionIdToCheck);
-          if (session.payment_status === 'paid') {
-            // Reconciliação: atualiza Firestore para não depender do Stripe em polls futuros
-            await db.collection('masters').doc(masterId).set(
-              { status: 'paid', paidAt: new Date(), reconciledAt: new Date() },
-              { merge: true }
-            );
-            console.log('[MASTER-STATUS] Reconciliação Stripe → Firestore — masterId:', masterId);
-            return res.json({ masterId, status: 'paid', reconciled: true });
-          }
-        } catch (stripeErr) {
-          // Não propagar: retornar status atual do Firestore como fallback seguro
-          console.error('⚠️ [MASTER-STATUS] Erro na reconciliação Stripe (não fatal):', stripeErr.message);
-        }
-      }
-    }
-
-    return res.json({ masterId, status: masterData.status });
-  } catch (error) {
-    console.error('❌ [MASTER-STATUS] Erro:', error.message);
-    return res.status(500).json({ error: 'internal_error', message: error.message });
   }
 });
 

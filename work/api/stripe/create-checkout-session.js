@@ -48,7 +48,7 @@ router.post('/create-checkout-session', async (req, res) => {
     console.log(`✅ [STRIPE] Usuário autenticado: ${uid}`);
 
     // 2️⃣ VALIDAR PLANO
-    const { plan } = req.body;
+    const { plan, jobId } = req.body;
 
     if (!plan) {
       console.error('❌ [STRIPE] Plano não informado');
@@ -57,6 +57,46 @@ router.post('/create-checkout-session', async (req, res) => {
         message: 'Plano não informado',
       });
     }
+
+    // ── CRÉDITO AVULSO: fluxo separado (mode: payment, não subscription) ──────
+    if (plan === 'single_credit') {
+      const stripeInstance = stripe();
+      const baseUrl = process.env.NODE_ENV === 'production'
+        ? `https://${req.get('host')}`
+        : `${req.protocol}://${req.get('host')}`;
+
+      const session = await stripeInstance.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'brl',
+              unit_amount: 399, // R$3,99 em centavos
+              product_data: {
+                name: 'AutoMaster — 1 download',
+                description: 'Baixe sua faixa masterizada em WAV',
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        customer_email: decodedToken.email,
+        client_reference_id: uid,
+        metadata: {
+          uid,
+          type: 'single_credit',
+          jobId: jobId || '',
+          email: decodedToken.email || '',
+        },
+        success_url: `${baseUrl}/success.html?type=single_credit`,
+        cancel_url:  `${baseUrl}/home.html`,
+      });
+
+      console.log(`✅ [STRIPE] Checkout single_credit criado: ${session.id} — uid: ${uid}`);
+      return res.status(200).json({ sessionId: session.id, url: session.url });
+    }
+    // ────────────────────────────────────────────────────────────────────────────
 
     if (!isValidPlan(plan)) {
       console.error(`❌ [STRIPE] Plano inválido: ${plan}`);

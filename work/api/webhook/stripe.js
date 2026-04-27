@@ -145,65 +145,12 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
   console.log(`📦 [STRIPE CHECKOUT] Session ID: ${session.id}`);
   console.log(`   Mode: ${session.mode}`);
   console.log(`   Payment Status: ${session.payment_status}`);
-
-  // ─── COMPRA AVULSA: master única ─────────────────────────────────────────
-  // Verificar antes de qualquer lógica de subscription
-  if (session.metadata?.type === 'single_master') {
-    console.log(`🎚️ [STRIPE CHECKOUT] Compra avulsa detectada (single_master)`);
-
-    if (session.payment_status !== 'paid') {
-      console.log(`⏭️ [STRIPE CHECKOUT] Single master: pagamento não confirmado: ${session.payment_status}`);
-      await markEventAsProcessed(eventId, {
-        eventType: 'checkout.session.completed',
-        sessionId: session.id,
-        type: 'single_master',
-        result: 'payment_not_confirmed',
-      });
-      return { status: 'ignored', reason: 'payment_not_confirmed' };
-    }
-
-    const masterId = session.metadata.masterId;
-    const uid = session.metadata.uid || session.client_reference_id;
-
-    if (!masterId || !uid) {
-      console.error(`❌ [STRIPE CHECKOUT] Single master: masterId ou uid ausente`);
-      await markEventAsProcessed(eventId, {
-        eventType: 'checkout.session.completed',
-        sessionId: session.id,
-        type: 'single_master',
-        result: 'missing_metadata',
-      });
-      return { status: 'error', error: 'missing_metadata' };
-    }
-
-    try {
-      await getFirestore().collection('masters').doc(masterId).set(
-        {
-          status: 'paid',
-          paidAt: new Date(),
-          stripeSessionId: session.id,
-          userId: uid,
-        },
-        { merge: true }
-      );
-      console.log(`✅ [STRIPE CHECKOUT] Single master paga — masterId: ${masterId}, uid: ${uid}`);
-    } catch (dbErr) {
-      console.error(`❌ [STRIPE CHECKOUT] Erro ao atualizar master no Firestore: ${dbErr.message}`);
-      // Não marcar como processado para o Stripe poder retentar
-      return { status: 'error', error: 'firestore_update_failed' };
-    }
-
-    await markEventAsProcessed(eventId, {
-      eventType: 'checkout.session.completed',
-      sessionId: session.id,
-      type: 'single_master',
-      masterId,
-      uid,
-      result: 'single_master_paid',
-    });
-    return { status: 'processed', type: 'single_master', masterId };
+  
+  // ── CRÉDITO AVULSO: pagamento único (single_credit) ─────────────────────────
+  if (session.mode === 'payment' && session.metadata?.type === 'single_credit') {
+    return await handleSingleCreditPayment(session, eventId);
   }
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
 
   // Apenas processar subscriptions
   if (session.mode !== 'subscription') {
@@ -930,6 +877,77 @@ async function handleInvoicePaymentFailed(event, eventId, timestamp) {
   });
 
   return { status: 'success', uid, plan, subscriptionStatus: subscription.status };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HANDLER: checkout.session.completed → mode: 'payment' + type: 'single_credit'
+// Incrementa users/{uid}.credits em +1 de forma atômica e idempotente.
+// ═══════════════════════════════════════════════════════════════════════════════
+async function handleSingleCreditPayment(session, eventId) {
+  const uid     = session.metadata?.uid || session.client_reference_id;
+  const jobId   = session.metadata?.jobId || '';
+  const sessionId = session.id;
+
+  console.log(`💳 [SINGLE-CREDIT] Pagamento avulso — uid: ${uid} | session: ${sessionId} | jobId: ${jobId}`);
+
+  if (!uid) {
+    console.error(`❌ [SINGLE-CREDIT] UID não encontrado na session`);
+    await markEventAsProcessed(eventId, {
+      eventType: 'checkout.session.completed',
+      sessionId,
+      error: 'uid_not_found',
+      type: 'single_credit',
+    });
+    return { status: 'error', error: 'uid_not_found' };
+  }
+
+  if (session.payment_status !== 'paid') {
+    console.log(`⏭️ [SINGLE-CREDIT] Pagamento não confirmado: ${session.payment_status}`);
+    await markEventAsProcessed(eventId, {
+      eventType: 'checkout.session.completed',
+      sessionId,
+      paymentStatus: session.payment_status,
+      type: 'single_credit',
+      result: 'payment_not_confirmed',
+    });
+    return { status: 'ignored', reason: 'payment_not_confirmed' };
+  }
+
+  // Adicionar 1 crédito avulso em transação atômica
+  const db      = getFirestore();
+  const userRef = db.collection('usuarios').doc(uid);
+
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap    = await tx.get(userRef);
+      const current = snap.exists ? (snap.data()?.credits || 0) : 0;
+      tx.set(userRef, { credits: current + 1 }, { merge: true });
+    });
+
+    console.log(`✅ [SINGLE-CREDIT] Crédito adicionado — uid: ${uid}`);
+  } catch (err) {
+    console.error(`❌ [SINGLE-CREDIT] Erro ao adicionar crédito: ${err.message}`);
+    await markEventAsProcessed(eventId, {
+      eventType: 'checkout.session.completed',
+      sessionId,
+      uid,
+      type: 'single_credit',
+      error: 'credit_add_failed',
+      errorMessage: err.message,
+    });
+    return { status: 'error', error: 'credit_add_failed' };
+  }
+
+  await markEventAsProcessed(eventId, {
+    eventType: 'checkout.session.completed',
+    sessionId,
+    uid,
+    jobId,
+    type: 'single_credit',
+    status: 'success',
+  });
+
+  return { status: 'success', uid, type: 'single_credit' };
 }
 
 export default router;
