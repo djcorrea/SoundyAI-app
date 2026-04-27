@@ -4175,13 +4175,15 @@ function renderModeSelection() {
       _s.id = 'hmUpgradeModalStyles';
       _s.textContent = [
         '@keyframes hmModalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}',
-        '@keyframes hmIconPulse{0%,100%{box-shadow:0 0 20px rgba(123,44,255,.6),0 0 0 0 rgba(123,44,255,.2)}50%{box-shadow:0 0 40px rgba(255,77,157,.7),0 0 0 12px rgba(123,44,255,0)}}',
-        /* glass border pseudo-element */
-        '#hmUpgradeModal .hm-box::before{content:"";position:absolute;inset:0;border-radius:20px;padding:1px;background:linear-gradient(120deg,#7b2cff,#00d4ff,#ff4d9d);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.5;pointer-events:none;}',
+        '@keyframes hmIconPulse{0%,100%{box-shadow:0 0 20px rgba(91,44,255,.7),0 0 0 0 rgba(91,44,255,.2)}50%{box-shadow:0 0 40px rgba(43,108,255,.8),0 0 0 12px rgba(91,44,255,0)}}',
+        /* glass border + reflexo */
+        '#hmUpgradeModal .hm-box::before{content:"";position:absolute;inset:0;border-radius:20px;padding:1px;background:linear-gradient(120deg,#5a2cff,#2b6cff,#7b8cff);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.5;pointer-events:none;}',
+        '#hmUpgradeModal .hm-box::after{content:"";position:absolute;top:0;left:0;width:100%;height:40%;background:linear-gradient(to bottom,rgba(255,255,255,.08),transparent);pointer-events:none;border-radius:20px;}',
         '#hmUpgradeModal .hm-cta{transition:all .35s cubic-bezier(.22,1,.36,1)}',
-        '#hmUpgradeModal .hm-cta:hover{transform:scale(1.05)!important;filter:brightness(1.1);box-shadow:0 0 25px rgba(123,44,255,.8),0 0 60px rgba(255,77,157,.5)!important}',
+        '#hmUpgradeModal .hm-cta:hover{transform:scale(1.05)!important;filter:brightness(1.1);box-shadow:0 0 35px rgba(91,44,255,.9),0 0 70px rgba(43,108,255,.5)!important}',
+        '#hmUpgradeModal .hm-cta:active{transform:scale(.97)!important}',
         '#hmUpgradeModal .hm-plans{transition:all .35s cubic-bezier(.22,1,.36,1)}',
-        '#hmUpgradeModal .hm-plans:hover{border-color:rgba(123,44,255,.65)!important;background:rgba(123,44,255,.1)!important}',
+        '#hmUpgradeModal .hm-plans:hover{border-color:rgba(91,44,255,.65)!important;background:rgba(91,44,255,.1)!important}',
         '#hmUpgradeModal .hm-close{transition:background .15s ease}',
         '#hmUpgradeModal .hm-close:hover{background:rgba(255,255,255,.18)!important}'
       ].join('');
@@ -4196,17 +4198,17 @@ function renderModeSelection() {
       + 'display:flex;align-items:center;justify-content:center;padding:1rem;';
 
     overlay.innerHTML = `<div class="hm-box" style="
-        background:radial-gradient(circle at 50% 30%,rgba(140,0,255,.25),transparent 60%),rgba(20,10,40,.55);
+        background:rgba(20,10,40,.45);
         background-image:linear-gradient(rgba(255,255,255,.02),rgba(255,255,255,.02));
-        backdrop-filter:blur(20px);
-        -webkit-backdrop-filter:blur(20px);
+        backdrop-filter:blur(30px) saturate(140%);
+        -webkit-backdrop-filter:blur(30px) saturate(140%);
         border:1px solid rgba(255,255,255,.08);
         border-radius:20px;
-        padding:2rem 1.75rem 1.5rem;
-        width:100%;max-width:420px;
+        padding:32px 28px;
+        width:100%;max-width:520px;
         text-align:center;
         position:relative;
-        box-shadow:0 0 60px rgba(123,44,255,.35),0 0 120px rgba(255,77,157,.15),inset 0 0 30px rgba(255,255,255,.03);
+        box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 60px rgba(91,44,255,.3),inset 0 1px 0 rgba(255,255,255,.08);
         animation:hmModalIn .4s ease both;
         font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
         overflow:hidden;">
@@ -4226,8 +4228,8 @@ function renderModeSelection() {
       <div style="
         width:56px;height:56px;border-radius:50%;
         margin:0 auto .5rem;
-        background:linear-gradient(135deg,#7b2cff,#ff4d9d);
-        box-shadow:0 0 20px rgba(123,44,255,.6);
+        background:linear-gradient(135deg,#5a2cff,#2b6cff);
+        box-shadow:0 0 20px rgba(91,44,255,.7);
         display:flex;align-items:center;justify-content:center;
         font-size:1.55rem;
         animation:hmIconPulse 2.8s ease-in-out infinite;">&#x26A1;</div>
@@ -4246,7 +4248,7 @@ function renderModeSelection() {
 
       <!-- BENEFÍCIOS 3 COLUNAS -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.55rem;margin:0 0 1.15rem;">
-        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
+        <div style="background:rgba(255,255,255,.07);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
           <div style="display:flex;justify-content:center;margin-bottom:.3rem;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round">
               <line x1="4" y1="20" x2="4" y2="12"/><line x1="8" y1="20" x2="8" y2="6"/>
@@ -4257,7 +4259,7 @@ function renderModeSelection() {
           <p style="margin:0 0 .2rem;font-size:.7rem;font-weight:700;color:#d4cfff;">Qualidade Premium</p>
           <p style="margin:0;font-size:.6rem;color:rgba(120,120,160,.75);line-height:1.35;">Arquivo WAV 24bit/48kHz pronto para uso.</p>
         </div>
-        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
+        <div style="background:rgba(255,255,255,.07);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
           <div style="display:flex;justify-content:center;margin-bottom:.3rem;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -4266,7 +4268,7 @@ function renderModeSelection() {
           <p style="margin:0 0 .2rem;font-size:.7rem;font-weight:700;color:#d4cfff;">100% Seguro</p>
           <p style="margin:0;font-size:.6rem;color:rgba(120,120,160,.75);line-height:1.35;">Pagamento processado pela Stripe.</p>
         </div>
-        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
+        <div style="background:rgba(255,255,255,.07);border:1px solid rgba(124,58,237,.22);border-radius:12px;padding:.75rem .45rem;">
           <div style="display:flex;justify-content:center;margin-bottom:.3rem;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
@@ -4279,7 +4281,7 @@ function renderModeSelection() {
 
       <!-- CARD PRINCIPAL -->
       <div style="
-        background:rgba(255,255,255,.06);
+        background:rgba(255,255,255,.07);
         border:1px solid rgba(255,255,255,.08);
         border-radius:14px;
         padding:.9rem 1rem;
@@ -4292,10 +4294,10 @@ function renderModeSelection() {
         text-align:left;">
         <span style="
           position:absolute;top:-11px;left:14px;
-          background:linear-gradient(90deg,#7b2cff,#ff4d9d);
+          background:linear-gradient(90deg,#5a2cff,#2b6cff);
           color:#fff;font-size:.54rem;font-weight:800;letter-spacing:.12em;
           padding:.22rem .7rem;border-radius:999px;text-transform:uppercase;
-          box-shadow:0 0 10px rgba(123,44,255,.6);">MELHOR ESCOLHA</span>
+          box-shadow:0 0 10px rgba(91,44,255,.6);">MELHOR ESCOLHA</span>
         <div style="display:flex;align-items:center;gap:.75rem;">
           <div style="
             width:42px;height:42px;border-radius:50%;
@@ -4314,20 +4316,21 @@ function renderModeSelection() {
           </div>
         </div>
         <div style="text-align:right;flex-shrink:0;">
-          <p style="margin:0 0 .06rem;font-size:1.2rem;font-weight:900;color:#f0ecff;text-shadow:0 0 10px rgba(255,255,255,.6),0 0 20px rgba(255,77,157,.4);">R$ 3,99</p>
+          <p style="margin:0 0 .06rem;font-size:1.2rem;font-weight:900;color:#f0ecff;text-shadow:0 0 10px rgba(255,255,255,.6),0 0 20px rgba(91,44,255,.5);">R$ 3,99</p>
           <p style="margin:0;font-size:.62rem;color:rgba(167,139,250,.65);">Pagamento &#250;nico</p>
         </div>
       </div>
 
       <!-- BOTÃO CTA -->
       <button id="hmBtnSingleCredit" class="hm-cta" onclick="__startSingleCreditCheckout(this)" style="
-        display:block;width:100%;padding:1rem;
-        background:linear-gradient(135deg,#7b2cff,#ff4d9d);
-        color:#fff;border-radius:14px;font-weight:600;font-size:.93rem;
-        border:none;cursor:pointer;letter-spacing:.05em;
-        box-shadow:0 0 35px rgba(123,44,255,1),0 0 80px rgba(255,77,157,.6);
-        margin-bottom:.85rem;letter-spacing:.5px;">
-        &#x1F512; DESBLOQUEAR AGORA &#8212; R$ 3,99
+        display:block;width:100%;padding:14px 20px;
+        background:linear-gradient(135deg,#5a2cff,#2b6cff);
+        color:#fff;border-radius:14px;font-weight:500;font-size:15px;
+        border:none;cursor:pointer;letter-spacing:.3px;
+        white-space:nowrap;
+        box-shadow:0 0 25px rgba(91,44,255,.9),0 0 60px rgba(43,108,255,.4);
+        margin-bottom:.85rem;">
+        &#x2193; Baixar master &#8212; R$ 3,99
       </button>
 
       <!-- SEPARADOR -->
