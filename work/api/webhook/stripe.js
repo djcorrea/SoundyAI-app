@@ -141,10 +141,13 @@ router.post('/', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 async function handleCheckoutCompleted(event, eventId, timestamp) {
   const session = event.data.object;
-  
+
   console.log(`📦 [STRIPE CHECKOUT] Session ID: ${session.id}`);
   console.log(`   Mode: ${session.mode}`);
   console.log(`   Payment Status: ${session.payment_status}`);
+  console.log(`   Metadata: ${JSON.stringify(session.metadata)}`);
+  console.log(`   UID from metadata: ${session.metadata?.uid}`);
+  console.log(`   Client Ref ID: ${session.client_reference_id}`);
   
   // ── CRÉDITO AVULSO: pagamento único (single_credit) ─────────────────────────
   if (session.mode === 'payment' && session.metadata?.type === 'single_credit') {
@@ -882,21 +885,30 @@ async function handleInvoicePaymentFailed(event, eventId, timestamp) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // HANDLER: checkout.session.completed → mode: 'payment' + type: 'single_credit'
 //
-// Compatível com o sistema existente de creditsUsed/creditsLimit:
-//   creditsLimit += 1   → usuário ganha 1 crédito no saldo do mês
-//   creditsUsed  -= 1   → desfaz o consumo da master grátis já processada
+// Lógica: creditsLimit += 1
+//   → Download liberado quando creditsLimit > creditsUsed
+//   → creditsUsed NÃO é alterado
 //
-// Resultado: a mesma master fica liberada para download sem reprocessar.
+// IDEMPOTÊNCIA: markEventAsProcessed é chamado SOMENTE em caso de sucesso.
+// Se o Firestore falhar, o evento NÃO é marcado → Stripe pode fazer retry.
 // ═══════════════════════════════════════════════════════════════════════════════
 async function handleSingleCreditPayment(session, eventId) {
   const uid       = session.metadata?.uid || session.client_reference_id;
   const jobId     = session.metadata?.jobId || '';
   const sessionId = session.id;
 
+  // ── LOGS DE DIAGNÓSTICO ────────────────────────────────────────────────────
+  console.log('🔔 [SINGLE-CREDIT] WEBHOOK TRIGGERED');
+  console.log(`🔔 [SINGLE-CREDIT] EVENT TYPE: checkout.session.completed`);
+  console.log(`🔔 [SINGLE-CREDIT] SESSION MODE: ${session.mode}`);
+  console.log(`🔔 [SINGLE-CREDIT] METADATA: ${JSON.stringify(session.metadata)}`);
+  console.log(`🔔 [SINGLE-CREDIT] UID: ${uid}`);
   console.log(`💳 [SINGLE-CREDIT] Pagamento avulso — uid: ${uid} | session: ${sessionId} | jobId: ${jobId}`);
+  // ──────────────────────────────────────────────────────────────────────────
 
   if (!uid) {
     console.error(`❌ [SINGLE-CREDIT] UID não encontrado na session`);
+    // Marca como processado (erro permanente, retry não vai resolver)
     await markEventAsProcessed(eventId, {
       eventType: 'checkout.session.completed',
       sessionId,
@@ -918,41 +930,36 @@ async function handleSingleCreditPayment(session, eventId) {
     return { status: 'ignored', reason: 'payment_not_confirmed' };
   }
 
-  // Ajustar creditsLimit/creditsUsed em transação atômica.
-  // Não cria campo novo — usa exatamente os mesmos campos do sistema existente.
   const db      = getFirestore();
   const userRef = db.collection('usuarios').doc(uid);
 
   try {
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(userRef);
-      const data = snap.exists ? snap.data() : {};
 
-      const currentLimit = Math.max(typeof data.creditsLimit === 'number' ? data.creditsLimit : 0, 0);
-      const currentUsed  = Math.max(typeof data.creditsUsed  === 'number' ? data.creditsUsed  : 0, 0);
+      if (!snap.exists) {
+        throw new Error('User not found');
+      }
 
-      // +1 no limite → o usuário agora tem 1 crédito disponível
-      // -1 no usado  → desfaz o consumo da master grátis já processada
-      tx.set(userRef, {
+      const data         = snap.data() || {};
+      const currentLimit = typeof data.creditsLimit === 'number' ? data.creditsLimit : 0;
+
+      console.log(`🔔 [SINGLE-CREDIT] creditsLimit atual: ${currentLimit} → novo: ${currentLimit + 1}`);
+
+      // Apenas incrementa o limite — creditsUsed NÃO é tocado
+      tx.update(userRef, {
         creditsLimit: currentLimit + 1,
-        creditsUsed:  Math.max(currentUsed - 1, 0),
-      }, { merge: true });
+      });
     });
 
-    console.log(`✅ [SINGLE-CREDIT] creditsLimit+1 / creditsUsed-1 aplicado — uid: ${uid}`);
+    console.log(`✅ [SINGLE-CREDIT] creditsLimit+1 aplicado com sucesso — uid: ${uid}`);
   } catch (err) {
-    console.error(`❌ [SINGLE-CREDIT] Erro ao ajustar créditos: ${err.message}`);
-    await markEventAsProcessed(eventId, {
-      eventType: 'checkout.session.completed',
-      sessionId,
-      uid,
-      type: 'single_credit',
-      error: 'credit_adjust_failed',
-      errorMessage: err.message,
-    });
-    return { status: 'error', error: 'credit_adjust_failed' };
+    // ⚠️ NÃO marcar como processado aqui → permite retry do Stripe
+    console.error(`❌ [SINGLE-CREDIT] Erro ao ajustar crédito: ${err.message}`);
+    return { status: 'error', error: 'credit_adjust_failed', message: err.message };
   }
 
+  // Marcar como processado SOMENTE após sucesso confirmado
   await markEventAsProcessed(eventId, {
     eventType: 'checkout.session.completed',
     sessionId,
