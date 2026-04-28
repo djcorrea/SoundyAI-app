@@ -149,21 +149,38 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
   console.log(`   UID from metadata: ${session.metadata?.uid}`);
   console.log(`   Client Ref ID: ${session.client_reference_id}`);
   
-  // ── CRÉDITO AVULSO: pagamento único (single_credit) ─────────────────────────
+  // ── CRÉDITO AVULSO: pagamento único ─────────────────────────────────────────
   if (session.mode === 'payment') {
-    if (session.metadata?.type === 'single_credit') {
-      return await handleSingleCreditPayment(session, eventId);
+    console.log('🔥 [STRIPE CHECKOUT] PAYMENT DETECTADO');
+    console.log(`   METADATA: ${JSON.stringify(session.metadata)}`);
+
+    // Resolve UID via fallback — tolerante a metadata incompleta
+    const uid = session.metadata?.uid || session.client_reference_id;
+    console.log(`   UID: ${uid}`);
+
+    if (!uid) {
+      console.error('❌ [STRIPE CHECKOUT] UID AUSENTE NO PAGAMENTO — sem retry possível');
+      // UID ausente é erro permanente: marcar para não re-tentar infinitamente
+      await markEventAsProcessed(eventId, {
+        eventType: 'checkout.session.completed',
+        sessionId: session.id,
+        mode: session.mode,
+        error: 'uid_missing',
+        result: 'uid_missing_permanent_error',
+      });
+      return { status: 'error', error: 'uid_missing' };
     }
-    // Pagamento avulso sem type single_credit — ignora sem marcar como subscription
-    console.log(`⏭️ [STRIPE CHECKOUT] Pagamento avulso ignorado (metadata.type: ${session.metadata?.type})`);
-    await markEventAsProcessed(eventId, {
-      eventType: 'checkout.session.completed',
-      sessionId: session.id,
-      mode: session.mode,
-      metadataType: session.metadata?.type,
-      result: 'ignored_payment_not_single_credit',
-    });
-    return { status: 'ignored', reason: 'payment_not_single_credit' };
+
+    // Normaliza session com uid resolvido antes de passar para o handler
+    // → handler nunca depende de metadata externa
+    return await handleSingleCreditPayment({
+      ...session,
+      metadata: {
+        uid,
+        type: 'single_credit',
+        jobId: session.metadata?.jobId || '',
+      },
+    }, eventId);
   }
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -950,21 +967,29 @@ async function handleSingleCreditPayment(session, eventId) {
       const snap = await tx.get(userRef);
 
       if (!snap.exists) {
-        throw new Error('User not found');
+        throw new Error('user_not_found');
       }
 
-      const data         = snap.data() || {};
-      const currentLimit = typeof data.creditsLimit === 'number' ? data.creditsLimit : 0;
+      const data = snap.data() || {};
 
-      console.log(`🔔 [SINGLE-CREDIT] creditsLimit atual: ${currentLimit} → novo: ${currentLimit + 1}`);
+      const currentLimit = Math.max(data.creditsLimit || 0, 0);
+      const currentUsed  = Math.max(data.creditsUsed  || 0, 0);
 
-      // Apenas incrementa o limite — creditsUsed NÃO é tocado
+      const newLimit = currentLimit + 1;
+      const newUsed  = Math.max(currentUsed - 1, 0);
+
+      console.log('CREDIT BEFORE:', { currentLimit, currentUsed });
+      console.log('CREDIT AFTER:', { newLimit, newUsed });
+
+      // creditsLimit += 1  → adiciona o crédito comprado
+      // creditsUsed  -= 1  → compensa o consumo antecipado feito durante a geração da master
       tx.update(userRef, {
-        creditsLimit: currentLimit + 1,
+        creditsLimit: newLimit,
+        creditsUsed:  newUsed,
       });
     });
 
-    console.log(`✅ [SINGLE-CREDIT] creditsLimit+1 aplicado com sucesso — uid: ${uid}`);
+    console.log(`✅ [SINGLE-CREDIT] creditsLimit+1 / creditsUsed-1 aplicado — uid: ${uid}`);
   } catch (err) {
     // ⚠️ NÃO marcar como processado aqui → permite retry do Stripe
     console.error(`❌ [SINGLE-CREDIT] Erro ao ajustar crédito: ${err.message}`);
