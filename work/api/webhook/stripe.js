@@ -150,8 +150,20 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
   console.log(`   Client Ref ID: ${session.client_reference_id}`);
   
   // ── CRÉDITO AVULSO: pagamento único (single_credit) ─────────────────────────
-  if (session.mode === 'payment' && session.metadata?.type === 'single_credit') {
-    return await handleSingleCreditPayment(session, eventId);
+  if (session.mode === 'payment') {
+    if (session.metadata?.type === 'single_credit') {
+      return await handleSingleCreditPayment(session, eventId);
+    }
+    // Pagamento avulso sem type single_credit — ignora sem marcar como subscription
+    console.log(`⏭️ [STRIPE CHECKOUT] Pagamento avulso ignorado (metadata.type: ${session.metadata?.type})`);
+    await markEventAsProcessed(eventId, {
+      eventType: 'checkout.session.completed',
+      sessionId: session.id,
+      mode: session.mode,
+      metadataType: session.metadata?.type,
+      result: 'ignored_payment_not_single_credit',
+    });
+    return { status: 'ignored', reason: 'payment_not_single_credit' };
   }
   // ─────────────────────────────────────────────────────────────────────────────
 
