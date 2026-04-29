@@ -276,8 +276,11 @@ export async function consumeJobCredit(uid, jobId) {
     }
 
     // ── Contadores mensais (novo sistema) ─────────────────────────────────────
-    userUpdates.creditsUsed  = newUsed;
-    userUpdates.creditsLimit = monthlyLimit;
+    // ⚠️ CRÍTICO: NÃO escrever creditsLimit aqui.
+    // creditsLimit é gerenciado por: (1) reset mensal em createJobWithTransaction
+    //   e (2) webhook Stripe (plano pago ou crédito avulso).
+    // Sobrescrever aqui destruiria créditos avulsos comprados pelo usuário.
+    userUpdates.creditsUsed   = newUsed;
     userUpdates.lifetimeUsage = (typeof user.lifetimeUsage === 'number' ? user.lifetimeUsage : 0) + 1;
 
     // ── Uso granular ──────────────────────────────────────────────────────────

@@ -148,6 +148,14 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
   console.log(`   Metadata: ${JSON.stringify(session.metadata)}`);
   console.log(`   UID from metadata: ${session.metadata?.uid}`);
   console.log(`   Client Ref ID: ${session.client_reference_id}`);
+  // ── LOG DE DIAGNÓSTICO COMPLETO ────────────────────────────────────────────
+  console.log('WEBHOOK RECEIVED:', {
+    type:               'checkout.session.completed',
+    mode:               session.mode,
+    metadata:           session.metadata,
+    client_reference_id: session.client_reference_id,
+  });
+  // ──────────────────────────────────────────────────────────────────────────
   
   // ── CRÉDITO AVULSO: pagamento único ─────────────────────────────────────────
   if (session.mode === 'payment') {
@@ -157,6 +165,7 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
     // Resolve UID via fallback — tolerante a metadata incompleta
     const uid = session.metadata?.uid || session.client_reference_id;
     console.log(`   UID: ${uid}`);
+    console.log('UID RESOLVIDO:', uid);
 
     if (!uid) {
       console.error('❌ [STRIPE CHECKOUT] UID AUSENTE NO PAGAMENTO — sem retry possível');
