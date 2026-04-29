@@ -93,7 +93,7 @@ app.use('/api/health/version', versionRouter); // 🔖 Endpoint de versão/rastr
 
 // ✅ STRIPE: Rotas de pagamento
 app.use('/api/stripe', stripeCheckoutRouter);
-app.use('/api/webhook', stripeWebhookRouter);
+app.use('/api/webhook/stripe', stripeWebhookRouter);
 
 // ---------- Health check endpoint ----------
 app.get('/health', (req, res) => {
