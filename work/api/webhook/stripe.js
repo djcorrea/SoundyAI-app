@@ -34,6 +34,7 @@ if (!process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET.star
 router.post('/', async (req, res) => {
   const timestamp = new Date().toISOString();
   console.log(`\n📨 [STRIPE WEBHOOK] [${timestamp}] ════════════════════════════════════════`);
+  console.log('🔥 WEBHOOK HIT');
 
   // 🧹 MEMORY OPT: instanciar Stripe aqui (lazy) — SDK carregado na 1ª requisição real
   const stripe = getStripe();
@@ -61,6 +62,12 @@ router.post('/', async (req, res) => {
     }
 
     console.log(`🔐 [STRIPE WEBHOOK] Evento validado: ${event.type} (${event.id})`);
+    console.log('🔥 EVENT:', {
+      type:               event.type,
+      mode:               event.data?.object?.mode,
+      metadata:           event.data?.object?.metadata,
+      client_reference_id: event.data?.object?.client_reference_id,
+    });
 
     // 2️⃣ VERIFICAR IDEMPOTÊNCIA
     const eventId = event.id;
@@ -157,6 +164,13 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
   });
   // ──────────────────────────────────────────────────────────────────────────
   
+  // ── LOG DE ROTEAMENTO ─────────────────────────────────────────────────────
+  console.log('🔥 ROUTE CHECK:', {
+    mode:         session.mode,
+    metadataType: session.metadata?.type,
+  });
+  // ──────────────────────────────────────────────────────────────────────────
+
   // ── CRÉDITO AVULSO: pagamento único ─────────────────────────────────────────
   if (session.mode === 'payment') {
     console.log('🔥 [STRIPE CHECKOUT] PAYMENT DETECTADO');
@@ -196,6 +210,7 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
   // Apenas processar subscriptions
   if (session.mode !== 'subscription') {
     console.log(`⏭️ [STRIPE CHECKOUT] Ignorado (mode: ${session.mode})`);
+    console.log('❌ EVENTO IGNORADO:', { mode: session.mode, metadataType: session.metadata?.type });
     await markEventAsProcessed(eventId, {
       eventType: 'checkout.session.completed',
       sessionId: session.id,
@@ -936,7 +951,8 @@ async function handleSingleCreditPayment(session, eventId) {
   const sessionId = session.id;
 
   // ── LOGS DE DIAGNÓSTICO ────────────────────────────────────────────────────
-  console.log('🔔 [SINGLE-CREDIT] WEBHOOK TRIGGERED');
+  console.log('� PROCESSANDO CRÉDITO');
+  console.log('�🔔 [SINGLE-CREDIT] WEBHOOK TRIGGERED');
   console.log(`🔔 [SINGLE-CREDIT] EVENT TYPE: checkout.session.completed`);
   console.log(`🔔 [SINGLE-CREDIT] SESSION MODE: ${session.mode}`);
   console.log(`🔔 [SINGLE-CREDIT] METADATA: ${JSON.stringify(session.metadata)}`);
@@ -988,7 +1004,9 @@ async function handleSingleCreditPayment(session, eventId) {
       const newUsed  = Math.max(currentUsed - 1, 0);
 
       console.log('CREDIT BEFORE:', { currentLimit, currentUsed });
+      console.log('🔥 ANTES:', { creditsLimit: currentLimit, creditsUsed: currentUsed });
       console.log('CREDIT AFTER:', { newLimit, newUsed });
+      console.log('🔥 DEPOIS:', { creditsLimit: newLimit });
 
       // creditsLimit += 1  → adiciona o crédito comprado
       // creditsUsed  -= 1  → compensa o consumo antecipado feito durante a geração da master
@@ -1002,6 +1020,7 @@ async function handleSingleCreditPayment(session, eventId) {
   } catch (err) {
     // ⚠️ NÃO marcar como processado aqui → permite retry do Stripe
     console.error(`❌ [SINGLE-CREDIT] Erro ao ajustar crédito: ${err.message}`);
+    console.error('🔥 ERRO FIRESTORE:', err);
     return { status: 'error', error: 'credit_adjust_failed', message: err.message };
   }
 
