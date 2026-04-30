@@ -155,7 +155,14 @@ export async function createJobWithTransaction(uid, jobId, { fileKey, mode }) {
     }
 
     // ── 3. Eligibility check ──────────────────────────────────────────────────
-    if (creditsUsed >= monthlyLimit) {
+    // Usa creditsLimit do Firestore (não monthlyLimit do config) para considerar
+    // créditos avulsos comprados via Mercado Pago.
+    // Fallback para monthlyLimit caso creditsLimit não exista no documento.
+    const creditsLimit = typeof user.creditsLimit === 'number' ? user.creditsLimit : monthlyLimit;
+    // Após reset, creditsLimit foi sobrescrito para monthlyLimit — usar o valor atualizado
+    const effectiveLimit = userUpdates.creditsLimit ?? creditsLimit;
+
+    if (creditsUsed >= effectiveLimit) {
       let message;
       if (plan === 'free') {
         message = 'Você já utilizou sua masterização gratuita deste mês. Faça upgrade para continuar masterizando.';
@@ -184,7 +191,7 @@ export async function createJobWithTransaction(uid, jobId, { fileKey, mode }) {
     // ── 5. Atualizar usuário (lock + reset em uma única escrita) ──────────────
     tx.update(userRef, userUpdates);
 
-    console.log(`✅ [AUTOMASTER-JOBS] Job criado: uid=${uid} jobId=${jobId} plan=${plan} used=${creditsUsed}/${monthlyLimit} eligibility=${eligibilityType}`);
+    console.log(`✅ [AUTOMASTER-JOBS] Job criado: uid=${uid} jobId=${jobId} plan=${plan} used=${creditsUsed}/${effectiveLimit} eligibility=${eligibilityType}`);
     return { eligibilityType };
   });
 

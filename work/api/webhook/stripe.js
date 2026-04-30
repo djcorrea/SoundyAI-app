@@ -149,65 +149,10 @@ router.post('/', async (req, res) => {
 async function handleCheckoutCompleted(event, eventId, timestamp) {
   const session = event.data.object;
 
-  console.error(`📦 [STRIPE CHECKOUT] Session ID: ${session.id}`);
-  console.error(`   Mode: ${session.mode}`);
-  console.error(`   Payment Status: ${session.payment_status}`);
-  console.error(`   Metadata: ${JSON.stringify(session.metadata)}`);
-  console.error(`   UID from metadata: ${session.metadata?.uid}`);
-  console.error(`   Client Ref ID: ${session.client_reference_id}`);
-  // ── LOG DE DIAGNÓSTICO COMPLETO ────────────────────────────────────────────
-  console.error('WEBHOOK RECEIVED:', {
-    type:               'checkout.session.completed',
-    mode:               session.mode,
-    metadata:           session.metadata,
-    client_reference_id: session.client_reference_id,
-  });
-  // ──────────────────────────────────────────────────────────────────────────
-  
-  // ── LOG DE ROTEAMENTO ─────────────────────────────────────────────────────
-  console.error('🔥 ROUTE CHECK:', {
-    mode:         session.mode,
-    metadataType: session.metadata?.type,
-  });
-  // ──────────────────────────────────────────────────────────────────────────
+  console.error(`📦 [STRIPE CHECKOUT] Session ID: ${session.id} | Mode: ${session.mode}`);
 
-  // ── CRÉDITO AVULSO: pagamento único ─────────────────────────────────────────
-  if (session.mode === 'payment') {
-    console.error('🔥 [STRIPE CHECKOUT] PAYMENT DETECTADO');
-    console.error(`   METADATA: ${JSON.stringify(session.metadata)}`);
-
-    // Resolve UID via fallback — tolerante a metadata incompleta
-    const uid = session.metadata?.uid || session.client_reference_id;
-    console.error(`   UID: ${uid}`);
-    console.error('UID RESOLVIDO:', uid);
-
-    if (!uid) {
-      console.error('❌ [STRIPE CHECKOUT] UID AUSENTE NO PAGAMENTO — sem retry possível');
-      // UID ausente é erro permanente: marcar para não re-tentar infinitamente
-      await markEventAsProcessed(eventId, {
-        eventType: 'checkout.session.completed',
-        sessionId: session.id,
-        mode: session.mode,
-        error: 'uid_missing',
-        result: 'uid_missing_permanent_error',
-      });
-      return { status: 'error', error: 'uid_missing' };
-    }
-
-    // Normaliza session com uid resolvido antes de passar para o handler
-    // → handler nunca depende de metadata externa
-    return await handleSingleCreditPayment({
-      ...session,
-      metadata: {
-        uid,
-        type: 'single_credit',
-        jobId: session.metadata?.jobId || '',
-      },
-    }, eventId);
-  }
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  // Apenas processar subscriptions
+  // Stripe trata exclusivamente planos (subscription).
+  // Crédito avulso é responsabilidade do Mercado Pago.
   if (session.mode !== 'subscription') {
     console.error(`⏭️ [STRIPE CHECKOUT] Ignorado (mode: ${session.mode})`);
     console.error('❌ EVENTO IGNORADO:', { mode: session.mode, metadataType: session.metadata?.type });

@@ -58,40 +58,14 @@ router.post('/create-checkout-session', async (req, res) => {
       });
     }
 
-    // ── CRÉDITO AVULSO: fluxo separado (mode: payment, não subscription) ──────
+    // Crédito avulso (single_credit) é responsabilidade do Mercado Pago.
+    // Use POST /api/mp/create-payment para comprar 1 master.
     if (plan === 'single_credit') {
-      const stripeInstance = stripe();
-      const baseUrl = process.env.NODE_ENV === 'production'
-        ? `https://${req.get('host')}`
-        : `${req.protocol}://${req.get('host')}`;
-
-      const priceId = process.env.STRIPE_PRICE_SINGLE || 'price_1TQxlUCOXidjqeFinJEiXgFs';
-
-      const session = await stripeInstance.checkout.sessions.create({
-        mode: 'payment',
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        customer_email: decodedToken.email,
-        client_reference_id: uid,
-        metadata: {
-          uid,
-          type: 'single_credit',
-          jobId: jobId || '',
-          email: decodedToken.email || '',
-        },
-        success_url: `${baseUrl}/success.html?type=single_credit`,
-        cancel_url:  `${baseUrl}/home.html`,
+      return res.status(400).json({
+        error: 'invalid_request',
+        message: 'Crédito avulso deve ser adquirido via Mercado Pago. Use POST /api/mp/create-payment.',
       });
-
-      console.log(`✅ [STRIPE] Checkout single_credit criado: ${session.id} — uid: ${uid}`);
-      return res.status(200).json({ sessionId: session.id, url: session.url });
     }
-    // ────────────────────────────────────────────────────────────────────────────
 
     if (!isValidPlan(plan)) {
       console.error(`❌ [STRIPE] Plano inválido: ${plan}`);

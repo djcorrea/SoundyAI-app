@@ -17,12 +17,24 @@ import analyzeAnonymousRouter from "./api/audio/analyze-anonymous.js"; // 🔓 N
 import jobsRouter from "./api/jobs/[id].js";
 import healthRouter from "./api/health/redis.js";
 import versionRouter from "./api/health/version.js";
-import stripeCheckoutRouter from "./api/stripe/create-checkout-session.js";
-import stripeWebhookRouter from "./api/webhook/stripe.js";
-import chatAnonymousHandler from "./api/chat-anonymous.js"; // 🔓 NOVO: Chat anônimo
+import stripeCheckoutRouter from './api/stripe/create-checkout-session.js';
+import stripeWebhookRouter from './api/webhook/stripe.js';
+import mpCreatePaymentRouter from './api/mp/create-payment.js';
+import mpWebhookRouter from './api/webhook/mp.js';
+import chatAnonymousHandler from './api/chat-anonymous.js'; // 🔓 NOVO: Chat anônimo
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🔥 LOG GLOBAL — ABSOLUTAMENTE PRIMEIRO (antes de CORS, static, tudo)
+// console.error → stderr → garantido no Railway sem buffering
+// ══════════════════════════════════════════════════════════════════════════════
+app.use((req, _res, next) => {
+  console.error(`🔥 GLOBAL HIT: ${req.method} ${req.url}`);
+  next();
+});
+// ══════════════════════════════════════════════════════════════════════════════
 
 // ✅ Detectar ambiente e configurar CORS dinamicamente
 const currentEnv = detectEnvironment();
@@ -48,6 +60,13 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ---------- Logging middleware (ANTES do static) ----------
+// Usar console.error → stderr → garantido no Railway sem buffering
+app.use((req, _res, next) => {
+  console.error(`🌐 [API] ${req.method} ${req.path}`);
+  next();
+});
+
 // Servir pasta public com configuração correta de headers para JSON
 app.use(express.static(path.join(__dirname, '../public'), {
   setHeaders: (res, filePath) => {
@@ -60,16 +79,9 @@ app.use(express.static(path.join(__dirname, '../public'), {
   index: false
 }));
 
-console.log('📁 [STATIC] Servindo arquivos estáticos de:', path.join(__dirname, '../public'));
-console.log('📁 [STATIC] Arquivos JSON de referência disponíveis em: /refs/out/*.json');
+console.error('📁 [STATIC] Servindo arquivos estáticos de:', path.join(__dirname, '../public'));
 
-// ---------- Logging middleware ----------
-app.use((req, res, next) => {
-  console.log(`🌐 [API] ${req.method} ${req.path} - ${new Date().toISOString()}`);
-  next();
-});
-
-// ---------- Rotas principais da API ----------
+// ---------- Servir arquivos estáticos da pasta public ----------
 
 // 🔓 ROTAS ANÔNIMAS PRIMEIRO (mais específicas)
 app.use('/api/audio/analyze-anonymous', analyzeAnonymousRouter);
@@ -91,9 +103,13 @@ app.use('/api/jobs', jobsRouter);
 app.use('/health', healthRouter);
 app.use('/api/health/version', versionRouter); // 🔖 Endpoint de versão/rastreabilidade
 
-// ✅ STRIPE: Rotas de pagamento
+// ✅ STRIPE: Rotas de pagamento (planos Plus / Pro)
 app.use('/api/stripe', stripeCheckoutRouter);
 app.use('/api/webhook/stripe', stripeWebhookRouter);
+
+// ✅ MERCADO PAGO: Crédito avulso (single_credit)
+app.use('/api/mp/create-payment', mpCreatePaymentRouter);
+app.use('/api/webhook/mp', mpWebhookRouter);
 
 // ---------- Health check endpoint ----------
 app.get('/health', (req, res) => {
