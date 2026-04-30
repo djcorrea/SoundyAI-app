@@ -280,6 +280,10 @@ import stripeCheckoutRouter from "./work/api/stripe/create-checkout-session.js";
 import stripeCancelRouter from "./work/api/stripe/cancel-subscription.js";
 import stripeWebhookRouter from "./work/api/webhook/stripe.js";
 
+// ✅ MERCADO PAGO: Crédito avulso (single_credit)
+import mpCreatePaymentRouter from './work/api/mp/create-payment.js';
+import mpWebhookRouter from './work/api/webhook/mp.js';
+
 // 🔐 AUTH MIDDLEWARE + CRÉDITOS: AutoMaster
 import { verifyFirebaseToken } from './work/lib/auth/verify-token-middleware.js';
 import { createJobWithTransaction, consumeJobCredit, releaseUserLock } from './work/lib/automaster/jobs.js';
@@ -386,6 +390,14 @@ console.log('🎓 [HOTMART] Webhook registrado: POST /api/webhook/hotmart');
 // ✅ STRIPE: Webhook de pagamento recorrente
 app.use('/api/webhook/stripe', stripeWebhookRouter);
 console.log('✅ [STRIPE] Webhook registrado: POST /api/webhook/stripe');
+
+// ✅ MERCADO PAGO: Webhook de crédito avulso
+app.use('/api/webhook/mp', mpWebhookRouter);
+console.log('✅ [MP] Webhook registrado: GET+POST /api/webhook/mp');
+
+// ✅ MERCADO PAGO: Criação de preferência
+app.use('/api/mp/create-payment', mpCreatePaymentRouter);
+console.log('✅ [MP] Create-payment registrado: POST /api/mp/create-payment');
 
 // 📦 MERCADOPAGO: Webhook genérico (DEVE ser o último /api/webhook/*)
 app.use("/api/webhook", webhookRoute);
