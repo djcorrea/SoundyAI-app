@@ -24,40 +24,63 @@ import { isPaymentProcessed, markPaymentAsProcessed } from '../../lib/mp/idempot
 const router = express.Router();
 
 /**
+ * GET /api/webhook/mp
+ * O Mercado Pago valida a URL do webhook com uma requisição GET antes de ativar.
+ * Sem este handler, Express retorna "Cannot GET" (404) e o MP rejeita o endpoint.
+ */
+router.get('/', (_req, res) => {
+  console.error('[MP WEBHOOK] GET health-check recebido');
+  res.status(200).json({ ok: true, service: 'mp-webhook' });
+});
+
+/**
  * POST /api/webhook/mp
- * Corpo: JSON enviado pelo Mercado Pago
- * {
- *   action: "payment.created" | "payment.updated",
- *   type:   "payment",
- *   data:   { id: "12345678" },
- *   ...
- * }
+ * Aceita dois formatos de notificação do Mercado Pago:
+ *
+ * 1. Webhook (novo): POST com body JSON
+ *    { action: "payment.created", type: "payment", data: { id: "12345" }, ... }
+ *
+ * 2. IPN (legado): POST com paymentId em query params
+ *    POST /api/webhook/mp?id=12345&topic=payment  (body pode estar vazio)
  */
 router.post('/', async (req, res) => {
   const timestamp = new Date().toISOString();
   console.error(`\n[MP WEBHOOK RECEIVED] [${timestamp}] ────────────────────────────────────`);
+  console.error('[MP WEBHOOK HIT]');
 
-  const body = req.body;
-  console.error(`[MP WEBHOOK] type=${body?.type} action=${body?.action} dataId=${body?.data?.id}`);
+  const body  = req.body  || {};
+  const query = req.query || {};
 
-  // Responder 200 imediatamente para evitar timeout do MP
-  // O processamento continua assíncrono
+  console.error(`[MP WEBHOOK] body.type=${body?.type} body.action=${body?.action} body.data.id=${body?.data?.id} query.topic=${query?.topic} query.id=${query?.id}`);
+
+  // Responder 200 imediatamente para evitar timeout do MP.
+  // Processamento continua assíncrono.
   res.status(200).json({ received: true });
 
-  // 1️⃣ VERIFICAR TIPO DO EVENTO
-  if (body?.type !== 'payment') {
-    console.error(`[MP WEBHOOK] Ignorado — type=${body?.type} não é 'payment'`);
+  // Resolver paymentId — suporta webhook (body.data.id) e IPN (query.id)
+  let paymentId = body?.data?.id || query?.id || null;
+
+  // Para formato webhook: validar que type === 'payment'
+  // Para formato IPN: topic pode ser 'payment' ou vir como string numérica no campo id
+  const isWebhookFormat = !!body?.type;
+  if (isWebhookFormat && body.type !== 'payment') {
+    console.error(`[MP WEBHOOK] Ignorado — type='${body.type}' não é 'payment'`);
     return;
   }
 
-  const paymentId = body?.data?.id;
+  // Para IPN sem type no body, topic deve ser 'payment'
+  if (!isWebhookFormat && query.topic && query.topic !== 'payment') {
+    console.error(`[MP WEBHOOK] Ignorado — IPN topic='${query.topic}' não é 'payment'`);
+    return;
+  }
+
   if (!paymentId) {
-    console.error('[MP WEBHOOK] data.id ausente — ignorado');
+    console.error('[MP WEBHOOK] paymentId ausente (body.data.id e query.id vazios) — ignorado');
     return;
   }
 
   // Processar de forma assíncrona após responder 200
-  processPayment(paymentId, timestamp).catch((err) => {
+  processPayment(String(paymentId), timestamp).catch((err) => {
     console.error(`[MP WEBHOOK] Erro não tratado em processPayment(${paymentId}):`, err.message);
   });
 });
