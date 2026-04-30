@@ -61,8 +61,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: `Webhook signature verification failed: ${err.message}` });
     }
 
-    console.log(`🔐 [STRIPE WEBHOOK] Evento validado: ${event.type} (${event.id})`);
-    console.log('🔥 EVENT:', {
+    console.error(`🔐 [STRIPE WEBHOOK] Evento validado: ${event.type} (${event.id})`);
+    console.error('🔥 EVENT:', {
       type:               event.type,
       mode:               event.data?.object?.mode,
       metadata:           event.data?.object?.metadata,
@@ -74,7 +74,7 @@ router.post('/', async (req, res) => {
     const alreadyProcessed = await isEventProcessed(eventId);
     
     if (alreadyProcessed) {
-      console.log(`⏭️ [STRIPE WEBHOOK] Evento já processado (idempotência): ${eventId}`);
+      console.error(`⏭️ [STRIPE WEBHOOK] Evento já processado (idempotência): ${eventId}`);
       return res.status(200).json({ received: true, status: 'already_processed' });
     }
 
@@ -149,14 +149,14 @@ router.post('/', async (req, res) => {
 async function handleCheckoutCompleted(event, eventId, timestamp) {
   const session = event.data.object;
 
-  console.log(`📦 [STRIPE CHECKOUT] Session ID: ${session.id}`);
-  console.log(`   Mode: ${session.mode}`);
-  console.log(`   Payment Status: ${session.payment_status}`);
-  console.log(`   Metadata: ${JSON.stringify(session.metadata)}`);
-  console.log(`   UID from metadata: ${session.metadata?.uid}`);
-  console.log(`   Client Ref ID: ${session.client_reference_id}`);
+  console.error(`📦 [STRIPE CHECKOUT] Session ID: ${session.id}`);
+  console.error(`   Mode: ${session.mode}`);
+  console.error(`   Payment Status: ${session.payment_status}`);
+  console.error(`   Metadata: ${JSON.stringify(session.metadata)}`);
+  console.error(`   UID from metadata: ${session.metadata?.uid}`);
+  console.error(`   Client Ref ID: ${session.client_reference_id}`);
   // ── LOG DE DIAGNÓSTICO COMPLETO ────────────────────────────────────────────
-  console.log('WEBHOOK RECEIVED:', {
+  console.error('WEBHOOK RECEIVED:', {
     type:               'checkout.session.completed',
     mode:               session.mode,
     metadata:           session.metadata,
@@ -165,7 +165,7 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
   // ──────────────────────────────────────────────────────────────────────────
   
   // ── LOG DE ROTEAMENTO ─────────────────────────────────────────────────────
-  console.log('🔥 ROUTE CHECK:', {
+  console.error('🔥 ROUTE CHECK:', {
     mode:         session.mode,
     metadataType: session.metadata?.type,
   });
@@ -173,13 +173,13 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
 
   // ── CRÉDITO AVULSO: pagamento único ─────────────────────────────────────────
   if (session.mode === 'payment') {
-    console.log('🔥 [STRIPE CHECKOUT] PAYMENT DETECTADO');
-    console.log(`   METADATA: ${JSON.stringify(session.metadata)}`);
+    console.error('🔥 [STRIPE CHECKOUT] PAYMENT DETECTADO');
+    console.error(`   METADATA: ${JSON.stringify(session.metadata)}`);
 
     // Resolve UID via fallback — tolerante a metadata incompleta
     const uid = session.metadata?.uid || session.client_reference_id;
-    console.log(`   UID: ${uid}`);
-    console.log('UID RESOLVIDO:', uid);
+    console.error(`   UID: ${uid}`);
+    console.error('UID RESOLVIDO:', uid);
 
     if (!uid) {
       console.error('❌ [STRIPE CHECKOUT] UID AUSENTE NO PAGAMENTO — sem retry possível');
@@ -209,8 +209,8 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
 
   // Apenas processar subscriptions
   if (session.mode !== 'subscription') {
-    console.log(`⏭️ [STRIPE CHECKOUT] Ignorado (mode: ${session.mode})`);
-    console.log('❌ EVENTO IGNORADO:', { mode: session.mode, metadataType: session.metadata?.type });
+    console.error(`⏭️ [STRIPE CHECKOUT] Ignorado (mode: ${session.mode})`);
+    console.error('❌ EVENTO IGNORADO:', { mode: session.mode, metadataType: session.metadata?.type });
     await markEventAsProcessed(eventId, {
       eventType: 'checkout.session.completed',
       sessionId: session.id,
@@ -222,7 +222,7 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
 
   // Verificar se pagamento foi confirmado
   if (session.payment_status !== 'paid') {
-    console.log(`⏭️ [STRIPE CHECKOUT] Pagamento não confirmado: ${session.payment_status}`);
+    console.error(`⏭️ [STRIPE CHECKOUT] Pagamento não confirmado: ${session.payment_status}`);
     await markEventAsProcessed(eventId, {
       eventType: 'checkout.session.completed',
       sessionId: session.id,
@@ -254,8 +254,8 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
 
   if (!uid) {
     console.error(`❌ [STRIPE CHECKOUT] UID não encontrado na session`);
-    console.log(`   Metadata: ${JSON.stringify(fullSession.metadata)}`);
-    console.log(`   Client Ref ID: ${fullSession.client_reference_id}`);
+    console.error(`   Metadata: ${JSON.stringify(fullSession.metadata)}`);
+    console.error(`   Client Ref ID: ${fullSession.client_reference_id}`);
     await markEventAsProcessed(eventId, {
       eventType: 'checkout.session.completed',
       error: 'uid_not_found',
@@ -305,13 +305,13 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
     return { status: 'error', error: 'invalid_plan' };
   }
 
-  console.log(`📋 [STRIPE CHECKOUT] Dados extraídos:`);
-  console.log(`   UID: ${uid}`);
-  console.log(`   Plan: ${plan}`);
-  console.log(`   Subscription ID: ${subscriptionId}`);
-  console.log(`   Customer ID: ${customerId}`);
-  console.log(`   Price ID: ${priceId}`);
-  console.log(`   Current Period End: ${currentPeriodEnd.toISOString()}`);
+  console.error(`📋 [STRIPE CHECKOUT] Dados extraídos:`);
+  console.error(`   UID: ${uid}`);
+  console.error(`   Plan: ${plan}`);
+  console.error(`   Subscription ID: ${subscriptionId}`);
+  console.error(`   Customer ID: ${customerId}`);
+  console.error(`   Price ID: ${priceId}`);
+  console.error(`   Current Period End: ${currentPeriodEnd.toISOString()}`);
 
   // Aplicar assinatura no Firestore
   try {
@@ -324,14 +324,14 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
       priceId,
     });
 
-    console.log(`✅ [STRIPE CHECKOUT] Assinatura ativada: ${uid} → ${plan.toUpperCase()}`);
+    console.error(`✅ [STRIPE CHECKOUT] Assinatura ativada: ${uid} → ${plan.toUpperCase()}`);
 
     // ✅ FIX #2: Garantir que customer do Stripe tem metadata.uid
     // Crítico para Payment Links: eventos futuros (renovações) encontram o UID via customer.metadata
     if (customerId) {
       try {
         await stripe.customers.update(customerId, { metadata: { uid } });
-        console.log(`✅ [STRIPE CHECKOUT] Customer Stripe atualizado com UID: ${customerId} → ${uid}`);
+        console.error(`✅ [STRIPE CHECKOUT] Customer Stripe atualizado com UID: ${customerId} → ${uid}`);
       } catch (customerErr) {
         // Não bloquear a ativação do plano por falha ao atualizar customer
         console.error(`⚠️ [STRIPE CHECKOUT] Erro ao atualizar customer metadata (não fatal): ${customerErr.message}`);
@@ -343,7 +343,7 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
     if (planCredits > 0) {
       try {
         await addAutomasterCredits(uid, planCredits);
-        console.log(`💳 [STRIPE CHECKOUT] Créditos AutoMaster adicionados: ${uid} → +${planCredits}`);
+        console.error(`💳 [STRIPE CHECKOUT] Créditos AutoMaster adicionados: ${uid} → +${planCredits}`);
       } catch (creditErr) {
         // Não bloquear a ativação do plano por erro de créditos
         console.error(`⚠️ [STRIPE CHECKOUT] Erro ao adicionar créditos AutoMaster (não fatal): ${creditErr.message}`);
@@ -951,13 +951,13 @@ async function handleSingleCreditPayment(session, eventId) {
   const sessionId = session.id;
 
   // ── LOGS DE DIAGNÓSTICO ────────────────────────────────────────────────────
-  console.log('� PROCESSANDO CRÉDITO');
-  console.log('�🔔 [SINGLE-CREDIT] WEBHOOK TRIGGERED');
-  console.log(`🔔 [SINGLE-CREDIT] EVENT TYPE: checkout.session.completed`);
-  console.log(`🔔 [SINGLE-CREDIT] SESSION MODE: ${session.mode}`);
-  console.log(`🔔 [SINGLE-CREDIT] METADATA: ${JSON.stringify(session.metadata)}`);
-  console.log(`🔔 [SINGLE-CREDIT] UID: ${uid}`);
-  console.log(`💳 [SINGLE-CREDIT] Pagamento avulso — uid: ${uid} | session: ${sessionId} | jobId: ${jobId}`);
+  console.error('� PROCESSANDO CRÉDITO');
+  console.error('�🔔 [SINGLE-CREDIT] WEBHOOK TRIGGERED');
+  console.error(`🔔 [SINGLE-CREDIT] EVENT TYPE: checkout.session.completed`);
+  console.error(`🔔 [SINGLE-CREDIT] SESSION MODE: ${session.mode}`);
+  console.error(`🔔 [SINGLE-CREDIT] METADATA: ${JSON.stringify(session.metadata)}`);
+  console.error(`🔔 [SINGLE-CREDIT] UID: ${uid}`);
+  console.error(`💳 [SINGLE-CREDIT] Pagamento avulso — uid: ${uid} | session: ${sessionId} | jobId: ${jobId}`);
   // ──────────────────────────────────────────────────────────────────────────
 
   if (!uid) {
@@ -973,7 +973,7 @@ async function handleSingleCreditPayment(session, eventId) {
   }
 
   if (session.payment_status !== 'paid') {
-    console.log(`⏭️ [SINGLE-CREDIT] Pagamento não confirmado: ${session.payment_status}`);
+    console.error(`⏭️ [SINGLE-CREDIT] Pagamento não confirmado: ${session.payment_status}`);
     await markEventAsProcessed(eventId, {
       eventType: 'checkout.session.completed',
       sessionId,
@@ -1003,10 +1003,10 @@ async function handleSingleCreditPayment(session, eventId) {
       const newLimit = currentLimit + 1;
       const newUsed  = Math.max(currentUsed - 1, 0);
 
-      console.log('CREDIT BEFORE:', { currentLimit, currentUsed });
-      console.log('🔥 ANTES:', { creditsLimit: currentLimit, creditsUsed: currentUsed });
-      console.log('CREDIT AFTER:', { newLimit, newUsed });
-      console.log('🔥 DEPOIS:', { creditsLimit: newLimit });
+      console.error('CREDIT BEFORE:', { currentLimit, currentUsed });
+      console.error('🔥 ANTES:', { creditsLimit: currentLimit, creditsUsed: currentUsed });
+      console.error('CREDIT AFTER:', { newLimit, newUsed });
+      console.error('🔥 DEPOIS:', { creditsLimit: newLimit });
 
       // creditsLimit += 1  → adiciona o crédito comprado
       // creditsUsed  -= 1  → compensa o consumo antecipado feito durante a geração da master
@@ -1016,7 +1016,7 @@ async function handleSingleCreditPayment(session, eventId) {
       });
     });
 
-    console.log(`✅ [SINGLE-CREDIT] creditsLimit+1 / creditsUsed-1 aplicado — uid: ${uid}`);
+    console.error(`✅ [SINGLE-CREDIT] creditsLimit+1 / creditsUsed-1 aplicado — uid: ${uid}`);
   } catch (err) {
     // ⚠️ NÃO marcar como processado aqui → permite retry do Stripe
     console.error(`❌ [SINGLE-CREDIT] Erro ao ajustar crédito: ${err.message}`);
