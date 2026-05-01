@@ -4398,7 +4398,8 @@ function renderModeSelection() {
       if (!resp.ok || !data.qr_code) throw new Error(data.message || 'Erro ao gerar PIX');
 
       // 3️⃣ Exibir modal com QR e iniciar polling de créditos
-      _showPixModal(data.payment_id, data.qr_code, data.qr_code_base64, _btn, baseCreditsLimit);
+      // jobId passado para o modal para restaurar _state.masterJobId se necessário
+      _showPixModal(data.payment_id, data.qr_code, data.qr_code_base64, _btn, baseCreditsLimit, jobId);
 
     } catch (err) {
       debugError('[PIX] Erro ao criar pagamento:', err.message);
@@ -4412,7 +4413,8 @@ function renderModeSelection() {
   // O status do pagamento (MP API) NÃO controla liberação de acesso.
   // O download só é liberado quando creditsLimit > baseCreditsLimit,
   // o que ocorre APÓS o webhook processar atomicamente o crédito.
-  function _showPixModal(paymentId, qrCode, qrBase64, btn, baseCreditsLimit) {
+  // jobId passado como parâmetro para restaurar _state.masterJobId se necessário.
+  function _showPixModal(paymentId, qrCode, qrBase64, btn, baseCreditsLimit, jobId) {
     // Remover modal anterior se existir
     var old = document.getElementById('__pix-modal');
     if (old) old.remove();
@@ -4486,13 +4488,44 @@ function renderModeSelection() {
           clearInterval(_pollInterval);
           window.__pixPollRef = null;
           if (statusEl) statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700;">✅ Pagamento aprovado. Crédito liberado.</span>';
+          console.log('[PIX FLOW] Pagamento aprovado — crédito confirmado via /api/user/credits');
           setTimeout(function() {
             var m = document.getElementById('__pix-modal');
             if (m) m.remove();
             if (btn) { btn.disabled = false; btn.innerHTML = '⬇ BAIXAR AGORA &mdash; R$3,99'; }
-            if (typeof window.__triggerMasterDownload === 'function') {
-              window.__triggerMasterDownload();
+
+            // ── Restaurar contexto do job ──────────────────────────────────
+            // jobId foi capturado no momento em que o usuário clicou comprar.
+            // Se _state.masterJobId foi limpo durante o modal, restaurar.
+            var _jobId = jobId
+              || (window.__lastJobId || '')
+              || localStorage.getItem('sc_pending_job')
+              || '';
+            if (_jobId && !_state.masterJobId) {
+              _state.masterJobId = _jobId;
+              console.log('[PIX FLOW] masterJobId restaurado:', _jobId);
+            }
+
+            // ── Limpar guards bloqueadores ─────────────────────────────────
+            // downloadBlocked foi setado quando job completou sem crédito.
+            // Agora o crédito existe — limpar para permitir downloadMaster().
+            _state.downloadBlocked = false;
+            _state.creditConsumed  = false;
+
+            console.log('[PIX FLOW] Iniciando download automático — jobId:', _state.masterJobId);
+
+            if (_state.masterJobId && typeof window.downloadMaster === 'function') {
+              console.log('[PIX FLOW] Chamando downloadMaster()');
+              window.downloadMaster();
+              console.log('[PIX FLOW] Fluxo finalizado — download disparado');
+            } else if (_jobId && typeof window.downloadMaster === 'function') {
+              // Fallback: jobId disponível mas não estava em _state
+              _state.masterJobId = _jobId;
+              console.log('[PIX FLOW] Fallback — masterJobId setado e downloadMaster() chamado');
+              window.downloadMaster();
             } else {
+              // Último recurso: reload (jobId perdido — não deve ocorrer)
+              console.log('[PIX FLOW] jobId indisponível — recarregando página');
               window.location.reload();
             }
           }, 1500);
