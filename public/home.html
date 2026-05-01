@@ -4358,37 +4358,134 @@ function renderModeSelection() {
     overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
   };
 
-  // ── CHECKOUT AVULSO: inicia Mercado Pago para 1 crédito (R$3,99 via PIX) ──
+  // ── CHECKOUT PIX AVULSO — Mercado Pago Checkout Transparente ──────────────
+  // Sem redirect. QR code exibido no modal. Frontend faz polling de status.
   window.__startSingleCreditCheckout = async function __startSingleCreditCheckout(btn) {
     if (btn) { btn.disabled = true; btn.textContent = 'Aguarde...'; }
+    var _btn = btn;
+    function _restoreBtn() {
+      if (_btn) { _btn.disabled = false; _btn.innerHTML = '⬇ BAIXAR AGORA &mdash; R$3,99'; }
+    }
+
     try {
       var token = await getValidIdToken();
       if (!token) throw new Error('Não autenticado');
 
       var jobId = _state.masterJobId || '';
-
-      // Salvar jobId localmente para recuperar em success.html
       if (jobId) localStorage.setItem('sc_pending_job', String(jobId));
 
       var resp = await fetch('/api/mp/create-payment', {
         method: 'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': 'Bearer ' + token,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify({ jobId: jobId }),
       });
-
       var data = await resp.json();
-      if (!resp.ok || !data.init_point) throw new Error(data.message || 'Erro ao criar checkout');
+      if (!resp.ok || !data.qr_code) throw new Error(data.message || 'Erro ao gerar PIX');
 
-      window.location.href = data.init_point;
+      _showPixModal(data.payment_id, data.qr_code, data.qr_code_base64, _btn);
+
     } catch (err) {
-      debugError('[SINGLE-CREDIT] Erro ao iniciar checkout MP:', err.message);
-      if (btn) { btn.disabled = false; btn.innerHTML = '⬇ BAIXAR AGORA &mdash; R$3,99'; }
-      alert('Não foi possível iniciar o pagamento. Tente novamente.');
+      debugError('[PIX] Erro ao criar pagamento:', err.message);
+      _restoreBtn();
+      alert('Não foi possível gerar o PIX. Tente novamente.');
     }
   };
+
+  // ── MODAL PIX ───────────────────────────────────────────────────────────────
+  function _showPixModal(paymentId, qrCode, qrBase64, btn) {
+    // Remover modal anterior se existir
+    var old = document.getElementById('__pix-modal');
+    if (old) old.remove();
+
+    var modal = document.createElement('div');
+    modal.id = '__pix-modal';
+    modal.style.cssText = [
+      'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;',
+      'background:rgba(0,0,0,.75);backdrop-filter:blur(4px);padding:1rem;'
+    ].join('');
+
+    var qrImg = qrBase64
+      ? '<img src="data:image/png;base64,' + qrBase64 + '" alt="QR Code PIX" '
+        + 'style="width:200px;height:200px;border-radius:12px;border:3px solid #7c3aed;display:block;margin:0 auto .75rem;">'
+      : '';
+
+    modal.innerHTML = [
+      '<div style="background:#1a1a2e;border:1px solid rgba(124,58,237,.4);border-radius:18px;',
+      'padding:1.75rem 1.5rem;max-width:420px;width:100%;text-align:center;color:#e0e0ff;">',
+
+      '<p style="margin:0 0 .25rem;font-size:1.1rem;font-weight:700;">Pagar com PIX</p>',
+      '<p style="margin:0 0 1rem;font-size:.85rem;color:#9090bb;">R$3,99 — crédito único de masterização</p>',
+
+      qrImg,
+
+      '<p style="margin:.5rem 0 .4rem;font-size:.75rem;color:#9090bb;">Copie o código PIX:</p>',
+      '<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:1rem;">',
+      '<input id="__pix-code" readonly value="' + qrCode.replace(/"/g, '&quot;') + '" ',
+      'style="flex:1;background:#0d0d1a;border:1px solid rgba(124,58,237,.3);border-radius:8px;',
+      'color:#c8c8ff;font-size:.7rem;padding:.45rem .6rem;outline:none;overflow:hidden;white-space:nowrap;',
+      'text-overflow:ellipsis;" />',
+      '<button onclick="(function(){var el=document.getElementById(\'__pix-code\');el.select();',
+      'navigator.clipboard&&navigator.clipboard.writeText(el.value);',
+      'this.textContent=\'✔\';setTimeout(function(){this.textContent=\'Copiar\';}.bind(this),1500)}).call(this)" ',
+      'style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:.45rem .7rem;',
+      'font-size:.75rem;cursor:pointer;white-space:nowrap;">Copiar</button>',
+      '</div>',
+
+      '<div id="__pix-status" style="margin-bottom:1rem;font-size:.8rem;color:#9090bb;">',
+      '⏳ Aguardando pagamento...',
+      '</div>',
+
+      '<button onclick="document.getElementById(\'__pix-modal\').remove()" ',
+      'style="background:transparent;border:1px solid rgba(124,58,237,.3);color:#9090bb;',
+      'border-radius:8px;padding:.4rem 1rem;font-size:.78rem;cursor:pointer;">Cancelar</button>',
+
+      '</div>',
+    ].join('');
+
+    document.body.appendChild(modal);
+
+    // ── POLLING: checar status a cada 3s ────────────────────────────────────
+    var _pollInterval = setInterval(async function() {
+      try {
+        var r = await fetch('/api/mp/create-payment?id=' + paymentId);
+        var s = await r.json();
+        var statusEl = document.getElementById('__pix-status');
+
+        if (s.status === 'approved') {
+          clearInterval(_pollInterval);
+          if (statusEl) statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700;">✅ Pagamento confirmado! Liberando download...</span>';
+          setTimeout(function() {
+            var m = document.getElementById('__pix-modal');
+            if (m) m.remove();
+            if (btn) { btn.disabled = false; btn.innerHTML = '⬇ BAIXAR AGORA &mdash; R$3,99'; }
+            // Disparar download — a mesma função que processa creditsLimit já foi chamada pelo webhook
+            if (typeof window.__triggerMasterDownload === 'function') {
+              window.__triggerMasterDownload();
+            } else {
+              window.location.reload();
+            }
+          }, 1500);
+          return;
+        }
+
+        if (s.status === 'cancelled' || s.status === 'rejected') {
+          clearInterval(_pollInterval);
+          if (statusEl) statusEl.innerHTML = '<span style="color:#f87171;">❌ Pagamento ' + s.status + '. Feche e tente novamente.</span>';
+          return;
+        }
+
+        if (statusEl) statusEl.innerHTML = '⏳ Aguardando pagamento... (status: ' + (s.status || 'pending') + ')';
+
+      } catch (e) {
+        debugError('[PIX POLL] Erro:', e.message);
+      }
+    }, 3000);
+
+    // Parar polling se modal for fechado manualmente
+    modal.addEventListener('remove', function() { clearInterval(_pollInterval); });
+    // Fallback: parar após 10 minutos
+    setTimeout(function() { clearInterval(_pollInterval); }, 600000);
+  }
 
   function _upgradeCard(icon, title, desc) {
     return '<div style="display:flex;align-items:center;gap:.75rem;padding:.55rem .85rem;'

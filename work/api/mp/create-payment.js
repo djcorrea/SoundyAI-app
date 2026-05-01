@@ -1,25 +1,20 @@
 // work/api/mp/create-payment.js
-// POST /api/mp/create-payment
-// Cria uma preferência no Mercado Pago para compra de 1 crédito de masterização.
+// POST /api/mp/create-payment   — cria pagamento PIX transparente (sem redirect)
+// GET  /api/mp/create-payment?id=xxx — consulta status do pagamento (polling)
 //
 // ARQUITETURA:
-//  • Mercado Pago é o ÚNICO responsável por crédito avulso (single_credit).
-//  • Stripe trata exclusivamente planos (Plus / Pro).
-//
-// Fluxo:
-//  1. Valida token Firebase (autenticação)
-//  2. Cria Preference MP com PIX via Checkout Pro
-//  3. Retorna { init_point } para redirect no frontend
+//  • Checkout Transparente: sem redirect para mercadopago.com
+//  • Responde { qr_code, qr_code_base64, payment_id } para o frontend exibir QR
+//  • Frontend faz polling em GET ?id=xxx a cada 3s até status approved
+//  • Webhook /api/webhook/mp recebe notificação MP e aplica creditsLimit += 1
 
 import express from 'express';
 import { getAuth } from '../../../firebase/admin.js';
 
 const router = express.Router();
 
-// Valor do crédito avulso — configurável via env var
 const SINGLE_CREDIT_PRICE = parseFloat(process.env.MP_SINGLE_CREDIT_PRICE || '3.99');
 
-// URL pública do backend Railway para receber notificações
 function getNotificationUrl() {
   if (process.env.MP_WEBHOOK_URL) return process.env.MP_WEBHOOK_URL;
   if (process.env.RAILWAY_PUBLIC_DOMAIN) {
@@ -28,137 +23,145 @@ function getNotificationUrl() {
   return 'https://soundyai-app-production.up.railway.app/api/webhook/mp';
 }
 
-// URL base do frontend para back_urls
-function getFrontendUrl(req) {
-  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
-  const host = req.get('host') || 'soundyai.com.br';
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : req.protocol;
-  return `${protocol}://${host}`;
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/mp/create-payment?id=xxx  — polling de status (frontend consulta)
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/', async (req, res) => {
+  const paymentId = req.query.id;
+  if (!paymentId) {
+    return res.status(400).json({ error: 'missing_id', message: 'Query param id obrigatório' });
+  }
 
-/**
- * POST /api/mp/create-payment
- * Headers: Authorization: Bearer <firebase_token>
- * Body: { jobId?: string }
- * Response: { init_point: string }
- */
+  const accessToken = process.env.MP_ACCESS_TOKEN;
+  if (!accessToken) {
+    return res.status(500).json({ error: 'server_error', message: 'Gateway não configurado' });
+  }
+
+  try {
+    const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      console.error(`[MP PAYMENT-STATUS] HTTP ${response.status} para id=${paymentId}: ${body}`);
+      return res.status(502).json({ error: 'gateway_error' });
+    }
+    const payment = await response.json();
+    console.error(`[MP PAYMENT-STATUS] id=${paymentId} status=${payment.status}`);
+    return res.status(200).json({ status: payment.status, payment_id: String(payment.id) });
+  } catch (err) {
+    console.error('[MP PAYMENT-STATUS] Erro:', err.message);
+    return res.status(502).json({ error: 'gateway_error', message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/mp/create-payment  — cria pagamento PIX transparente
+// ─────────────────────────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
   console.error('[MP CREATE-PAYMENT] Requisição recebida');
 
-  // 1️⃣ VALIDAR AUTENTICAÇÃO FIREBASE
+  // 1️⃣ AUTENTICAÇÃO FIREBASE
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.error('[MP CREATE-PAYMENT] Token Firebase ausente');
+    console.error('[MP CREATE-PAYMENT] Token ausente');
     return res.status(401).json({ error: 'unauthorized', message: 'Token de autenticação ausente' });
   }
-
   const token = authHeader.split('Bearer ')[1];
   let decodedToken;
   try {
-    const auth = getAuth();
-    decodedToken = await auth.verifyIdToken(token);
+    decodedToken = await getAuth().verifyIdToken(token);
   } catch (err) {
-    console.error('[MP CREATE-PAYMENT] Token Firebase inválido:', err.message);
-    return res.status(401).json({ error: 'unauthorized', message: 'Token de autenticação inválido' });
+    console.error('[MP CREATE-PAYMENT] Token inválido:', err.message);
+    return res.status(401).json({ error: 'unauthorized', message: 'Token inválido' });
   }
 
   const uid   = decodedToken.uid;
-  const email = decodedToken.email || '';
+  const email = decodedToken.email || `${uid}@soundyai.user`;
   const jobId = req.body?.jobId || '';
 
   console.error(`[MP CREATE-PAYMENT] uid=${uid} jobId=${jobId} price=${SINGLE_CREDIT_PRICE}`);
 
-  // 2️⃣ VERIFICAR CONFIGURAÇÃO
+  // 2️⃣ VERIFICAR TOKEN MP
   const accessToken = process.env.MP_ACCESS_TOKEN;
   if (!accessToken) {
     console.error('[MP CREATE-PAYMENT] MP_ACCESS_TOKEN não configurado');
-    return res.status(500).json({ error: 'server_error', message: 'Gateway de pagamento não configurado' });
+    return res.status(500).json({ error: 'server_error', message: 'Gateway não configurado' });
   }
 
-  const notificationUrl = getNotificationUrl();
-  const frontendUrl     = getFrontendUrl(req);
+  const tokenEnv = accessToken.startsWith('TEST') ? 'TESTE ⚠️' : 'PRODUÇÃO ✅';
+  console.error(`[MP CREATE-PAYMENT] Ambiente token: ${tokenEnv}`);
 
-  // 3️⃣ CRIAR PREFERÊNCIA MERCADO PAGO (via fetch nativo — Node.js 20)
-  //
-  // REGRA PIX: NÃO definir installments em payment_methods.
-  // O Checkout Pro interpreta installments:1 como "apenas métodos parceláveis",
-  // excluindo silenciosamente bank_transfer (PIX). Omitir o campo deixa o MP
-  // exibir todos os métodos disponíveis na conta (PIX + cartão).
-  const preference = {
-    items: [
-      {
-        id:          'single_credit',
-        title:       'Masterização SoundyAI',
-        description: 'Crédito para 1 masterização profissional',
-        quantity:    1,
-        unit_price:  SINGLE_CREDIT_PRICE,
-        currency_id: 'BRL',
-      },
-    ],
+  // 3️⃣ CRIAR PAGAMENTO PIX (Checkout Transparente)
+  // API: POST /v1/payments com payment_method_id=pix
+  // Resposta contém point_of_interaction.transaction_data.{qr_code, qr_code_base64}
+  const paymentBody = {
+    transaction_amount: SINGLE_CREDIT_PRICE,
+    payment_method_id:  'pix',
+    description:        'Crédito SoundyAI — 1 masterização',
     payer: {
-      email: email || undefined,
+      email,
     },
-    // metadata é preservado no objeto payment — usado pelo webhook para obter o uid
     metadata: {
       uid,
       type:  'single_credit',
       jobId,
     },
-    // Referência externa como fallback de identificação
-    external_reference: uid,
-    payment_methods: {
-      excluded_payment_types:   [],
-      excluded_payment_methods: [],
-      installments: 1,
-    },
-    back_urls: {
-      success: `${frontendUrl}/success.html?type=single_credit`,
-      failure: `${frontendUrl}/home.html`,
-      pending: `${frontendUrl}/home.html`,
-    },
-    auto_return:      'approved',
-    notification_url: notificationUrl,
+    external_reference:  uid,
+    notification_url:    getNotificationUrl(),
   };
 
-  // Log de diagnóstico — valida payload real antes de enviar à API MP
-  const tokenPrefix = accessToken.slice(0, 7); // APP_USR ou TEST-...
-  const tokenEnv    = tokenPrefix.startsWith('TEST') ? 'TESTE ⚠️ (PIX pode não aparecer no sandbox)' : 'PRODUÇÃO ✅';
-  console.error(`[MP CREATE-PAYMENT] Token ambiente: ${tokenEnv}`);
-  console.error('[MP CREATE-PAYMENT] Preference payload:', JSON.stringify(preference, null, 2));
+  console.error('[MP CREATE-PAYMENT] Payment body:', JSON.stringify(paymentBody, null, 2));
 
-  let mpResponse;
+  let mpPayment;
   try {
-    const res2 = await fetch('https://api.mercadopago.com/checkout/preferences', {
-      method:  'POST',
+    const mpRes = await fetch('https://api.mercadopago.com/v1/payments', {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type':  'application/json',
-        'X-Idempotency-Key': `${uid}-${jobId || Date.now()}`,
+        'Authorization':     `Bearer ${accessToken}`,
+        'Content-Type':      'application/json',
+        'X-Idempotency-Key': `pix-${uid}-${jobId || Date.now()}`,
       },
-      body: JSON.stringify(preference),
+      body: JSON.stringify(paymentBody),
     });
 
-    mpResponse = await res2.json();
+    mpPayment = await mpRes.json();
 
-    if (!res2.ok) {
-      console.error('[MP CREATE-PAYMENT] Erro na API MP:', JSON.stringify(mpResponse));
+    if (!mpRes.ok) {
+      console.error('[MP CREATE-PAYMENT] Erro API MP:', JSON.stringify(mpPayment));
       return res.status(502).json({
         error:   'payment_gateway_error',
-        message: 'Erro ao criar preferência de pagamento',
+        message: mpPayment?.message || 'Erro ao criar pagamento PIX',
       });
     }
   } catch (err) {
-    console.error('[MP CREATE-PAYMENT] Falha na requisição à API MP:', err.message);
+    console.error('[MP CREATE-PAYMENT] Falha na requisição:', err.message);
+    return res.status(502).json({ error: 'payment_gateway_error', message: err.message });
+  }
+
+  // 4️⃣ EXTRAIR QR CODE DA RESPOSTA
+  const txData    = mpPayment?.point_of_interaction?.transaction_data || {};
+  const qrCode    = txData.qr_code        || null;
+  const qrBase64  = txData.qr_code_base64 || null;
+  const paymentId = String(mpPayment.id);
+
+  console.error(`[MP CREATE-PAYMENT] PIX criado — id=${paymentId} status=${mpPayment.status}`);
+
+  if (!qrCode) {
+    console.error('[MP CREATE-PAYMENT] qr_code ausente na resposta MP:', JSON.stringify(mpPayment));
     return res.status(502).json({
-      error:   'payment_gateway_error',
-      message: 'Falha na comunicação com gateway de pagamento',
+      error:   'pix_unavailable',
+      message: 'PIX não disponível. Verifique se a conta MP tem PIX ativado.',
     });
   }
 
-  const initPoint = mpResponse.init_point;
-  console.error(`[MP CREATE-PAYMENT] Preferência criada: ${mpResponse.id} | init_point: ${initPoint}`);
-
-  return res.status(200).json({ init_point: initPoint, preference_id: mpResponse.id });
+  return res.status(200).json({
+    payment_id:     paymentId,
+    qr_code:        qrCode,
+    qr_code_base64: qrBase64,
+    status:         mpPayment.status,
+  });
 });
 
 export default router;
+
