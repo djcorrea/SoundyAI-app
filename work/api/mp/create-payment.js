@@ -107,12 +107,9 @@ router.post('/', async (req, res) => {
     // Referência externa como fallback de identificação
     external_reference: uid,
     payment_methods: {
-      // Excluir apenas boleto e ATM — NÃO excluir bank_transfer (PIX)
-      // NÃO definir installments aqui: causaria exclusão silenciosa do PIX
-      excluded_payment_types: [
-        { id: 'ticket' },  // boleto bancário
-        { id: 'atm' },
-      ],
+      excluded_payment_types:   [],
+      excluded_payment_methods: [],
+      installments: 1,
     },
     back_urls: {
       success: `${frontendUrl}/success.html?type=single_credit`,

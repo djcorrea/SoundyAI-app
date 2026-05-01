@@ -19,7 +19,6 @@
 
 import express from 'express';
 import { getFirestore } from '../../../firebase/admin.js';
-import { isPaymentProcessed, markPaymentAsProcessed } from '../../lib/mp/idempotency.js';
 
 const router = express.Router();
 
@@ -117,7 +116,8 @@ async function processPayment(paymentId, timestamp) {
     return;
   }
 
-  // 3️⃣ VERIFICAR STATUS DO PAGAMENTO
+  // 3️⃣ VERIFICAR STATUS DO PAGAMENTO — processar SOMENTE pagamentos aprovados
+  // Ignorar: payment.created, payment.updated, pending, in_process, merchant_order
   console.error(`[MP WEBHOOK] PAYMENT STATUS: ${payment.status} | id=${paymentId}`);
 
   if (payment.status !== 'approved') {
@@ -125,37 +125,46 @@ async function processPayment(paymentId, timestamp) {
     return;
   }
 
-  // 4️⃣ IDEMPOTÊNCIA — verificar se já foi processado
-  const alreadyProcessed = await isPaymentProcessed(paymentId);
-  if (alreadyProcessed) {
-    console.error(`[MP WEBHOOK] Pagamento ${paymentId} já processado — ignorado (idempotência)`);
-    return;
-  }
-
-  // 5️⃣ OBTER UID DO USUÁRIO
+  // 4️⃣ OBTER UID DO USUÁRIO
   // Prioridade: metadata.uid → external_reference
   const uid = payment.metadata?.uid || payment.external_reference;
   console.error(`[MP WEBHOOK] UID: ${uid}`);
 
+  const db             = getFirestore();
+  const idempotencyRef = db.collection('processed_mp_payments').doc(String(paymentId));
+
   if (!uid) {
     console.error(`[MP WEBHOOK] UID ausente no pagamento ${paymentId} — não é possível processar`);
-    // Marcar como processado (erro permanente — retry não resolve falta de uid)
-    await markPaymentAsProcessed(paymentId, {
-      status:  payment.status,
-      error:   'uid_missing',
-      payerId: payment.payer?.id,
+    // Marcar como erro permanente — retry não resolve ausência de uid
+    await idempotencyRef.set({
+      paymentId: String(paymentId),
+      error:     'uid_missing',
+      status:    payment.status,
+      payerId:   payment.payer?.id || null,
+      processedAt: timestamp,
     }).catch((e) => console.error('[MP WEBHOOK] Erro ao marcar idempotência (uid_missing):', e.message));
     return;
   }
 
-  // 6️⃣ ATUALIZAR FIRESTORE — creditsLimit += 1
-  const db      = getFirestore();
+  // 5️⃣ ATUALIZAR FIRESTORE — idempotência ATÔMICA + creditsLimit += 1
+  //
+  // A verificação de idempotência e o incremento de crédito ocorrem na MESMA
+  // transação Firestore. Isso elimina race conditions: dois eventos paralelos do
+  // MP com o mesmo paymentId não conseguem ambos passar pelo check simultaneamente.
+  // Apenas o primeiro a adquirir o lock da transação prossegue; o segundo lê o
+  // doc de idempotência já criado e aborta.
   const userRef = db.collection('usuarios').doc(uid);
 
   try {
     await db.runTransaction(async (tx) => {
-      const snap = await tx.get(userRef);
+      // Verificar idempotência DENTRO da transação (atômica — sem race condition)
+      const idempotencySnap = await tx.get(idempotencyRef);
+      if (idempotencySnap.exists) {
+        console.error(`[MP WEBHOOK] ⚠️ paymentId ${paymentId} já processado — ignorado (idempotência atômica)`);
+        throw new Error('already_processed');
+      }
 
+      const snap = await tx.get(userRef);
       if (!snap.exists) {
         throw new Error(`user_not_found: uid=${uid}`);
       }
@@ -169,33 +178,36 @@ async function processPayment(paymentId, timestamp) {
       console.error(`[MP WEBHOOK] CREDITS AFTER:  creditsLimit=${newLimit}     creditsUsed=${currentUsed} (inalterado)`);
 
       // ⚠️ REGRA ABSOLUTA: NUNCA alterar creditsUsed aqui.
-      // creditsUsed é gerenciado exclusivamente por consumeJobCredit (após conclusão do DSP).
-      tx.update(userRef, {
-        creditsLimit: newLimit,
+      // creditsUsed é gerenciado exclusivamente por consumeJobCredit.
+      tx.update(userRef, { creditsLimit: newLimit });
+
+      // Marcar como processado ATOMICAMENTE — mesma operação do update de crédito.
+      // Garante que duplicação é impossível mesmo com eventos MP paralelos.
+      tx.set(idempotencyRef, {
+        paymentId:       String(paymentId),
+        uid,
+        type:            payment.metadata?.type || 'single_credit',
+        jobId:           payment.metadata?.jobId || '',
+        status:          payment.status,
+        amount:          payment.transaction_amount,
+        currency:        payment.currency_id,
+        paymentMethodId: payment.payment_method_id,
+        processedAt:     timestamp,
       });
     });
 
     console.error(`[MP WEBHOOK] ✅ creditsLimit+1 aplicado — uid=${uid} paymentId=${paymentId}`);
+    console.error(`[MP WEBHOOK] ✅ Pagamento ${paymentId} processado com sucesso — uid=${uid}`);
+    console.error(`[MP WEBHOOK] ────────────────────────────────────────────────────────────\n`);
+
   } catch (err) {
-    // NÃO marcar como processado → permite que o admin reprocesse manualmente
-    console.error(`[MP WEBHOOK] ❌ Erro Firestore ao atualizar creditsLimit: ${err.message}`);
-    return;
+    if (err.message === 'already_processed') {
+      // Tratado dentro da transação — não é erro fatal
+      return;
+    }
+    // NÃO marcar como processado → permite reprocessamento manual pelo admin
+    console.error(`[MP WEBHOOK] ❌ Erro Firestore: ${err.message}`);
   }
-
-  // 7️⃣ MARCAR COMO PROCESSADO — SOMENTE após sucesso confirmado
-  await markPaymentAsProcessed(paymentId, {
-    uid,
-    type:      payment.metadata?.type || 'single_credit',
-    jobId:     payment.metadata?.jobId || '',
-    status:    payment.status,
-    amount:    payment.transaction_amount,
-    currency:  payment.currency_id,
-    processedAt: timestamp,
-    paymentMethodId: payment.payment_method_id,
-  });
-
-  console.error(`[MP WEBHOOK] ✅ Pagamento ${paymentId} processado com sucesso — uid=${uid}`);
-  console.error(`[MP WEBHOOK] ────────────────────────────────────────────────────────────\n`);
 }
 
 export default router;
