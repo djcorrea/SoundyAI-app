@@ -399,6 +399,31 @@ console.log('✅ [MP] Webhook registrado: GET+POST /api/webhook/mp');
 app.use('/api/mp/create-payment', mpCreatePaymentRouter);
 console.log('✅ [MP] Create-payment registrado: POST /api/mp/create-payment');
 
+// ✅ CRÉDITOS DO USUÁRIO: Fonte de verdade para o frontend (polling pós-pagamento)
+// GET /api/user/credits  →  { creditsLimit, creditsUsed }
+// Autenticado via Firebase. Usado pelo frontend para confirmar crédito após webhook.
+// NÃO libera nem consome crédito — apenas consulta.
+app.get('/api/user/credits', verifyFirebaseToken, async (req, res) => {
+  const { uid } = req.user;
+  try {
+    const db   = getFirestore();
+    const snap = await db.collection('usuarios').doc(uid).get();
+    if (!snap.exists) {
+      console.error(`[USER-CREDITS] Usuário não encontrado — uid=${uid}`);
+      return res.status(404).json({ error: 'user_not_found' });
+    }
+    const data         = snap.data() || {};
+    const creditsLimit = typeof data.creditsLimit === 'number' ? data.creditsLimit : 0;
+    const creditsUsed  = typeof data.creditsUsed  === 'number' ? data.creditsUsed  : 0;
+    console.error(`[USER-CREDITS] uid=${uid} creditsLimit=${creditsLimit} creditsUsed=${creditsUsed}`);
+    return res.status(200).json({ creditsLimit, creditsUsed });
+  } catch (err) {
+    console.error(`[USER-CREDITS] Erro Firestore uid=${uid}:`, err.message);
+    return res.status(500).json({ error: 'server_error', message: err.message });
+  }
+});
+console.log('✅ [USER-CREDITS] Endpoint registrado: GET /api/user/credits');
+
 // 📦 MERCADOPAGO: Webhook genérico (DEVE ser o último /api/webhook/*)
 app.use("/api/webhook", webhookRoute);
 console.log('📦 [MERCADOPAGO] Webhook genérico registrado: POST /api/webhook');

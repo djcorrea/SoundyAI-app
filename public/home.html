@@ -4359,7 +4359,8 @@ function renderModeSelection() {
   };
 
   // ── CHECKOUT PIX AVULSO — Mercado Pago Checkout Transparente ──────────────
-  // Sem redirect. QR code exibido no modal. Frontend faz polling de status.
+  // Sem redirect. QR code exibido no modal. Frontend NÃO usa status MP como
+  // fonte de verdade — usa /api/user/credits para confirmar crédito real.
   window.__startSingleCreditCheckout = async function __startSingleCreditCheckout(btn) {
     if (btn) { btn.disabled = true; btn.textContent = 'Aguarde...'; }
     var _btn = btn;
@@ -4374,6 +4375,20 @@ function renderModeSelection() {
       var jobId = _state.masterJobId || '';
       if (jobId) localStorage.setItem('sc_pending_job', String(jobId));
 
+      // 1️⃣ Capturar snapshot de créditos ANTES de criar o pagamento.
+      //    Será usado pelo modal para detectar NOVO crédito (incremento real).
+      var baseCreditsLimit = 0;
+      try {
+        var credSnap = await fetch('/api/user/credits', {
+          headers: { 'Authorization': 'Bearer ' + token },
+        });
+        if (credSnap.ok) {
+          var credData = await credSnap.json();
+          baseCreditsLimit = typeof credData.creditsLimit === 'number' ? credData.creditsLimit : 0;
+        }
+      } catch (_) { /* snapshot falhou — usa 0 como base */ }
+
+      // 2️⃣ Criar pagamento PIX
       var resp = await fetch('/api/mp/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -4382,7 +4397,8 @@ function renderModeSelection() {
       var data = await resp.json();
       if (!resp.ok || !data.qr_code) throw new Error(data.message || 'Erro ao gerar PIX');
 
-      _showPixModal(data.payment_id, data.qr_code, data.qr_code_base64, _btn);
+      // 3️⃣ Exibir modal com QR e iniciar polling de créditos
+      _showPixModal(data.payment_id, data.qr_code, data.qr_code_base64, _btn, baseCreditsLimit);
 
     } catch (err) {
       debugError('[PIX] Erro ao criar pagamento:', err.message);
@@ -4392,10 +4408,16 @@ function renderModeSelection() {
   };
 
   // ── MODAL PIX ───────────────────────────────────────────────────────────────
-  function _showPixModal(paymentId, qrCode, qrBase64, btn) {
+  // FONTE DE VERDADE: /api/user/credits (Firestore via backend)
+  // O status do pagamento (MP API) NÃO controla liberação de acesso.
+  // O download só é liberado quando creditsLimit > baseCreditsLimit,
+  // o que ocorre APÓS o webhook processar atomicamente o crédito.
+  function _showPixModal(paymentId, qrCode, qrBase64, btn, baseCreditsLimit) {
     // Remover modal anterior se existir
     var old = document.getElementById('__pix-modal');
     if (old) old.remove();
+
+    var _base = typeof baseCreditsLimit === 'number' ? baseCreditsLimit : 0;
 
     var modal = document.createElement('div');
     modal.id = '__pix-modal';
@@ -4435,7 +4457,7 @@ function renderModeSelection() {
       '⏳ Aguardando pagamento...',
       '</div>',
 
-      '<button onclick="document.getElementById(\'__pix-modal\').remove()" ',
+      '<button onclick="(function(){clearInterval(window.__pixPollRef);document.getElementById(\'__pix-modal\').remove();}).call(this)" ',
       'style="background:transparent;border:1px solid rgba(124,58,237,.3);color:#9090bb;',
       'border-radius:8px;padding:.4rem 1rem;font-size:.78rem;cursor:pointer;">Cancelar</button>',
 
@@ -4444,21 +4466,30 @@ function renderModeSelection() {
 
     document.body.appendChild(modal);
 
-    // ── POLLING: checar status a cada 3s ────────────────────────────────────
+    // ── POLLING: checar /api/user/credits a cada 3s ─────────────────────────
+    // FONTE DE VERDADE: crédito no Firestore, atualizado PELO WEBHOOK (não pelo status MP).
+    // Trigger: creditsLimit > _base  →  novo crédito confirmado pelo backend.
     var _pollInterval = setInterval(async function() {
       try {
-        var r = await fetch('/api/mp/create-payment?id=' + paymentId);
+        var tokenNow = await getValidIdToken();
+        var r = await fetch('/api/user/credits', {
+          headers: { 'Authorization': 'Bearer ' + tokenNow },
+        });
+        if (!r.ok) return; // erro transitório — tentar de novo no próximo ciclo
+
         var s = await r.json();
         var statusEl = document.getElementById('__pix-status');
+        var newLimit = typeof s.creditsLimit === 'number' ? s.creditsLimit : 0;
 
-        if (s.status === 'approved') {
+        // Crédito novo detectado — webhook já processou, Firestore confirmado
+        if (newLimit > _base) {
           clearInterval(_pollInterval);
-          if (statusEl) statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700;">✅ Pagamento confirmado! Liberando download...</span>';
+          window.__pixPollRef = null;
+          if (statusEl) statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700;">✅ Pagamento aprovado. Crédito liberado.</span>';
           setTimeout(function() {
             var m = document.getElementById('__pix-modal');
             if (m) m.remove();
             if (btn) { btn.disabled = false; btn.innerHTML = '⬇ BAIXAR AGORA &mdash; R$3,99'; }
-            // Disparar download — a mesma função que processa creditsLimit já foi chamada pelo webhook
             if (typeof window.__triggerMasterDownload === 'function') {
               window.__triggerMasterDownload();
             } else {
@@ -4468,23 +4499,23 @@ function renderModeSelection() {
           return;
         }
 
-        if (s.status === 'cancelled' || s.status === 'rejected') {
-          clearInterval(_pollInterval);
-          if (statusEl) statusEl.innerHTML = '<span style="color:#f87171;">❌ Pagamento ' + s.status + '. Feche e tente novamente.</span>';
-          return;
-        }
-
-        if (statusEl) statusEl.innerHTML = '⏳ Aguardando pagamento... (status: ' + (s.status || 'pending') + ')';
+        if (statusEl) statusEl.innerHTML = '⏳ Aguardando confirmação do pagamento...';
 
       } catch (e) {
         debugError('[PIX POLL] Erro:', e.message);
       }
     }, 3000);
 
-    // Parar polling se modal for fechado manualmente
-    modal.addEventListener('remove', function() { clearInterval(_pollInterval); });
-    // Fallback: parar após 10 minutos
-    setTimeout(function() { clearInterval(_pollInterval); }, 600000);
+    // Expor referência para o botão Cancelar limpar o intervalo
+    window.__pixPollRef = _pollInterval;
+
+    // Fallback: parar polling após 10 minutos
+    setTimeout(function() {
+      clearInterval(_pollInterval);
+      window.__pixPollRef = null;
+      var statusEl = document.getElementById('__pix-status');
+      if (statusEl) statusEl.innerHTML = '<span style="color:#f87171;">⏰ Tempo expirado. Feche e tente novamente.</span>';
+    }, 600000);
   }
 
   function _upgradeCard(icon, title, desc) {

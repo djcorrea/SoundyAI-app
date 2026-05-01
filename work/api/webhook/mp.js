@@ -174,6 +174,7 @@ async function processPayment(paymentId, timestamp) {
       const currentUsed  = typeof data.creditsUsed === 'number' ? data.creditsUsed : 0;
       const newLimit     = currentLimit + 1;
 
+      console.error(`[MP WEBHOOK] payment_id=${paymentId} uid=${uid} already_processed=false`);
       console.error(`[MP WEBHOOK] CREDITS BEFORE: creditsLimit=${currentLimit} creditsUsed=${currentUsed}`);
       console.error(`[MP WEBHOOK] CREDITS AFTER:  creditsLimit=${newLimit}     creditsUsed=${currentUsed} (inalterado)`);
 
