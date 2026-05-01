@@ -1,6 +1,6 @@
 // api/mercadopago.js
 import express from "express";
-import * as mercadopago from "mercadopago";
+import { MercadoPagoConfig, Preference as MPPreference } from 'mercadopago';
 import { getAuth, getFirestore } from '../../firebase/admin.js';
 
 const auth = getAuth();
@@ -8,13 +8,13 @@ const db = getFirestore();
 
 const router = express.Router();
 
-// ─── 1) CONFIGURAÇÃO DO MERCADO PAGO ──────────────────────
+// ─── 1) CONFIGURAÇÃO DO MERCADO PAGO (SDK v2) ──────────────────────
 if (!process.env.MP_ACCESS_TOKEN) {
   console.warn("⚠️ MP_ACCESS_TOKEN não está definido!");
-} else {
-  mercadopago.configure({
-    access_token: process.env.MP_ACCESS_TOKEN,
-  });
+}
+
+function getMPClient() {
+  return new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
 }
 
 
@@ -58,8 +58,9 @@ router.post("/create-preference", validateFirebaseIdToken, async (req, res) => {
       external_reference: uid,
     };
 
-    const mpRes = await mercadopago.preferences.create(preference);
-    return res.json({ init_point: mpRes.body.init_point });
+    const prefClient = new MPPreference(getMPClient());
+    const mpRes = await prefClient.create({ body: preference });
+    return res.json({ init_point: mpRes.init_point });
   } catch (err) {
     console.error("Erro criando preferência:", err);
     return res.status(500).json({ error: "Erro criando preferência." });
