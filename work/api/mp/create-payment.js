@@ -79,6 +79,11 @@ router.post('/', async (req, res) => {
   const frontendUrl     = getFrontendUrl(req);
 
   // 3️⃣ CRIAR PREFERÊNCIA MERCADO PAGO (via fetch nativo — Node.js 20)
+  //
+  // REGRA PIX: NÃO definir installments em payment_methods.
+  // O Checkout Pro interpreta installments:1 como "apenas métodos parceláveis",
+  // excluindo silenciosamente bank_transfer (PIX). Omitir o campo deixa o MP
+  // exibir todos os métodos disponíveis na conta (PIX + cartão).
   const preference = {
     items: [
       {
@@ -91,7 +96,7 @@ router.post('/', async (req, res) => {
       },
     ],
     payer: {
-      email,
+      email: email || undefined,
     },
     // metadata é preservado no objeto payment — usado pelo webhook para obter o uid
     metadata: {
@@ -102,14 +107,12 @@ router.post('/', async (req, res) => {
     // Referência externa como fallback de identificação
     external_reference: uid,
     payment_methods: {
-      // Habilitar apenas Pix (bank_transfer) e cartão de crédito
+      // Excluir apenas boleto e ATM — NÃO excluir bank_transfer (PIX)
+      // NÃO definir installments aqui: causaria exclusão silenciosa do PIX
       excluded_payment_types: [
-        { id: 'ticket' },   // boleto
+        { id: 'ticket' },  // boleto bancário
         { id: 'atm' },
-        { id: 'debit_card' },
-        { id: 'prepaid_card' },
       ],
-      installments: 1,
     },
     back_urls: {
       success: `${frontendUrl}/success.html?type=single_credit`,
@@ -119,6 +122,12 @@ router.post('/', async (req, res) => {
     auto_return:      'approved',
     notification_url: notificationUrl,
   };
+
+  // Log de diagnóstico — valida payload real antes de enviar à API MP
+  const tokenPrefix = accessToken.slice(0, 7); // APP_USR ou TEST-...
+  const tokenEnv    = tokenPrefix.startsWith('TEST') ? 'TESTE ⚠️ (PIX pode não aparecer no sandbox)' : 'PRODUÇÃO ✅';
+  console.error(`[MP CREATE-PAYMENT] Token ambiente: ${tokenEnv}`);
+  console.error('[MP CREATE-PAYMENT] Preference payload:', JSON.stringify(preference, null, 2));
 
   let mpResponse;
   try {
