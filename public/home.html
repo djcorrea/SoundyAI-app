@@ -4358,7 +4358,7 @@ function renderModeSelection() {
     overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
   };
 
-  // ── CHECKOUT AVULSO: inicia Stripe checkout para 1 crédito (R$3,99) ──────
+  // ── CHECKOUT AVULSO: inicia Mercado Pago para 1 crédito (R$3,99 via PIX) ──
   window.__startSingleCreditCheckout = async function __startSingleCreditCheckout(btn) {
     if (btn) { btn.disabled = true; btn.textContent = 'Aguarde...'; }
     try {
@@ -4370,21 +4370,21 @@ function renderModeSelection() {
       // Salvar jobId localmente para recuperar em success.html
       if (jobId) localStorage.setItem('sc_pending_job', String(jobId));
 
-      var resp = await fetch('/api/stripe/create-checkout-session', {
+      var resp = await fetch('/api/mp/create-payment', {
         method: 'POST',
         headers: {
           'Content-Type':  'application/json',
           'Authorization': 'Bearer ' + token,
         },
-        body: JSON.stringify({ plan: 'single_credit', jobId: jobId }),
+        body: JSON.stringify({ jobId: jobId }),
       });
 
       var data = await resp.json();
-      if (!resp.ok || !data.url) throw new Error(data.message || 'Erro ao criar checkout');
+      if (!resp.ok || !data.init_point) throw new Error(data.message || 'Erro ao criar checkout');
 
-      window.location.href = data.url;
+      window.location.href = data.init_point;
     } catch (err) {
-      debugError('[SINGLE-CREDIT] Erro ao iniciar checkout:', err.message);
+      debugError('[SINGLE-CREDIT] Erro ao iniciar checkout MP:', err.message);
       if (btn) { btn.disabled = false; btn.innerHTML = '⬇ BAIXAR AGORA &mdash; R$3,99'; }
       alert('Não foi possível iniciar o pagamento. Tente novamente.');
     }
