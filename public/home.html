@@ -4380,6 +4380,46 @@ function renderModeSelection() {
     }
   };
 
+  // ── TOAST DE SUCESSO DO PAGAMENTO ───────────────────────────────────────────
+  // Exibe notificação flutuante não-bloqueante ao confirmar o pagamento PIX.
+  // Chamada com `done=true` atualiza a mensagem para o estado final.
+  function _showPaymentSuccessToast(done) {
+    var existing = document.getElementById('__pix-success-toast');
+    if (existing) {
+      if (done) {
+        var msg = existing.querySelector('.__pst-msg');
+        if (msg) msg.textContent = '🎉 Download iniciado! Sua master está pronta.';
+      }
+      return;
+    }
+
+    var toast = document.createElement('div');
+    toast.id = '__pix-success-toast';
+    toast.style.cssText = [
+      'position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);z-index:100000;',
+      'background:linear-gradient(135deg,#14532d,#166534);',
+      'border:1px solid rgba(74,222,128,.4);border-radius:14px;',
+      'padding:1rem 1.5rem;max-width:420px;width:calc(100% - 2rem);',
+      'box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 0 1px rgba(74,222,128,.15);',
+      'text-align:center;color:#fff;',
+      'animation:__pst-in .35s cubic-bezier(.22,1,.36,1) forwards;'
+    ].join('');
+
+    toast.innerHTML = [
+      '<style>',
+      '@keyframes __pst-in{from{opacity:0;transform:translateX(-50%) translateY(-12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}',
+      '</style>',
+      '<p class="__pst-msg" style="margin:0 0 .3rem;font-size:1rem;font-weight:700;color:#4ade80;">',
+      '✅ Pagamento aprovado! Iniciando download…',
+      '</p>',
+      '<p style="margin:0;font-size:.78rem;color:rgba(255,255,255,.7);line-height:1.4;">',
+      'Seu arquivo também estará disponível na aba <strong style="color:#86efac;">📜 Histórico de Masters</strong> na barra lateral.',
+      '</p>'
+    ].join('');
+
+    document.body.appendChild(toast);
+  }
+
   // ── MODAL PIX ───────────────────────────────────────────────────────────────
   // FONTE DE VERDADE: /api/user/credits (Firestore via backend)
   // O status do pagamento (MP API) NÃO controla liberação de acesso.
@@ -4459,48 +4499,71 @@ function renderModeSelection() {
         if (newLimit > _base) {
           clearInterval(_pollInterval);
           window.__pixPollRef = null;
-          if (statusEl) statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700;">✅ Pagamento aprovado. Crédito liberado.</span>';
           console.log('[PIX FLOW] Pagamento aprovado — crédito confirmado via /api/user/credits');
+
+          // 1️⃣ Fechar imediatamente o modal de PIX
+          var m = document.getElementById('__pix-modal');
+          if (m) m.remove();
+          if (btn) { btn.disabled = false; btn.innerHTML = '⬇ BAIXAR AGORA &mdash; R$3,99'; }
+
+          // 2️⃣ Exibir toast de sucesso com instrução sobre o histórico
+          _showPaymentSuccessToast();
+
+          // ── Restaurar contexto do job ──────────────────────────────────
+          var _jobId = jobId
+            || (window.__lastJobId || '')
+            || localStorage.getItem('sc_pending_job')
+            || '';
+          if (_jobId && !_state.masterJobId) {
+            _state.masterJobId = _jobId;
+            console.log('[PIX FLOW] masterJobId restaurado:', _jobId);
+          }
+
+          // ── Limpar guards bloqueadores ─────────────────────────────────
+          _state.downloadBlocked = false;
+          _state.creditConsumed  = false;
+
+          // 3️⃣ Disparar download automático (pequeno delay para o toast aparecer)
+          console.log('[PIX FLOW] Iniciando download automático — jobId:', _state.masterJobId);
           setTimeout(function() {
-            var m = document.getElementById('__pix-modal');
-            if (m) m.remove();
-            if (btn) { btn.disabled = false; btn.innerHTML = '⬇ BAIXAR AGORA &mdash; R$3,99'; }
-
-            // ── Restaurar contexto do job ──────────────────────────────────
-            // jobId foi capturado no momento em que o usuário clicou comprar.
-            // Se _state.masterJobId foi limpo durante o modal, restaurar.
-            var _jobId = jobId
-              || (window.__lastJobId || '')
-              || localStorage.getItem('sc_pending_job')
-              || '';
-            if (_jobId && !_state.masterJobId) {
-              _state.masterJobId = _jobId;
-              console.log('[PIX FLOW] masterJobId restaurado:', _jobId);
-            }
-
-            // ── Limpar guards bloqueadores ─────────────────────────────────
-            // downloadBlocked foi setado quando job completou sem crédito.
-            // Agora o crédito existe — limpar para permitir downloadMaster().
-            _state.downloadBlocked = false;
-            _state.creditConsumed  = false;
-
-            console.log('[PIX FLOW] Iniciando download automático — jobId:', _state.masterJobId);
-
             if (_state.masterJobId && typeof window.downloadMaster === 'function') {
               console.log('[PIX FLOW] Chamando downloadMaster()');
               window.downloadMaster();
-              console.log('[PIX FLOW] Fluxo finalizado — download disparado');
+              console.log('[PIX FLOW] Download disparado');
             } else if (_jobId && typeof window.downloadMaster === 'function') {
-              // Fallback: jobId disponível mas não estava em _state
               _state.masterJobId = _jobId;
               console.log('[PIX FLOW] Fallback — masterJobId setado e downloadMaster() chamado');
               window.downloadMaster();
             } else {
-              // Último recurso: reload (jobId perdido — não deve ocorrer)
               console.log('[PIX FLOW] jobId indisponível — recarregando página');
               window.location.reload();
             }
-          }, 1500);
+
+            // 4️⃣ Após o download ser disparado, resetar estado e voltar para idle
+            setTimeout(function() {
+              _showPaymentSuccessToast(true); // atualiza toast para "Pronto!"
+              setTimeout(function() {
+                // Fecha qualquer modal de análise aberto
+                var analysisModal = document.getElementById('audioAnalysisModal');
+                if (analysisModal) {
+                  analysisModal.classList.remove('motor-active');
+                  analysisModal.style.display = 'none';
+                  analysisModal.setAttribute('aria-hidden', 'true');
+                }
+                _state.analysisOpen = false;
+                // Remove toast
+                var toast = document.getElementById('__pix-success-toast');
+                if (toast) toast.remove();
+                // Reset completo do fluxo de master
+                if (typeof window.resetMasterFlow === 'function') window.resetMasterFlow();
+                // Garante estado idle no hub
+                if (typeof setState === 'function') {
+                  _currentHubState = '';
+                  setState('idle');
+                }
+              }, 2500);
+            }, 800);
+          }, 400);
           return;
         }
 
