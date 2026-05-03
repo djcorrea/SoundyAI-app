@@ -17,8 +17,12 @@
 //  7. Firestore transaction: creditsLimit += 1  (creditsUsed INTOCADO)
 //  8. markPaymentAsProcessed → nunca antes
 
+import { createRequire } from 'module';
 import express from 'express';
 import { getFirestore } from '../../../firebase/admin.js';
+
+const _require = createRequire(import.meta.url);
+const jobStoreModule = _require('../../../services/job-store.cjs');
 
 const router = express.Router();
 
@@ -203,11 +207,58 @@ async function processPayment(paymentId, timestamp) {
 
   } catch (err) {
     if (err.message === 'already_processed') {
-      // Tratado dentro da transação — não é erro fatal
       return;
     }
-    // NÃO marcar como processado → permite reprocessamento manual pelo admin
     console.error(`[MP WEBHOOK] ❌ Erro Firestore: ${err.message}`);
+    // NÃO tenta salvar histórico se a transação falhou
+    return;
+  }
+
+  // ── SALVAR NO HISTÓRICO (fora da transação — idempotente, não bloqueia crédito) ──
+  // O crédito já foi confirmado acima. Agora tentamos garantir o histórico.
+  // jobId pode estar vazio se o frontend não enviou (ex.: fluxo legado).
+  const jobId = payment.metadata?.jobId || '';
+  if (!jobId) {
+    console.error(`[MP WEBHOOK] jobId ausente no metadata — histórico não salvo (uid=${uid})`);
+    return;
+  }
+
+  try {
+    const job = await jobStoreModule.getJob(jobId.trim());
+
+    if (!job) {
+      console.error(`[MP WEBHOOK] Job ${jobId} não encontrado no Redis — histórico não salvo`);
+      return;
+    }
+
+    if (job.status !== 'completed' || !job.output_key) {
+      console.error(`[MP WEBHOOK] Job ${jobId} status=${job.status} output_key=${job.output_key} — histórico não salvo`);
+      return;
+    }
+
+    const histRef  = db.collection('usuarios').doc(uid).collection('masters').doc(jobId.trim());
+    const existing = await histRef.get();
+
+    if (existing.exists) {
+      console.error(`[MP WEBHOOK] Histórico jobId=${jobId} já existia — ignorado (idempotência)`);
+      return;
+    }
+
+    // Salvar SEM expiresAt — master paga é permanente
+    await histRef.set({
+      jobId:      jobId.trim(),
+      fileName:   job.original_filename || jobId,
+      storageKey: job.output_key,
+      mode:       job.mode || null,
+      createdAt:  timestamp,
+      paymentId:  String(paymentId),
+    });
+
+    console.error(`[MP WEBHOOK] ✅ Histórico salvo — uid=${uid} jobId=${jobId}`);
+
+  } catch (histErr) {
+    // Histórico é importante mas NÃO crítico — crédito já foi confirmado
+    console.error(`[MP WEBHOOK] ⚠️ Falha ao salvar histórico (não crítico): ${histErr.message}`);
   }
 }
 

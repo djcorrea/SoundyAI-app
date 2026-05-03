@@ -27,7 +27,7 @@ const LOCK_TTL_MS = 15 * 60 * 1000; // 15 minutos — lock considerado stale ap�
 
 // ─── Configuração de limites por plano ───────────────────────────────────────
 const PLAN_MONTHLY_LIMITS = {
-  free:  1,
+  free:  0,   // Plano free: sem alocación mensal — downloads exigem crédito MP
   plus:  20,
   pro:   200,  // hardcap interno — tratado como ilimitado para o usuário
   dj:    200,  // DJ Beta: mesmo limite que pro
@@ -149,7 +149,11 @@ export async function createJobWithTransaction(uid, jobId, { fileKey, mode }) {
     if (now > resetDate) {
       creditsUsed              = 0;
       userUpdates.creditsUsed  = 0;
-      userUpdates.creditsLimit = monthlyLimit;
+      // Para planos pagos: restaurar alocação mensal do plano.
+      // Para free: NÃO sobrescrever creditsLimit — créditos comprados via MP devem persistir.
+      if (plan !== 'free') {
+        userUpdates.creditsLimit = monthlyLimit;
+      }
       userUpdates.resetDate    = getNextMonthTimestamp();
       console.log(`🔄 [AUTOMASTER-JOBS] Reset mensal aplicado: uid=${uid} plan=${plan}`);
     }
@@ -162,19 +166,18 @@ export async function createJobWithTransaction(uid, jobId, { fileKey, mode }) {
     // Após reset, creditsLimit foi sobrescrito para monthlyLimit — usar o valor atualizado
     const effectiveLimit = userUpdates.creditsLimit ?? creditsLimit;
 
-    if (creditsUsed >= effectiveLimit) {
-      let message;
-      if (plan === 'free') {
-        message = 'Você já utilizou sua masterização gratuita deste mês. Faça upgrade para continuar masterizando.';
-      } else if (isHardcap) {
-        message = 'Limite mensal interno atingido. O limite será renovado no início do próximo mês.';
-      } else {
-        message = `Você atingiu o limite de ${monthlyLimit} masterizações do seu plano este mês.`;
-      }
+    // Para planos pagos: verificar limite mensal.
+    // Para free: processamento sempre permitido — o paywall é aplicado exclusivamente no download.
+    if (plan !== 'free' && creditsUsed >= effectiveLimit) {
+      const message = isHardcap
+        ? 'Limite mensal interno atingido. O limite será renovado no início do próximo mês.'
+        : `Você atingiu o limite de ${monthlyLimit} masterizações do seu plano este mês.`;
       throw Object.assign(new Error(message), { code: 'NO_CREDITS' });
     }
 
-    const eligibilityType = isHardcap ? 'plan_unlimited' : 'plan_monthly';
+    const eligibilityType = plan === 'free'   ? 'free_preview'
+                          : isHardcap         ? 'plan_unlimited'
+                          :                     'plan_monthly';
 
     // ── 4. Criar job doc ──────────────────────────────────────────────────────
     tx.set(jobRef, {

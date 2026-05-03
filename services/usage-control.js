@@ -22,6 +22,52 @@ const PAID_PLANS    = new Set(['plus', 'pro', 'dj', 'studio']);
 // key: string (IP), value: number (timestamp do último uso free)
 const _ipUsageMap = new Map();
 
+// ─── Rate limit por uid (in-memory, reinicia nos deploys — intencional) ─────
+// key: string (uid), value: number[] (timestamps de jobs submetidos na janela)
+const _uidRateLimitMap  = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // janela de 1 hora
+const RATE_LIMIT_MAX_JOBS  = 10;              // máximo de jobs por janela
+
+// ───────────────────────────────────────────────────────────────────────────
+// checkRateLimit
+// ───────────────────────────────────────────────────────────────────────────
+/**
+ * Verifica se o uid pode submeter um novo job (máx. RATE_LIMIT_MAX_JOBS/hora).
+ * Não realiza I/O — apenas consulta a Map in-memory.
+ * Reinicia nos deploys — comportamento intencional (sem persistência).
+ * @param {string} uid
+ * @returns {{ allowed: boolean, retryAfterMs?: number }}
+ */
+export function checkRateLimit(uid) {
+  if (!uid) return { allowed: true };
+  const now     = Date.now();
+  const cutoff  = now - RATE_LIMIT_WINDOW_MS;
+  const history = (_uidRateLimitMap.get(uid) || []).filter(ts => ts > cutoff);
+  if (history.length >= RATE_LIMIT_MAX_JOBS) {
+    const oldest      = history[0];
+    const retryAfterMs = (RATE_LIMIT_WINDOW_MS - (now - oldest)) + 1000;
+    return { allowed: false, retryAfterMs: Math.max(retryAfterMs, 0) };
+  }
+  return { allowed: true };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// registerJobForRateLimit
+// ───────────────────────────────────────────────────────────────────────────
+/**
+ * Registra um job submetido com sucesso no rate limiter do uid.
+ * Deve ser chamado APÓS o job ser enfileirado com sucesso.
+ * @param {string} uid
+ */
+export function registerJobForRateLimit(uid) {
+  if (!uid) return;
+  const now     = Date.now();
+  const cutoff  = now - RATE_LIMIT_WINDOW_MS;
+  const history = (_uidRateLimitMap.get(uid) || []).filter(ts => ts > cutoff);
+  history.push(now);
+  _uidRateLimitMap.set(uid, history);
+}
+
 // ───────────────────────────────────────────────────────────────────────────
 // getUserPlan
 // ───────────────────────────────────────────────────────────────────────────

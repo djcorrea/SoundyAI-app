@@ -4143,6 +4143,9 @@ function renderModeSelection() {
     document.body.removeChild(a);
 
     // ── SALVAR NO HISTÓRICO (fire-and-forget — não bloqueia o download) ──────
+    // NOTA: o webhook do MP já salva o histórico no momento do pagamento.
+    // Esta chamada é um segundo ponto de garantia para casos onde o webhook
+    // não tenha recebido o jobId (ex.: fluxo legado sem jobId no metadata).
     if (_state.masterJobId) {
       getValidIdToken().then(function(token) {
         return fetch('/api/user/masters/save', {
@@ -4153,6 +4156,12 @@ function renderModeSelection() {
           },
           body: JSON.stringify({ jobId: _state.masterJobId })
         });
+      }).then(function(r) {
+        if (r && !r.ok) {
+          return r.json().then(function(body) {
+            debugWarn('[HISTORY] Salvar histórico retornou erro:', body && body.error);
+          }).catch(function() {});
+        }
       }).catch(function(e) {
         debugWarn('[HISTORY] Falha ao salvar histórico (não crítico):', e.message);
       });

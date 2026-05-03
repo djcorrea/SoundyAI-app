@@ -288,9 +288,10 @@ import mpWebhookRouter from './work/api/webhook/mp.js';
 import { verifyFirebaseToken } from './work/lib/auth/verify-token-middleware.js';
 import { createJobWithTransaction, consumeJobCredit, releaseUserLock } from './work/lib/automaster/jobs.js';
 import { getFirestore, getAuth } from './firebase/admin.js';
+import { FieldValue } from 'firebase-admin/firestore';
 
 // 🛡️ ANTI-ABUSE: Fingerprint + IP rate limiting para free users
-import { getUserPlan, hasPaidPlan, checkFreeUsage, registerFreeUsage, isIPAllowed } from './services/usage-control.js';
+import { getUserPlan, hasPaidPlan, checkRateLimit, registerJobForRateLimit } from './services/usage-control.js';
 
 // 🎓 HOTMART: Webhook para combo Curso + PLUS 1 mês
 import hotmartWebhookRouter from "./api/webhook/hotmart.js";
@@ -607,53 +608,21 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
   const SAFE_FILEKEY_RE = /^[a-zA-Z0-9/_\-.]+$/;
 
   try {
-    // ─── ANTI-ABUSE: Fingerprint + IP check para usuários free ───────────────
-    // Executado ANTES de qualquer I/O para falhar rapidamente.
-    // Usuários com plano pago ignoram este bloco.
-    const _usageUid  = req.user.uid;
-    const _userPlan  = await getUserPlan(_usageUid).catch(() => 'free');
-
-    console.log('[AUTOMASTER] uid:', _usageUid, '| plan:', _userPlan);
-
-    if (_userPlan === 'free') {
-      const _ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
-               || req.ip
-               || '0.0.0.0';
-      const _fp = (typeof req.body.fingerprintId === 'string')
-                  ? req.body.fingerprintId.trim().substring(0, 128)
-                  : '';
-
-      console.log('[AUTOMASTER] fingerprintId recebido:', _fp ? _fp.substring(0, 12) + '…' : '(vazio)', '| ip:', _ip);
-
-      if (!_fp) {
-        // Sem fingerprintId: pode ser falha no carregamento do script — aplica apenas IP check
-        console.warn('[AUTOMASTER] fingerprintId ausente para usuário free (aplicando apenas IP check):', _usageUid);
-        if (!isIPAllowed(_ip)) {
-          return res.status(403).json({
-            error:   'FREE_LIMIT_REACHED',
-            code:    'FREE_LIMIT_REACHED',
-            message: 'Limite gratuito atingido. Aguarde 24h ou faça upgrade para continuar.',
-            reason:  'IP_LIMIT_REACHED',
-          });
-        }
-        // IP OK e sem fingerprint → permitir mas registrar IP
-        req._freeUsageContext = { userId: _usageUid, fingerprintId: '', ip: _ip };
-      } else {
-        const _usageCheck = await checkFreeUsage({ userId: _usageUid, fingerprintId: _fp, ip: _ip });
-        if (!_usageCheck.allowed) {
-          console.warn('[AUTOMASTER] FREE_LIMIT_REACHED uid:', _usageUid, 'reason:', _usageCheck.reason);
-          return res.status(403).json({
-            error:   'FREE_LIMIT_REACHED',
-            code:    'FREE_LIMIT_REACHED',
-            message: 'Limite gratuito atingido. Aguarde 24h ou faça upgrade para continuar.',
-            reason:  _usageCheck.reason,
-          });
-        }
-
-        // Salvar referências para registerFreeUsage após enfileirar com sucesso
-        req._freeUsageContext = { userId: _usageUid, fingerprintId: _fp, ip: _ip };
-      }
+    // ─── ANTI-ABUSE: Rate limit por uid (máx 10 jobs/hora) ───────────────────
+    // Aplica a todos os usuários autenticados (free e pagos).
+    // Sem bloqueio por fingerprint ou IP — o paywall é exclusivo do download.
+    const _usageUid = req.user.uid;
+    const _rlCheck  = checkRateLimit(_usageUid);
+    if (!_rlCheck.allowed) {
+      console.warn('[AUTOMASTER] Rate limit atingido — uid:', _usageUid);
+      return res.status(429).json({
+        error:        'RATE_LIMIT_EXCEEDED',
+        code:         'RATE_LIMIT_EXCEEDED',
+        message:      'Muitas solicitações. Você pode processar no máximo 10 músicas por hora.',
+        retryAfterMs: _rlCheck.retryAfterMs,
+      });
     }
+    console.log('[AUTOMASTER] uid:', _usageUid, '| Rate limit OK');
     // ─────────────────────────────────────────────────────────────────────────
 
     // 1. Resolver o buffer de áudio: fileKey (fluxo contínuo) ou arquivo direto (fluxo manual)
@@ -797,6 +766,8 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
       priority: req.user?.isPremium ? 1 : 5 // Priorização por tier
     });
 
+    // Registrar submissão no rate limiter (in-memory) — nunca lança exceção
+    registerJobForRateLimit(_usageUid);
     console.log('✅ [AUTOMASTER] Job enfileirado com sucesso');
 
     // 7. Registrar job no PostgreSQL (para status unificado via /api/jobs/:id)
@@ -815,13 +786,6 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
     }
 
     // 9. Responder imediatamente (NÃO esperar processamento)
-    // Registrar uso free antes de responder (fire-and-forget, não bloqueia)
-    if (req._freeUsageContext) {
-      registerFreeUsage(req._freeUsageContext).catch(err =>
-        console.warn('[AUTOMASTER] registerFreeUsage error (non-fatal):', err.message)
-      );
-    }
-
     return res.status(202).json({
       success: true,
       jobId,
@@ -986,12 +950,16 @@ app.get('/api/automaster/status/:jobId', verifyFirebaseToken, async (req, res) =
         response.message = 'Masterização concluída com aviso de proteção sônica';
       }
 
-      // ── CONSUMIR CRÉDITO APÓS SUCESSO (idempotente) ──────────────────────────
-      // Apenas aqui, após o DSP ter concluído com sucesso, o crédito é debitado.
-      // A função é idempotente: se já consumido (poll anterior), silencia e continua.
-      consumeJobCredit(req.user.uid, jobId).catch(err =>
-        console.error('⚠️ [AUTOMASTER-STATUS] consumeJobCredit error (não fatal):', err.message)
-      );
+      // ── CONSUMIR CRÉDITO APÓS SUCESSO (apenas planos pagos) ──────────────────
+      // Para planos pagos: consome aqui, após conclusão do DSP.
+      // Para free (free_preview): o crédito é consumido no download proxy,
+      //   evitando que múltiplos processamentos esgotem creditsUsed antes do pagamento.
+      // Idempotente: se já consumido (poll anterior), silencia e continua.
+      if (_statusIsPaid) {
+        consumeJobCredit(req.user.uid, jobId).catch(err =>
+          console.error('⚠️ [AUTOMASTER-STATUS] consumeJobCredit error (não fatal):', err.message)
+        );
+      }
     } else if (job.status === 'needs_confirmation') {
       // Problemas técnicos detectados — aguardando confirmação do usuário para masterização segura
       response.status = 'needs_confirmation';
@@ -1183,18 +1151,25 @@ app.get('/api/automaster/download/:jobId', async (req, res) => {
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
-    // ── PAYWALL: Plano pago OU crédito avulso (creditsLimit > creditsUsed) ───
+    // ── PAYWALL: Plano pago OU crédito avulso OU redownload pago ─────────────
+    // Hierarquia de acesso:
+    //   1. hasPaidPlan       → plano mensal ativo (plus/pro/dj/studio)
+    //   2. paidDownloadJobIds → jobId já foi pago antes (redownload gratuito)
+    //   3. creditsLimit > creditsUsed → crédito avulso MP disponível (1ª vez)
     const _dlUserPaid = await hasPaidPlan(uid).catch(() => false);
 
-    let _dlHasCredit = false;
+    let _dlHasCredit  = false;
+    let _dlIsRedownload = false;
     if (!_dlUserPaid) {
       try {
-        const _snap = await getFirestore().collection('usuarios').doc(uid).get();
-        const _data = _snap.exists ? (_snap.data() || {}) : {};
-        const _used  = Math.max(typeof _data.creditsUsed  === 'number' ? _data.creditsUsed  : 0, 0);
-        const _limit = Math.max(typeof _data.creditsLimit === 'number' ? _data.creditsLimit : 0, 0);
-        _dlHasCredit = _limit > _used;
-        console.log(`[AUTOMASTER-DOWNLOAD] Crédito avulso — uid: ${uid} | creditsUsed: ${_used} | creditsLimit: ${_limit} | hasCredit: ${_dlHasCredit}`);
+        const _snap     = await getFirestore().collection('usuarios').doc(uid).get();
+        const _data     = _snap.exists ? (_snap.data() || {}) : {};
+        const _used     = Math.max(typeof _data.creditsUsed  === 'number' ? _data.creditsUsed  : 0, 0);
+        const _limit    = Math.max(typeof _data.creditsLimit === 'number' ? _data.creditsLimit : 0, 0);
+        const _paidJobs = Array.isArray(_data.paidDownloadJobIds) ? _data.paidDownloadJobIds : [];
+        _dlIsRedownload = _paidJobs.includes(String(jobId));
+        _dlHasCredit    = _dlIsRedownload || (_limit > _used);
+        console.log(`[AUTOMASTER-DOWNLOAD] uid: ${uid} | creditsUsed: ${_used} | creditsLimit: ${_limit} | isRedownload: ${_dlIsRedownload} | hasCredit: ${_dlHasCredit}`);
       } catch (_snapErr) {
         console.error('[AUTOMASTER-DOWNLOAD] Erro ao verificar crédito avulso:', _snapErr.message);
       }
@@ -1207,6 +1182,22 @@ app.get('/api/automaster/download/:jobId', async (req, res) => {
         code:    'FREE_USED',
         message: 'Download disponível apenas para planos pagos. Faça upgrade para baixar sua master.',
       });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── CONSUMIR CRÉDITO + REGISTRAR DOWNLOAD PAGO (fire-and-forget) ─────────
+    // Executado ANTES de iniciar o stream (o usuário já foi autorizado acima).
+    // Para usuários free com crédito disponível (1ª vez neste jobId):
+    //   • Salva jobId em paidDownloadJobIds → redownloads futuros gratuitos
+    //   • Consome 1 crédito (consumeJobCredit → creditsUsed +1, idempotente)
+    // Redownloads (_dlIsRedownload=true) e planos pagos: nenhuma ação.
+    if (!_dlUserPaid && !_dlIsRedownload) {
+      getFirestore().collection('usuarios').doc(uid).update({
+        paidDownloadJobIds: FieldValue.arrayUnion(String(jobId))
+      }).catch(e => console.error('[PROXY-DOWNLOAD] paidDownloadJobIds error (não fatal):', e.message));
+      consumeJobCredit(uid, jobId).catch(e =>
+        console.error('[PROXY-DOWNLOAD] consumeJobCredit error (não fatal):', e.message)
+      );
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -1473,7 +1464,6 @@ app.post('/api/user/masters/save', verifyFirebaseToken, async (req, res) => {
     }
 
     const now       = new Date();
-    const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // +30 dias
 
     await docRef.set({
       jobId,
@@ -1481,7 +1471,8 @@ app.post('/api/user/masters/save', verifyFirebaseToken, async (req, res) => {
       storageKey: job.output_key,
       mode:       job.mode || null,
       createdAt:  now.toISOString(),
-      expiresAt:  expiresAt.toISOString(),
+      // expiresAt intencional ausente: masters pagas são permanentes.
+      // O filtro em GET /api/user/masters ignora documentos sem expiresAt.
     });
 
     console.log(`✅ [HISTORY] Histórico salvo — uid:${uid} jobId:${jobId}`);
