@@ -4583,35 +4583,47 @@ function renderModeSelection() {
           // 3️⃣ Limpar guards bloqueadores
           _state.downloadBlocked = false;
           _state.creditConsumed  = false;
+          // Limpar job pendente do localStorage para evitar reuso em novas sessões
+          localStorage.removeItem('sc_pending_job');
 
-          // 4️⃣ Disparar download automático imediatamente
+          // 4️⃣ Disparar download e, SOMENTE após ele completar, resetar o estado.
+          // downloadMaster() é async: resetar synchronamente (como estava antes)
+          // causava race condition — _state.masterJobId era nulado enquanto o
+          // checkMasterDownloadAccess() ainda aguardava resposta do Firestore,
+          // fazendo o download falhar silenciosamente.
           console.log('[PIX FLOW] Iniciando download automático — jobId:', _state.masterJobId);
-          if (_state.masterJobId && typeof window.downloadMaster === 'function') {
-            window.downloadMaster();
-          } else if (_jobId && typeof window.downloadMaster === 'function') {
-            _state.masterJobId = _jobId;
-            window.downloadMaster();
+
+          var _resolvedJobId = _state.masterJobId || _jobId;
+          if (!_state.masterJobId && _jobId) _state.masterJobId = _jobId;
+
+          var _dlPromise;
+          if (_resolvedJobId && typeof window.downloadMaster === 'function') {
+            _dlPromise = window.downloadMaster();
           } else {
             console.log('[PIX FLOW] jobId indisponível — recarregando página');
             window.location.reload();
+            return;
           }
 
-          // 5️⃣ Resetar estado (background limpo) — executado ANTES do modal de sucesso
-          var _analysisModal = document.getElementById('audioAnalysisModal');
-          if (_analysisModal) {
-            _analysisModal.classList.remove('motor-active');
-            _analysisModal.style.display = 'none';
-            _analysisModal.setAttribute('aria-hidden', 'true');
-          }
-          _state.analysisOpen = false;
-          if (typeof window.resetMasterFlow === 'function') window.resetMasterFlow();
-          if (typeof setState === 'function') {
-            _currentHubState = '';
-            setState('idle');
-          }
-
-          // 6️⃣ Exibir modal de sucesso centralizado (fecha em 20s ou ao clicar no X)
-          _showPaymentSuccessModal();
+          // 5️⃣ Reset + modal de sucesso executam DEPOIS que downloadMaster resolve
+          Promise.resolve(_dlPromise).catch(function() {}).then(function() {
+            // Fecha modal de análise se ainda estiver aberto
+            var _analysisModal = document.getElementById('audioAnalysisModal');
+            if (_analysisModal) {
+              _analysisModal.classList.remove('motor-active');
+              _analysisModal.style.display = 'none';
+              _analysisModal.setAttribute('aria-hidden', 'true');
+            }
+            _state.analysisOpen = false;
+            // Reset completo do fluxo — agora é seguro pois o download já foi disparado
+            if (typeof window.resetMasterFlow === 'function') window.resetMasterFlow();
+            if (typeof setState === 'function') {
+              _currentHubState = '';
+              setState('idle');
+            }
+            // 6️⃣ Modal de sucesso centralizado (fecha em 20s ou ao clicar no X)
+            _showPaymentSuccessModal();
+          });
 
           return;
         }

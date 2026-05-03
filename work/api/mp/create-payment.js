@@ -120,7 +120,11 @@ router.post('/', async (req, res) => {
       headers: {
         'Authorization':     `Bearer ${accessToken}`,
         'Content-Type':      'application/json',
-        'X-Idempotency-Key': `pix-${uid}-${jobId || Date.now()}`,
+        // Chave única por tentativa: garante sempre um pagamento novo no MP.
+        // NÃO reutilizar jobId aqui — se o pagamento anterior expirou/foi pago
+        // e o usuário tenta de novo com o mesmo jobId, o MP devolveria o QR
+        // em cache (já inválido), gerando erro "Ordem rejeitada" no app do banco.
+        'X-Idempotency-Key': `pix-${uid}-${Date.now()}`,
       },
       body: JSON.stringify(paymentBody),
     });
