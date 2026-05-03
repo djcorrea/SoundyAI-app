@@ -4380,44 +4380,106 @@ function renderModeSelection() {
     }
   };
 
-  // ── TOAST DE SUCESSO DO PAGAMENTO ───────────────────────────────────────────
-  // Exibe notificação flutuante não-bloqueante ao confirmar o pagamento PIX.
-  // Chamada com `done=true` atualiza a mensagem para o estado final.
-  function _showPaymentSuccessToast(done) {
-    var existing = document.getElementById('__pix-success-toast');
-    if (existing) {
-      if (done) {
-        var msg = existing.querySelector('.__pst-msg');
-        if (msg) msg.textContent = '🎉 Download iniciado! Sua master está pronta.';
-      }
-      return;
+  // ── MODAL DE SUCESSO DO PAGAMENTO ──────────────────────────────────────────
+  // Modal centralizado com overlay escuro. Fecha ao clicar no X, no overlay
+  // ou automaticamente após 20 segundos.
+  function _showPaymentSuccessModal() {
+    if (document.getElementById('__pix-success-modal')) return;
+
+    var overlay = document.createElement('div');
+    overlay.id = '__pix-success-modal';
+    overlay.style.cssText = [
+      'position:fixed;inset:0;z-index:100000;',
+      'display:flex;align-items:center;justify-content:center;padding:1.25rem;',
+      'background:rgba(0,0,0,.85);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);',
+      'animation:__psm-fade .3s ease forwards;'
+    ].join('');
+
+    overlay.innerHTML = [
+      '<style>',
+      '@keyframes __psm-fade{from{opacity:0}to{opacity:1}}',
+      '@keyframes __psm-in{from{opacity:0;transform:scale(.92) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}',
+      '@keyframes __psm-ring{0%{transform:scale(0);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}',
+      '</style>',
+
+      '<div id="__pix-success-card" style="',
+      'position:relative;background:linear-gradient(160deg,#0d1a0d,#0f1f12,#111827);',
+      'border:1px solid rgba(74,222,128,.3);border-radius:22px;',
+      'padding:2.5rem 2rem 2rem;max-width:460px;width:100%;text-align:center;color:#e0ffe0;',
+      'box-shadow:0 20px 60px rgba(0,0,0,.7),0 0 0 1px rgba(74,222,128,.1),inset 0 1px 0 rgba(255,255,255,.05);',
+      'animation:__psm-in .4s cubic-bezier(.22,1,.36,1) forwards;">',
+
+      // Botão X
+      '<button id="__psm-close-btn" style="',
+      'position:absolute;top:.85rem;right:.85rem;',
+      'background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);',
+      'color:#aaa;border-radius:50%;width:32px;height:32px;',
+      'font-size:1rem;line-height:1;cursor:pointer;',
+      'display:flex;align-items:center;justify-content:center;',
+      'transition:background .15s,color .15s;"',
+      ' onmouseover="this.style.background=\'rgba(255,255,255,.2)\';this.style.color=\'#fff\'"',
+      ' onmouseout="this.style.background=\'rgba(255,255,255,.08)\';this.style.color=\'#aaa\'"',
+      '>&#10005;</button>',
+
+      // Ícone check
+      '<div style="',
+      'width:72px;height:72px;border-radius:50%;',
+      'background:linear-gradient(135deg,#16a34a,#4ade80);',
+      'display:flex;align-items:center;justify-content:center;',
+      'margin:0 auto 1.25rem;',
+      'box-shadow:0 0 0 12px rgba(74,222,128,.1),0 0 30px rgba(74,222,128,.3);',
+      'animation:__psm-ring .5s .1s cubic-bezier(.22,1,.36,1) both;">',
+      '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">',
+      '<polyline points="20 6 9 17 4 12"/></svg>',
+      '</div>',
+
+      '<h2 style="margin:0 0 .4rem;font-size:1.5rem;font-weight:800;color:#4ade80;letter-spacing:-.01em;">',
+      'Pagamento aprovado!',
+      '</h2>',
+      '<p style="margin:0 0 1.25rem;font-size:.92rem;color:rgba(255,255,255,.6);line-height:1.5;">',
+      'Seu download foi iniciado automaticamente.',
+      '</p>',
+
+      // Caixa de info histórico
+      '<div style="',
+      'background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.2);',
+      'border-radius:12px;padding:.9rem 1.1rem;margin-bottom:1.75rem;text-align:left;">',
+      '<p style="margin:0 0 .3rem;font-size:.83rem;font-weight:700;color:#86efac;">📜 Acesse quando quiser</p>',
+      '<p style="margin:0;font-size:.78rem;color:rgba(255,255,255,.55);line-height:1.45;">',
+      'Sua master ficará salva na aba ',
+      '<strong style="color:#4ade80;">Histórico de Masters</strong>',
+      ' na barra lateral — disponível para re-download a qualquer momento.',
+      '</p>',
+      '</div>',
+
+      // Contador regressivo
+      '<p style="margin:0;font-size:.74rem;color:rgba(255,255,255,.28);">',
+      'Esta janela fecha automaticamente em <span id="__psm-countdown">20</span>s',
+      '</p>',
+      '</div>'
+    ].join('');
+
+    document.body.appendChild(overlay);
+
+    var _countdown = 20;
+    var _autoCloseTimer = null;
+
+    function _closeSuccessModal() {
+      if (_autoCloseTimer) { clearInterval(_autoCloseTimer); _autoCloseTimer = null; }
+      var el = document.getElementById('__pix-success-modal');
+      if (el) el.remove();
     }
 
-    var toast = document.createElement('div');
-    toast.id = '__pix-success-toast';
-    toast.style.cssText = [
-      'position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);z-index:100000;',
-      'background:linear-gradient(135deg,#14532d,#166534);',
-      'border:1px solid rgba(74,222,128,.4);border-radius:14px;',
-      'padding:1rem 1.5rem;max-width:420px;width:calc(100% - 2rem);',
-      'box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 0 1px rgba(74,222,128,.15);',
-      'text-align:center;color:#fff;',
-      'animation:__pst-in .35s cubic-bezier(.22,1,.36,1) forwards;'
-    ].join('');
+    var closeBtn = document.getElementById('__psm-close-btn');
+    if (closeBtn) closeBtn.addEventListener('click', _closeSuccessModal);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) _closeSuccessModal(); });
 
-    toast.innerHTML = [
-      '<style>',
-      '@keyframes __pst-in{from{opacity:0;transform:translateX(-50%) translateY(-12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}',
-      '</style>',
-      '<p class="__pst-msg" style="margin:0 0 .3rem;font-size:1rem;font-weight:700;color:#4ade80;">',
-      '✅ Pagamento aprovado! Iniciando download…',
-      '</p>',
-      '<p style="margin:0;font-size:.78rem;color:rgba(255,255,255,.7);line-height:1.4;">',
-      'Seu arquivo também estará disponível na aba <strong style="color:#86efac;">📜 Histórico de Masters</strong> na barra lateral.',
-      '</p>'
-    ].join('');
-
-    document.body.appendChild(toast);
+    _autoCloseTimer = setInterval(function () {
+      _countdown--;
+      var cdEl = document.getElementById('__psm-countdown');
+      if (cdEl) cdEl.textContent = _countdown;
+      if (_countdown <= 0) _closeSuccessModal();
+    }, 1000);
   }
 
   // ── MODAL PIX ───────────────────────────────────────────────────────────────
@@ -4501,15 +4563,14 @@ function renderModeSelection() {
           window.__pixPollRef = null;
           console.log('[PIX FLOW] Pagamento aprovado — crédito confirmado via /api/user/credits');
 
-          // 1️⃣ Fechar imediatamente o modal de PIX
+          // 1️⃣ Fechar modal PIX e modal de conversão (hmUpgradeModal)
           var m = document.getElementById('__pix-modal');
           if (m) m.remove();
+          var _upgradeEl = document.getElementById('hmUpgradeModal');
+          if (_upgradeEl) _upgradeEl.remove();
           if (btn) { btn.disabled = false; btn.innerHTML = '⬇ BAIXAR AGORA &mdash; R$3,99'; }
 
-          // 2️⃣ Exibir toast de sucesso com instrução sobre o histórico
-          _showPaymentSuccessToast();
-
-          // ── Restaurar contexto do job ──────────────────────────────────
+          // 2️⃣ Restaurar contexto do job
           var _jobId = jobId
             || (window.__lastJobId || '')
             || localStorage.getItem('sc_pending_job')
@@ -4519,51 +4580,39 @@ function renderModeSelection() {
             console.log('[PIX FLOW] masterJobId restaurado:', _jobId);
           }
 
-          // ── Limpar guards bloqueadores ─────────────────────────────────
+          // 3️⃣ Limpar guards bloqueadores
           _state.downloadBlocked = false;
           _state.creditConsumed  = false;
 
-          // 3️⃣ Disparar download automático (pequeno delay para o toast aparecer)
+          // 4️⃣ Disparar download automático imediatamente
           console.log('[PIX FLOW] Iniciando download automático — jobId:', _state.masterJobId);
-          setTimeout(function() {
-            if (_state.masterJobId && typeof window.downloadMaster === 'function') {
-              console.log('[PIX FLOW] Chamando downloadMaster()');
-              window.downloadMaster();
-              console.log('[PIX FLOW] Download disparado');
-            } else if (_jobId && typeof window.downloadMaster === 'function') {
-              _state.masterJobId = _jobId;
-              console.log('[PIX FLOW] Fallback — masterJobId setado e downloadMaster() chamado');
-              window.downloadMaster();
-            } else {
-              console.log('[PIX FLOW] jobId indisponível — recarregando página');
-              window.location.reload();
-            }
+          if (_state.masterJobId && typeof window.downloadMaster === 'function') {
+            window.downloadMaster();
+          } else if (_jobId && typeof window.downloadMaster === 'function') {
+            _state.masterJobId = _jobId;
+            window.downloadMaster();
+          } else {
+            console.log('[PIX FLOW] jobId indisponível — recarregando página');
+            window.location.reload();
+          }
 
-            // 4️⃣ Após o download ser disparado, resetar estado e voltar para idle
-            setTimeout(function() {
-              _showPaymentSuccessToast(true); // atualiza toast para "Pronto!"
-              setTimeout(function() {
-                // Fecha qualquer modal de análise aberto
-                var analysisModal = document.getElementById('audioAnalysisModal');
-                if (analysisModal) {
-                  analysisModal.classList.remove('motor-active');
-                  analysisModal.style.display = 'none';
-                  analysisModal.setAttribute('aria-hidden', 'true');
-                }
-                _state.analysisOpen = false;
-                // Remove toast
-                var toast = document.getElementById('__pix-success-toast');
-                if (toast) toast.remove();
-                // Reset completo do fluxo de master
-                if (typeof window.resetMasterFlow === 'function') window.resetMasterFlow();
-                // Garante estado idle no hub
-                if (typeof setState === 'function') {
-                  _currentHubState = '';
-                  setState('idle');
-                }
-              }, 2500);
-            }, 800);
-          }, 400);
+          // 5️⃣ Resetar estado (background limpo) — executado ANTES do modal de sucesso
+          var _analysisModal = document.getElementById('audioAnalysisModal');
+          if (_analysisModal) {
+            _analysisModal.classList.remove('motor-active');
+            _analysisModal.style.display = 'none';
+            _analysisModal.setAttribute('aria-hidden', 'true');
+          }
+          _state.analysisOpen = false;
+          if (typeof window.resetMasterFlow === 'function') window.resetMasterFlow();
+          if (typeof setState === 'function') {
+            _currentHubState = '';
+            setState('idle');
+          }
+
+          // 6️⃣ Exibir modal de sucesso centralizado (fecha em 20s ou ao clicar no X)
+          _showPaymentSuccessModal();
+
           return;
         }
 
