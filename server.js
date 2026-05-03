@@ -644,9 +644,12 @@ app.post('/api/automaster', verifyFirebaseToken, automasterUpload.single('file')
         console.error('❌ [AUTOMASTER] fileKey inválido:', fileKey);
         return res.status(400).json({ error: 'fileKey inválido' });
       }
-      fileLabel  = fileKey;
+      // Prefere o nome original enviado pelo frontend; fallback para o fileKey
+      fileLabel  = (typeof req.body.originalFilename === 'string' && req.body.originalFilename.trim())
+                    ? req.body.originalFilename.trim()
+                    : fileKey;
       fileBuffer = await storageServiceModule.downloadFile(fileKey);
-      console.log('✅ [AUTOMASTER] Arquivo baixado do storage via fileKey:', fileKey);
+      console.log('✅ [AUTOMASTER] Arquivo baixado do storage via fileKey:', fileKey, '| label:', fileLabel);
     } else {
       console.error('❌ [AUTOMASTER] Nenhum arquivo ou fileKey enviado');
       return res.status(400).json({ error: 'Arquivo não enviado. Envie um arquivo ou forneça um fileKey.' });
@@ -879,7 +882,7 @@ app.get('/api/automaster/status/:jobId', verifyFirebaseToken, async (req, res) =
           const safeName = originalName
             .replace(/\.[^/.]+$/, '')            // remove extensão
             .replace(/[^a-zA-Z0-9\-]/g, '_');   // chars inválidos → _
-          const dlFilename = `Master SoundyAI_${safeName}.wav`;
+          const dlFilename = `Master_SoundyAI_${safeName}.wav`;
           response.downloadUrl = await storageServiceModule.generateSignedUrl(job.output_key, 1800, dlFilename);
         }
       } else {
@@ -1205,7 +1208,7 @@ app.get('/api/automaster/download/:jobId', async (req, res) => {
     const safeName = originalName
       .replace(/\.[^/.]+$/, '')            // remove extensão
       .replace(/[^a-zA-Z0-9\-]/g, '_');   // chars inválidos → _
-    const dlFilename = `Master SoundyAI_${safeName}.wav`;
+    const dlFilename = `Master_SoundyAI_${safeName}.wav`;
 
     // Abrir stream do B2 — sem bufferizar em memória
     const { stream, contentLength } = await storageServiceModule.getFileStream(job.output_key);
@@ -1562,7 +1565,7 @@ app.get('/api/user/masters/:jobId/download', verifyFirebaseToken, async (req, re
     const safeName = (data.fileName || jobId)
       .replace(/\.[^/.]+$/, '')
       .replace(/[^a-zA-Z0-9\-]/g, '_');
-    const dlFilename = `Master SoundyAI_${safeName}.wav`;
+    const dlFilename = `Master_SoundyAI_${safeName}.wav`;
 
     // Gera URL assinada fresca (30 minutos)
     const signedUrl = await storageServiceModule.generateSignedUrl(
@@ -1571,7 +1574,7 @@ app.get('/api/user/masters/:jobId/download', verifyFirebaseToken, async (req, re
       dlFilename
     );
 
-    return res.json({ success: true, downloadUrl: signedUrl, fileName: data.fileName });
+    return res.json({ success: true, downloadUrl: signedUrl, fileName: data.fileName, downloadFileName: dlFilename });
 
   } catch (err) {
     console.error('❌ [HISTORY] Erro ao gerar URL de download:', err.message);

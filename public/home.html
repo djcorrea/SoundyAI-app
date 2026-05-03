@@ -3630,41 +3630,9 @@ function renderModeSelection() {
       }
     });
 
-    // Inicia o processamento com pequeno delay para o feedback visual ser percebido
-    // Guard client-side: consulta Firestore primeiro para validar plano atual.
-    // Usuários pagos (paid_plan / studio_unlimited) nunca são bloqueados pelo localStorage.
-    var _dbgKey = _freeMasterKey();
-    console.log('[FreeMaster] key:', _dbgKey, '| value:', localStorage.getItem(_dbgKey));
-
-    checkMasterDownloadAccess().then(function (access) {
-      var isPaidPlan = (access.reason === 'paid_plan' || access.reason === 'studio_unlimited');
-
-      if (isPaidPlan) {
-        // Plano pago confirmado pelo Firestore: limpa flag legada e prossegue
-        try { localStorage.removeItem(_freeMasterKey()); } catch (_) {}
-        debugLog('[HOME-MASTER] Plano pago confirmado (' + access.reason + ') — flag local limpa, prosseguindo.');
-        setTimeout(function () { window.runMasterInHome(mode); }, 300);
-        return;
-      }
-
-      // Plano free: aplica guard local normalmente
-      if (shouldBlockFreeMaster()) {
-        renderLimitModal();
-        return;
-      }
-
-      // TODO Fase 3: iniciar DSP após seleção de modo
-      // startMasterProcessing(resolveFileKey(), mode);
-      setTimeout(function () { window.runMasterInHome(mode); }, 300);
-    }).catch(function (err) {
-      // Falha de rede / Firestore indisponível: cai no guard local como fallback
-      debugWarn('[HOME-MASTER] checkMasterDownloadAccess falhou, usando guard local:', err.message);
-      if (shouldBlockFreeMaster()) {
-        renderLimitModal();
-        return;
-      }
-      setTimeout(function () { window.runMasterInHome(mode); }, 300);
-    });
+    // Inicia o processamento com pequeno delay para o feedback visual ser percebido.
+    // O paywall (PIX R$3,99) é aplicado exclusivamente no botão de download — não aqui.
+    setTimeout(function () { window.runMasterInHome(mode); }, 300);
   };
 
   /**
@@ -3738,6 +3706,7 @@ function renderModeSelection() {
     var fd = new FormData();
     fd.append('fileKey', fileKey);
     fd.append('mode', mode);
+    fd.append('originalFilename', resolveFileName() || '');
     if (_state.fingerprintId) fd.append('fingerprintId', _state.fingerprintId);
     var res = await fetch('/api/automaster', {
       method: 'POST',
@@ -3823,8 +3792,6 @@ function renderModeSelection() {
             renderErrorState('Processamento concluído, mas URL de download ausente. Contate o suporte.');
             return;
           }
-          // Marca que a master gratuita foi utilizada — chave escopada por uid
-          try { localStorage.setItem(_freeMasterKey(), 'true'); } catch (_) {}
           renderResultState(s);
         } else if (s.status === 'needs_confirmation') {
           clearInterval(_state._masterPollTimer);
@@ -3890,16 +3857,12 @@ function renderModeSelection() {
       startPollingJob(jobId);
     } catch (err) {
       var _runErrMsg = err.message || '';
-      // ── FREE_LIMIT_REACHED / NO_CREDITS: backend é autoridade ───────────
-      // Mostra limitModal sempre que o backend confirmar o limite,
-      // e sincroniza a flag local para evitar futuras chamadas desnecessárias.
-      if (err.code === 'FREE_LIMIT_REACHED' || _runErrMsg === 'FREE_LIMIT_REACHED'
-          || err.code === 'NO_CREDITS'       || _runErrMsg === 'NO_CREDITS') {
+      // ── RATE_LIMIT_EXCEEDED: backend limitou submissões (máx 10/hora) ──────
+      if (err.code === 'RATE_LIMIT_EXCEEDED' || _runErrMsg === 'RATE_LIMIT_EXCEEDED') {
         if (_state._progressTimer) { clearInterval(_state._progressTimer); _state._progressTimer = null; }
         if (_state._textTimer)     { clearInterval(_state._textTimer);     _state._textTimer = null;     }
-        // NÃO setar freeMasterUsed aqui: o usuário pode ter atingido limite por fingerprint
-        // sem ter concluído nenhuma master. A flag só é setada ao status=completed.
-        renderLimitModal();
+        var _retryMin = err.retryAfterMs ? Math.ceil(err.retryAfterMs / 60000) : 60;
+        renderErrorState('Limite de processamento atingido. Você pode enviar no máximo 10 músicas por hora. Tente novamente em ~' + _retryMin + ' minuto(s).');
         return;
       }
       if (_runErrMsg === 'NOT_AUTHENTICATED') {
@@ -4572,105 +4535,7 @@ function renderModeSelection() {
       + '</div>';
   }
 
-  // ── GUARD: decide se bloqueia nova master (única fonte de verdade) ───────
-  // Chave escopada por uid para evitar herança entre contas/sessões.
-  function _freeMasterKey() {
-    var auth = window.__firebaseAuth || null;
-    var uid  = auth && auth.currentUser ? auth.currentUser.uid : null;
-    return uid ? ('freeMasterUsed_' + uid) : 'freeMasterUsed';
-  }
-
-  function shouldBlockFreeMaster() {
-    return localStorage.getItem(_freeMasterKey()) === 'true';
-  }
-
-  // ── MODAL: LIMITE GRATUITO ATINGIDO (fluxo de masterização) ─────────────
-  window.renderLimitModal = function renderLimitModal() {
-    if (document.getElementById('hmLimitModal')) return;
-
-    var overlay = document.createElement('div');
-    overlay.id = 'hmLimitModal';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;'
-      + 'background:rgba(0,0,0,.9);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);'
-      + 'display:flex;align-items:center;justify-content:center;padding:1.25rem;';
-
-    overlay.innerHTML = '<div style="'
-      + 'background:linear-gradient(168deg,#0d0b1f 0%,#110d28 55%,#0f0b22 100%);'
-      + 'border:1px solid rgba(124,58,237,.38);border-radius:24px;'
-      + 'padding:1.75rem 1.75rem 1.5rem;width:100%;max-width:400px;text-align:center;position:relative;'
-      + 'box-shadow:0 0 70px rgba(124,58,237,.18),0 24px 80px rgba(0,0,0,.7);">'
-
-      /* close */
-      + '<button onclick="document.getElementById(\'hmLimitModal\').remove()" style="'
-      +   'position:absolute;top:12px;right:14px;background:none;border:none;'
-      +   'color:#5a5a8a;font-size:1.1rem;cursor:pointer;line-height:1;">&#10005;</button>'
-
-      /* icon */
-      + '<div style="width:52px;height:52px;border-radius:50%;margin:0 auto .85rem;'
-      +   'background:radial-gradient(circle,rgba(124,58,237,.22) 0%,rgba(124,58,237,.04) 100%);'
-      +   'border:1.5px solid rgba(167,139,250,.45);'
-      +   'display:flex;align-items:center;justify-content:center;font-size:1.5rem;'
-      +   'box-shadow:0 0 22px rgba(124,58,237,.28);">&#127898;</div>'
-
-      /* label */
-      + '<p style="font-size:.6rem;letter-spacing:.25em;text-transform:uppercase;'
-      +   'color:rgba(167,139,250,.6);margin:0 0 .4rem;font-weight:700;">AutoMaster</p>'
-
-      /* título */
-      + '<h2 style="font-size:1.3rem;font-weight:900;color:#f5f0ff;'
-      +   'margin:0 0 .45rem;letter-spacing:.01em;line-height:1.25;">Você já usou sua master gratuita</h2>'
-
-      /* subtítulo */
-      + '<p style="font-size:.82rem;color:#a0a0c8;margin:0 0 1rem;line-height:1.55;">'
-      +   'Para continuar, ative um plano e processe quantas faixas quiser.'
-      + '</p>'
-
-      /* benefícios */
-      + '<div style="display:flex;flex-direction:column;gap:.4rem;margin:0 0 1.1rem;text-align:left;">'
-      +   _limitCard('♾️', 'Masters ilimitadas', 'Uso justo — processe quantas quiser')
-      +   _limitCard('💿', 'Qualidade profissional', 'Download em resolução máxima')
-      + '</div>'
-
-      /* CTA */
-      + '<button '
-      +   'onclick="window.location.href=\'/planos.html\'" '
-      +   'onmouseover="this.style.transform=\'scale(1.03)\';this.style.boxShadow=\'0 14px 44px rgba(124,58,237,.65)\';" '
-      +   'onmouseout="this.style.transform=\'scale(1)\';this.style.boxShadow=\'0 8px 32px rgba(124,58,237,.45)\';" '
-      +   'style="display:block;width:100%;padding:.9rem 1rem;'
-      +   'background:linear-gradient(135deg,#5b21b6,#7c3aed,#a855f7);'
-      +   'color:#fff;border-radius:13px;font-weight:900;font-size:.95rem;'
-      +   'border:none;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;'
-      +   'box-shadow:0 8px 32px rgba(124,58,237,.45);'
-      +   'transition:transform .18s ease,box-shadow .18s ease;">'
-      +   'VER PLANOS'
-      + '</button>'
-
-      /* voltar */
-      + '<button onclick="document.getElementById(\'hmLimitModal\').remove()" style="'
-      +   'margin-top:.6rem;background:none;border:none;color:#4a4a7a;'
-      +   'font-size:.75rem;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">'
-      +   'Voltar'
-      + '</button>'
-
-      + '</div>';
-
-    document.body.appendChild(overlay);
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
-  };
-
-  function _limitCard(icon, title, desc) {
-    return '<div style="display:flex;align-items:center;gap:.75rem;padding:.55rem .85rem;'
-      + 'background:rgba(124,58,237,.06);'
-      + 'border:1px solid rgba(124,58,237,.2);border-radius:11px;">'
-      + '<span style="font-size:1.1rem;flex-shrink:0;">' + icon + '</span>'
-      + '<div>'
-      + '<p style="margin:0 0 .05rem;font-size:.8rem;font-weight:700;color:#d4cfff;">' + title + '</p>'
-      + '<p style="margin:0;font-size:.7rem;color:#7878aa;line-height:1.3;">' + desc + '</p>'
-      + '</div>'
-      + '</div>';
-  }
-
-  // ── LOGIN / CADASTRO MODAL PREMIUM ────────────────────────────────────
+  // ── LOGIN / CADASTRO MODAL PREMIUM (paywall exclusivo do download) ──────
   window.openLoginModal = function openLoginModal(opts) {
     if (document.getElementById('homeMasterLoginModal')) return;
     if (document.querySelector('.hm-login-modal-overlay')) return;
@@ -4842,8 +4707,6 @@ function renderModeSelection() {
     }
     try {
       await window.__homeLoginWithGoogle();
-      // Limpa chave genérica legada (sem uid) ao fazer login
-      try { localStorage.removeItem('freeMasterUsed'); } catch (_) {}
       _onLoginSuccess();
     } catch (err) {
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
@@ -4867,8 +4730,6 @@ function renderModeSelection() {
     if (btn) { btn.textContent = 'Entrando…'; btn.disabled = true; }
     try {
       await window.__homeLoginWithEmail(email, pass);
-      // Limpa chave genérica legada (sem uid) ao fazer login
-      try { localStorage.removeItem('freeMasterUsed'); } catch (_) {}
       _onLoginSuccess();
     } catch (err) {
       if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; }
@@ -4904,8 +4765,6 @@ function renderModeSelection() {
     if (btn) { btn.textContent = 'Criando conta…'; btn.disabled = true; }
     try {
       await window.__homeRegisterWithEmail(email, pass);
-      // Conta nova: remove chave genérica legada e qualquer estado anterior
-      try { localStorage.removeItem('freeMasterUsed'); } catch (_) {}
       _onLoginSuccess();
     } catch (err) {
       if (btn) { btn.textContent = 'Criar conta'; btn.disabled = false; }
@@ -5181,7 +5040,10 @@ function renderModeSelection() {
     var items = masters.map(function (m) {
       var date      = m.createdAt ? new Date(m.createdAt).toLocaleDateString('pt-BR') : '—';
       var modeLabel = modeLabels[m.mode] || m.mode || '—';
-      var safeName  = String(m.fileName || m.jobId).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      // Limpa nomes legados que contêm caminhos de storage (ex: uploads/1777825949746.wav)
+      var rawName   = String(m.fileName || m.jobId);
+      var cleanName = rawName.replace(/^(?:uploads?|input|output)\/[0-9]+[_.-]?/i, '') || rawName;
+      var safeName  = cleanName.replace(/</g, '&lt;').replace(/>/g, '&gt;');
       var safeJobId = encodeURIComponent(m.jobId || '');
       return '<div class="hist-item">'
         + '<div class="hist-item-icon" aria-hidden="true">🎵</div>'
@@ -5245,7 +5107,7 @@ function renderModeSelection() {
 
       var a       = document.createElement('a');
       a.href      = data.downloadUrl;
-      a.download  = data.fileName || 'master.wav';
+      a.download  = data.downloadFileName || data.fileName || 'master.wav';
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
@@ -5333,16 +5195,6 @@ window.__firebaseDb = db;
 window.__firebaseAuthReady = window.__firebaseAuthReady || new Promise(function (resolve) {
   var unsub = onAuthStateChanged(auth, function (user) {
     unsub();
-    // Debug: estado de auth e flag de master gratuita ao carregar a página
-    var legacyKey = 'freeMasterUsed';
-    var scopedKey = user ? ('freeMasterUsed_' + user.uid) : legacyKey;
-    console.log('[FreeMaster] Auth:', user ? ('uid=' + user.uid) : 'não autenticado');
-    console.log('[FreeMaster] freeMasterUsed (genérica):', localStorage.getItem(legacyKey));
-    console.log('[FreeMaster] freeMasterUsed (escopada):', localStorage.getItem(scopedKey));
-    // Sem usuário autenticado: remove chave genérica legada para evitar bloqueio indevido
-    if (!user) {
-      try { localStorage.removeItem(legacyKey); } catch (_) {}
-    }
     resolve(user);
   });
 });
