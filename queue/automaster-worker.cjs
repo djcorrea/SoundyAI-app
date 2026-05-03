@@ -75,6 +75,70 @@ const jobLock = require('../services/job-lock.cjs');
 const errorClassifier = require('../services/error-classifier.cjs');
 
 // ============================================================================
+// FIREBASE ADMIN — inicialização lazy CJS
+// Singleton: inicializa apenas na primeira chamada de _getFirestore().
+// Usado exclusivamente para atualizar status dos jobs em automasterJobs/{jobId}
+// e liberar o user lock em usuarios/{uid}.
+// ============================================================================
+let _firestoreInstance = null;
+
+function _getFirestore() {
+  if (_firestoreInstance) return _firestoreInstance;
+  try {
+    const admin = require('firebase-admin');
+    if (!admin.apps.length) {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+      logger.info('Firebase Admin inicializado no worker');
+    }
+    _firestoreInstance = admin.firestore();
+  } catch (err) {
+    logger.warn({ error: err.message }, 'Firebase Admin indisponível no worker — Firestore não será atualizado');
+  }
+  return _firestoreInstance;
+}
+
+/**
+ * Atualiza o documento do job em automasterJobs/{jobId} e limpa o user lock
+ * em usuarios/{uid}. Fire-and-forget — nunca bloqueia o fluxo principal.
+ *
+ * @param {string} jobId
+ * @param {string} uid          - UID do usuário dono do job
+ * @param {string} status       - Status final: 'completed'|'needs_confirmation'|'not_apt'|'needs_mode_change'|'failed'
+ * @param {Object} [extra={}]   - Campos adicionais a gravar no doc do job
+ */
+function _updateFirestoreJob(jobId, uid, status, extra = {}) {
+  const db = _getFirestore();
+  if (!db) return; // Firebase indisponível — noop silencioso
+
+  const now = Date.now();
+  const TERMINAL = ['completed', 'done', 'failed', 'error', 'not_apt', 'needs_confirmation', 'needs_mode_change'];
+
+  // Atualizar job doc
+  db.collection('automasterJobs').doc(jobId).update({
+    status,
+    updatedAt: now,
+    ...extra,
+  }).catch(err =>
+    logger.warn({ jobId, error: err.message }, '[FIRESTORE] Falha ao atualizar job (não crítico)')
+  );
+
+  // Limpar user lock se status for terminal
+  if (uid && TERMINAL.includes(status)) {
+    db.collection('usuarios').doc(uid).get().then(snap => {
+      if (!snap.exists) return;
+      if (snap.data().automasterActiveJobId !== jobId) return; // lock já foi sobrescrito — noop
+      return db.collection('usuarios').doc(uid).update({
+        automasterActiveJobId:        null,
+        automasterActiveJobStartedAt: null,
+      });
+    }).catch(err =>
+      logger.warn({ jobId, uid, error: err.message }, '[FIRESTORE] Falha ao liberar user lock (não crítico)')
+    );
+  }
+}
+
+// ============================================================================
 // LOGGER
 // ============================================================================
 
@@ -386,6 +450,8 @@ async function processJob(job) {
         jobLogger.warn({ error: pgErr.message }, 'Falha ao sincronizar needs_confirmation com PostgreSQL (não crítico)');
       }
 
+      _updateFirestoreJob(jobId, userId, 'needs_confirmation');
+
       jobLogger.info({ pipelineResult }, 'Job aguardando confirmação do usuário (needs_confirmation)');
       return {
         success: false,
@@ -425,6 +491,8 @@ async function processJob(job) {
         jobLogger.warn({ error: pgErr.message }, 'Falha ao sincronizar not_apt com PostgreSQL (não crítico)');
       }
 
+      _updateFirestoreJob(jobId, userId, 'not_apt');
+
       jobLogger.info({ pipelineResult }, 'Job finalizado como not_apt (guardrail — sem retry)');
       return {
         success: false,
@@ -461,6 +529,8 @@ async function processJob(job) {
       } catch (pgErr) {
         jobLogger.warn({ error: pgErr.message }, 'Falha ao sincronizar needs_mode_change com PostgreSQL (não crítico)');
       }
+
+      _updateFirestoreJob(jobId, userId, 'needs_mode_change');
 
       jobLogger.info({ pipelineResult }, 'Job finalizado como needs_mode_change (sem retry)');
       return {
@@ -616,6 +686,14 @@ async function processJob(job) {
       jobLogger.warn({ error: pgErr.message }, 'Falha ao sincronizar completed com PostgreSQL (não crítico)');
     }
 
+    // Sincronizar com Firestore: libera o user lock e marca job como completed.
+    // Fire-and-forget — não bloqueia o retorno do job.
+    _updateFirestoreJob(jobId, userId, 'completed', {
+      outputKey,
+      processingMs: durationMs,
+      warning: completedWithWarning || false,
+    });
+
     // 12. Parar heartbeat
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);
@@ -707,6 +785,8 @@ async function processJob(job) {
       } catch (pgErr) {
         log.warn({ error: pgErr.message }, 'Falha ao sincronizar failed com PostgreSQL (não crítico)');
       }
+
+      _updateFirestoreJob(jobId, userId, 'failed');
     } else {
       // Incrementar attempt para próximo retry
       await jobStore.incrementAttempt(jobId);
