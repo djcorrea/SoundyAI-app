@@ -4109,7 +4109,11 @@ function renderModeSelection() {
     // NOTA: o webhook do MP já salva o histórico no momento do pagamento.
     // Esta chamada é um segundo ponto de garantia para casos onde o webhook
     // não tenha recebido o jobId (ex.: fluxo legado sem jobId no metadata).
-    if (_state.masterJobId) {
+    // IMPORTANTE: capturar jobId em variável local ANTES de qualquer operação
+    // assíncrona. resetMasterFlow() pode limpar _state.masterJobId antes do
+    // .then() do getValidIdToken() executar, enviando jobId: null ao servidor.
+    var _histJobId = _state.masterJobId || '';
+    if (_histJobId) {
       getValidIdToken().then(function(token) {
         return fetch('/api/user/masters/save', {
           method: 'POST',
@@ -4117,7 +4121,7 @@ function renderModeSelection() {
             'Authorization': 'Bearer ' + token,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ jobId: _state.masterJobId })
+          body: JSON.stringify({ jobId: _histJobId })
         });
       }).then(function(r) {
         if (r && !r.ok) {

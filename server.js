@@ -1202,6 +1202,31 @@ app.get('/api/automaster/download/:jobId', async (req, res) => {
         console.error('[PROXY-DOWNLOAD] consumeJobCredit error (não fatal):', e.message)
       );
     }
+
+    // ── SALVAR HISTÓRICO DE MASTERS (fire-and-forget, idempotente) ────────────
+    // Terceiro ponto de garantia (além do webhook e do fire-and-forget do front).
+    // Executado aqui pois todos os dados necessários já estão disponíveis:
+    //   job.output_key, job.original_filename, job.mode, uid, jobId.
+    // A verificação existing.exists garante idempotência — sem sobrescrita.
+    (async () => {
+      try {
+        const _histRef = getFirestore().collection('usuarios').doc(uid)
+                                       .collection('masters').doc(jobId);
+        const _existing = await _histRef.get();
+        if (!_existing.exists) {
+          await _histRef.set({
+            jobId,
+            fileName:   job.original_filename || jobId,
+            storageKey: job.output_key,
+            mode:       job.mode || null,
+            createdAt:  new Date().toISOString(),
+          });
+          console.log(`✅ [PROXY-DOWNLOAD] Histórico salvo — uid:${uid} jobId:${jobId}`);
+        }
+      } catch (_he) {
+        console.error('[PROXY-DOWNLOAD] Falha ao salvar histórico (não crítico):', _he.message);
+      }
+    })();
     // ─────────────────────────────────────────────────────────────────────────
 
     const originalName = job.original_filename || jobId;
