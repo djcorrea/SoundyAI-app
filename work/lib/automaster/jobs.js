@@ -130,10 +130,24 @@ export async function createJobWithTransaction(uid, jobId, { fileKey, mode }) {
     const activeJobAt = user.automasterActiveJobStartedAt  || 0;
 
     if (activeJobId && (now - activeJobAt) < LOCK_TTL_MS) {
-      throw Object.assign(
-        new Error('Já existe uma masterização em andamento. Aguarde a conclusão antes de iniciar outra.'),
-        { code: 'PROCESS_ALREADY_RUNNING', activeJobId },
-      );
+      // Verificar status real do job antes de bloquear.
+      // O lock pode estar stale: free users só chamam consumeJobCredit no download,
+      // então automasterActiveJobId permanece setado até o 1º download do job anterior.
+      const _activeJobSnap = await tx.get(db.collection(JOBS).doc(activeJobId));
+      const _TERMINAL      = new Set(['completed', 'done', 'failed', 'error', 'not_apt']);
+      const _activeStatus  = _activeJobSnap.exists ? (_activeJobSnap.data().status || '') : null;
+
+      if (!_activeJobSnap.exists || _TERMINAL.has(_activeStatus)) {
+        // Lock stale: job já concluiu ou não existe — prosseguir.
+        // automasterActiveJobId será sobrescrito pelo novo jobId na mesma transaction.
+        console.log(`[AUTOMASTER-JOBS] Lock stale liberado — uid=${uid} prevJob=${activeJobId} status=${_activeStatus}`);
+      } else {
+        // Job ainda está em andamento (pending / processing) — bloquear legitimamente.
+        throw Object.assign(
+          new Error('Já existe uma masterização em andamento. Aguarde a conclusão antes de iniciar outra.'),
+          { code: 'PROCESS_ALREADY_RUNNING', activeJobId },
+        );
+      }
     }
 
     // ── 2. Monthly reset ──────────────────────────────────────────────────────
