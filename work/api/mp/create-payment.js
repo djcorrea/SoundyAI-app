@@ -77,10 +77,16 @@ router.post('/', async (req, res) => {
   }
 
   const uid   = decodedToken.uid;
-  const email = decodedToken.email || `${uid}@soundyai.user`;
   const jobId = req.body?.jobId || '';
 
-  console.error(`[MP CREATE-PAYMENT] uid=${uid} jobId=${jobId} price=${SINGLE_CREDIT_PRICE}`);
+  // NUNCA enviar o e-mail real do usuário autenticado ao Mercado Pago.
+  // Se o e-mail do pagador coincidir com o e-mail da conta recebedora (ex.: o
+  // próprio dono da conta testando o fluxo), o MP rejeita o pagamento com
+  // status=rejected imediatamente — "auto-pagamento" não é permitido.
+  // Solução: e-mail sintético único por uid, sem vínculo com a conta MP.
+  const payerEmail = `pagador_${uid.slice(0, 12).toLowerCase()}@soundyai.app`;
+
+  console.error(`[MP CREATE-PAYMENT] uid=${uid} jobId=${jobId} price=${SINGLE_CREDIT_PRICE} payerEmail=${payerEmail}`);
 
   // 2️⃣ VERIFICAR TOKEN MP
   const accessToken = process.env.MP_ACCESS_TOKEN;
@@ -100,7 +106,7 @@ router.post('/', async (req, res) => {
     payment_method_id:  'pix',
     description:        'Crédito SoundyAI — 1 masterização',
     payer: {
-      email,
+      email: payerEmail,
     },
     metadata: {
       uid,
