@@ -151,7 +151,7 @@ function calculateMixConfidence({ headroom, crestFactor, delta }) {
  * @param {string} mode - Modo escolhido: 'LOW', 'MEDIUM', 'HIGH'
  * @returns {Object} Decisão de processamento
  */
-function decideGainWithinRange(metrics, mode = 'MEDIUM') {
+function decideGainWithinRange(metrics, mode = 'MEDIUM', opts = {}) {
   const modeConfig = MODES[mode.toUpperCase()] || MODES.MEDIUM;
   const modeKey = mode.toUpperCase();
   
@@ -209,7 +209,8 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   // ─── REFINE MODE: mix alta + headroom insuficiente para loudness push ──────
   // Condição: LUFS > -13 E headroom < 1.0 dB
   // Ação: não abortar — ativar REFINE (EQ tonal + compressão leve, zero loudness push)
-  if (currentLUFS > -13.0 && headroom < 1.0) {
+  // BYPASS: quando rescueBypass=true o De-Gain já criou headroom — não forçar REFINE
+  if (!opts.rescueBypass && currentLUFS > -13.0 && headroom < 1.0) {
     console.error('🔬 REFINE MODE ATIVADO: Mix alta com pouco headroom');
     console.error(`   LUFS: ${currentLUFS.toFixed(1)} > -13.0 | Headroom: ${headroom.toFixed(2)} < 1.0 dB`);
     console.error('   Estratégia: EQ tonal + compressão leve | Sem ganho de loudness');
@@ -231,7 +232,8 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   }
 
   // Headroom crítico (<0.8 dB) - evitar processamento por segurança
-  if (headroom < 0.8) {
+  // BYPASS: quando rescueBypass=true o De-Gain já criou headroom — não abortar
+  if (!opts.rescueBypass && headroom < 0.8) {
     console.error('🚨 Headroom crítico (<0.8 dB) - risco de clipping');
     console.error('   Decisão: Não processar para preservar qualidade');
     console.error('═══════════════════════════════════════════════════════════');
@@ -1043,7 +1045,25 @@ function buildSaturationPlan(mixClass) {
  * @param {string}      mixClass    'POOR' | 'MEDIUM' | 'GOOD'
  * @returns {{ hz: number, poles: number }}
  */
-function buildHighpassPlan(bands, mixClass) {
+function buildHighpassPlan(bands, mixClass, isRescueMode = false) {
+  // RESCUE MODE: sinal clipado — HPF protetor antes do pipeline
+  // Sub muito forte (funk/eletrônica): corte leve mas 2-pole para solidez
+  // Outros áudios estourados: corte agressivo para liberar headroom máximo
+  if (isRescueMode) {
+    const subDb = (bands && bands.sub && bands.sub.energy_db !== null)
+      ? bands.sub.energy_db
+      : -20;
+    if (subDb > -10) {
+      // Música com grave pesado (funk, eletrônica, trap): preservar punch
+      console.error(`[PLAN][HP][RESCUE] sub forte (${subDb.toFixed(1)} dBFS) → highpass 28 Hz 2-pole (preserve punch)`);
+      return { hz: 28, poles: 2 };
+    } else {
+      // Áudio estourado sem grave dominante: HPF agressivo
+      console.error(`[PLAN][HP][RESCUE] sinal clipado (${subDb.toFixed(1)} dBFS) → highpass 38 Hz 2-pole (max headroom)`);
+      return { hz: 38, poles: 2 };
+    }
+  }
+
   // POOR class: sempre 30 Hz 2-pole (Fase 8, inviolável)
   if (mixClass === 'POOR') {
     return { hz: 30, poles: 2 };
@@ -1082,8 +1102,9 @@ function buildHighpassPlan(bands, mixClass) {
  * @param {string} mode     Modo: 'STREAMING' | 'LOW' | 'MEDIUM' | 'HIGH'
  * @returns {Object}        MasteringPlan completo
  */
-function buildMasteringPlan(metrics, mode) {
+function buildMasteringPlan(metrics, mode, opts = {}) {
   const modeKey = (mode || 'MEDIUM').toUpperCase();
+  const isRescueMode = opts.rescueBypass === true;
 
   console.error('');
   console.error('════════════════════════════════════════════════════════════');
@@ -1092,7 +1113,7 @@ function buildMasteringPlan(metrics, mode) {
   console.error('════════════════════════════════════════════════════════════');
 
   // ─── 1. TARGET LUFS via decision engine ────────────────────
-  const decision = decideGainWithinRange(metrics, modeKey);
+  const decision = decideGainWithinRange(metrics, modeKey, opts);
 
   if (!decision.shouldProcess) {
     console.error('[PLAN] Motor decidiu NÃO processar:', decision.reason);
@@ -1195,9 +1216,9 @@ function buildMasteringPlan(metrics, mode) {
     : null;
 
   // ─── 5. Highpass Plan ──────────────────────────────────────
-  // Para HIGH e EXTREME
+  // Para HIGH e EXTREME (isRescueMode altera frequências de corte)
   const hpPlan = (modeKey === 'HIGH' || modeKey === 'EXTREME')
-    ? buildHighpassPlan(metrics.bands || null, mixClass)
+    ? buildHighpassPlan(metrics.bands || null, mixClass, isRescueMode)
     : { hz: 25, poles: 1 };
 
   console.error(`[PLAN] Highpass: ${hpPlan.hz} Hz (${hpPlan.poles}-pole) | MixClass: ${mixClass}`);

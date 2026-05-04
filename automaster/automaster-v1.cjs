@@ -2593,21 +2593,28 @@ async function renderWithLimiter(inputFile, preGainDB, ceiling, sampleRate, outp
     if (useParallelClip) {
       // ═══════════════════════════════════════════════════════════════
       // PATH PARALELO v6: filter_complex com asplit + amix
-      // Cadeia: volume → preConditioner → preEQ →
-      //         [asplit → (dry) + (tanh) → amix(mix)] →
-      //         postEQ → volume -0.5dB → alimiter
-      // Resultado: (1-mix)*dry + mix*clipped  → kick transiente preservado
+      // Nova cadeia (2-estágios):
+      //   preConditioner (highpass+comp) → volume(gain1) → preEQ →
+      //   [asplit → (dry) + (transComp → tanh) → amix(mix)] →
+      //   postEQ → volume=-0.5dB → volume(gain2) → alimiter
+      // Highpass atua ANTES de qualquer boost de volume.
+      // Ganho dividido: gain1(50%) antes do clipper, gain2(50%) antes do limiter.
       // ═══════════════════════════════════════════════════════════════
 
-      // Pré-clip (antes do split)
-      const preClipParts = [`volume=${currentPreGainDB.toFixed(6)}dB`];
+      const gain1 = currentPreGainDB * 0.5;
+      const gain2 = currentPreGainDB * 0.5;
+
+      // Pré-clip (antes do split): preCond → volume(gain1) → preEQ
+      const preClipParts = [];
       if (preConditionerFilter) preClipParts.push(preConditionerFilter);
+      preClipParts.push(`volume=${gain1.toFixed(6)}dB`);
       if (perceptualEQFilter)   preClipParts.push(perceptualEQFilter);
 
-      // Pós-clip (após o merge)
+      // Pós-clip (após o merge): postEQ → headroom → volume(gain2) → limiter
       const postClipParts = [];
       if (postSatEQFilter) postClipParts.push(postSatEQFilter);
-      postClipParts.push('volume=-0.5dB');   // headroom pré-limiter (paralelo mantém -0.5dB)
+      postClipParts.push('volume=-0.5dB');             // headroom pré-limiter (paralelo mantém -0.5dB)
+      postClipParts.push(`volume=${gain2.toFixed(6)}dB`);
       postClipParts.push(limiterFilter);
       if (softClipper2Filter !== null) {
         postClipParts.push('asoftclip=type=tanh:threshold=0.95:output=1.0:oversample=8');
@@ -2646,15 +2653,24 @@ async function renderWithLimiter(inputFile, preGainDB, ceiling, sampleRate, outp
       ];
     } else {
       // ═══════════════════════════════════════════════════════════════
-      // PATH SERIAL (baseline v3-v5): -af simples
-      // Cadeia HIGH: volume → preConditioner → preEQ → clip1 → postEQ → volume -0.5dB → alimiter → clip2
+      // PATH SERIAL (2-estágios): -af simples
+      // Nova cadeia HIGH/EXTREME:
+      //   preConditioner (highpass+comp) → volume(gain1) → preEQ →
+      //   clip1 → postEQ → volume=-0.5dB → volume(gain2) → alimiter → clip2
+      // Highpass atua ANTES de qualquer boost de volume.
+      // Ganho dividido: gain1(50%) antes do clipper, gain2(50%) antes do limiter.
       // ═══════════════════════════════════════════════════════════════
-      const filterParts = [`volume=${currentPreGainDB.toFixed(6)}dB`];
-      if (preConditionerFilter) filterParts.push(preConditionerFilter);   // highpass + compressor
+      const gain1 = currentPreGainDB * 0.5;
+      const gain2 = currentPreGainDB * 0.5;
+
+      const filterParts = [];
+      if (preConditionerFilter) filterParts.push(preConditionerFilter);   // highpass + compressor (PRIMEIRO)
+      filterParts.push(`volume=${gain1.toFixed(6)}dB`);                   // gain1: 50% antes do clipper
       if (perceptualEQFilter)   filterParts.push(perceptualEQFilter);     // EQ pre-sat (sub + mud)
-      if (softClipperFilter)    filterParts.push(softClipperFilter);      // CLIP1: pré-EQ, ISP control
+      if (softClipperFilter)    filterParts.push(softClipperFilter);      // CLIP1: ISP control
       if (postSatEQFilter)      filterParts.push(postSatEQFilter);        // EQ post-sat (presence + air)
       if (softClipperFilter)    filterParts.push('volume=-0.5dB');        // headroom pré-limiter
+      filterParts.push(`volume=${gain2.toFixed(6)}dB`);                   // gain2: 50% antes do limiter
       filterParts.push(limiterFilter);
       if (softClipper2Filter !== null) {
         filterParts.push('asoftclip=type=tanh:threshold=0.95:output=1.0:oversample=8');
@@ -2719,13 +2735,17 @@ async function auditPreLimiterLUFS(baseFile, preGainDB, sampleRate, preCondFilte
   try {
     let args;
     if (useParallel) {
-      // Cadeia paralela sem alimiter — consistente com renderWithLimiter
-      const preClipParts = [`volume=${preGainDB.toFixed(6)}dB`];
+      // Cadeia paralela sem alimiter — consistente com renderWithLimiter (2-estágios)
+      const gain1 = preGainDB * 0.5;
+      const gain2 = preGainDB * 0.5;
+      const preClipParts = [];
       if (preCondFilter)  preClipParts.push(preCondFilter);
+      preClipParts.push(`volume=${gain1.toFixed(6)}dB`);
       if (preSatEQFilter) preClipParts.push(preSatEQFilter);
       const postClipParts = [];
       if (postSatEQFilter) postClipParts.push(postSatEQFilter);
       postClipParts.push('volume=-0.5dB');
+      postClipParts.push(`volume=${gain2.toFixed(6)}dB`);
       const dryWeight = (1.0 - clipParallelMix).toFixed(3);
       const wetWeight = clipParallelMix.toFixed(3);
       const fc = [
@@ -2736,13 +2756,17 @@ async function auditPreLimiterLUFS(baseFile, preGainDB, sampleRate, preCondFilte
       ].join(';');
       args = ['-y', '-i', `"${baseFile}"`, '-filter_complex', `"${fc}"`, '-map', '"[out_al]"', '-ar', sampleRate.toString(), '-c:a', 'pcm_s24le', `"${auditPath}"` ];
     } else {
-      // Cadeia serial (baseline)
-      const filterParts = [`volume=${preGainDB.toFixed(6)}dB`];
+      // Cadeia serial (2-estágios) sem alimiter
+      const gain1 = preGainDB * 0.5;
+      const gain2 = preGainDB * 0.5;
+      const filterParts = [];
       if (preCondFilter)   filterParts.push(preCondFilter);
+      filterParts.push(`volume=${gain1.toFixed(6)}dB`);
       if (preSatEQFilter)  filterParts.push(preSatEQFilter);
       if (softClipFilter)  filterParts.push(softClipFilter);
       if (postSatEQFilter) filterParts.push(postSatEQFilter);
       if (softClipFilter)  filterParts.push('volume=-0.5dB');
+      filterParts.push(`volume=${gain2.toFixed(6)}dB`);
       args = ['-y', '-i', `"${baseFile}"`, '-af', `"${filterParts.join(',')}"`, '-ar', sampleRate.toString(), '-c:a', 'pcm_s24le', `"${auditPath}"` ];
     }
     // SEM alimiter — LUFS do sinal processado antes do limiting
@@ -2767,11 +2791,15 @@ async function auditPreLimiterLUFS(baseFile, preGainDB, sampleRate, preCondFilte
 async function auditPreClipperLUFS(baseFile, preGainDB, sampleRate, preCondFilter, preSatEQFilter, postSatEQFilter) {
   const auditPath = baseFile + '.audit_preclip.wav';
   try {
-    // Cadeia SEM clip1 e SEM -0.5dB e SEM alimiter
-    const filterParts = [`volume=${preGainDB.toFixed(6)}dB`];
+    // Cadeia SEM clip1 e SEM -0.5dB e SEM alimiter (2-estágios, ordem nova)
+    const gain1 = preGainDB * 0.5;
+    const gain2 = preGainDB * 0.5;
+    const filterParts = [];
     if (preCondFilter)   filterParts.push(preCondFilter);
+    filterParts.push(`volume=${gain1.toFixed(6)}dB`);
     if (preSatEQFilter)  filterParts.push(preSatEQFilter);
     if (postSatEQFilter) filterParts.push(postSatEQFilter);
+    filterParts.push(`volume=${gain2.toFixed(6)}dB`);
     const args = ['-y', '-i', `"${baseFile}"`, '-af', `"${filterParts.join(',')}"`, '-ar', sampleRate.toString(), '-c:a', 'pcm_s24le', `"${auditPath}"` ];
     await execAsync(`ffmpeg ${args.join(' ')}`);
     const measurement = await measureWithOfficialScript(auditPath);
@@ -3045,7 +3073,7 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
   console.error('[STEP 2] Starting iterative limiter convergence...');
   console.error('');
   
-  const MAX_ITERATIONS = 2;  // V1: 2 iterações — se não convergir → fallback imediato
+  const MAX_ITERATIONS = 4;  // V1: 4 iterações — mais fôlego para targets agressivos (ex: rescue mode)
   const CONVERGENCE_THRESHOLD_LU = 0.3;
 
   let lastRenderedFile = null;
@@ -5552,6 +5580,9 @@ async function main() {
   let eqTempFile = null;           // Arquivo temporário com EQ (para limpeza ao final)
   let peakCorrectionTempFile = null; // Arquivo temporário de peak correction
   let peakCorrectionInfo = null;     // Info de peak correction para JSON de saída
+  let rescueDeGainTempFile = null;   // Arquivo temporário do De-Gain de resgate
+  let rescueModeActive = false;      // Indica se Opração Resgate foi ativada
+  let rescueDeGainDB = 0;            // De-Gain aplicado no resgate (dB)
 
   if (debug) {
     console.error('[DEBUG] AutoMaster V1 - Nucleo Tecnico');
@@ -5614,8 +5645,64 @@ async function main() {
       }
     }
 
+    // Salvar LUFS original ANTES do De-Gain de resgate (usado no override de target)
+    const originalInputLufs = metrics.lufs;
+
+    // ════════════════════════════════════════════════════════════
+    // OPERAÇÃO RESGATE: De-Gain preventivo para sinais clipados
+    // Condição: TP >= -1.0 dBTP (headroom insuficiente para pipeline normal)
+    // Ação: abaixar sinal 3-6 dB ANTES de qualquer processamento DSP
+    // ════════════════════════════════════════════════════════════
+    if (metrics.truePeak >= -1.0) {
+      // Fórmula: mira TP alvo em -5.0 dBTP; clamp entre -3 e -6 dB
+      const rawDeGain = -4.0 - metrics.truePeak;
+      const deGainDB = Math.max(-6.0, Math.min(-3.0, rawDeGain));
+      const rescuePath = config.inputPath + '.rescue_degain.wav';
+
+      console.error('');
+      console.error('════════════════════════════════════════════════════════════');
+      console.error('🚨 OPERAÇÃO RESGATE: Sinal clipado detectado');
+      console.error(`   TP entrada: ${metrics.truePeak.toFixed(2)} dBTP (limite: -1.0)`);
+      console.error(`   De-Gain calculado: ${deGainDB.toFixed(2)} dB`);
+      console.error(`   Arquivo temporário: ${require('path').basename(rescuePath)}`);
+      console.error('════════════════════════════════════════════════════════════');
+      console.error('');
+
+      // Aplicar De-Gain via FFmpeg (sem nenhum outro filtro — só ganho)
+      await execAsync(
+        `ffmpeg -y -i "${config.inputPath}" -af "volume=${deGainDB.toFixed(4)}dB" -ar ${(await detectInputSampleRate(config.inputPath))} -c:a pcm_s24le "${rescuePath}"`
+      );
+
+      // Re-analisar arquivo degained
+      const metricsRescue = await analyzeWithBands(rescuePath, execAsync);
+      console.error(`[RESCUE] Novas métricas: LUFS=${metricsRescue.lufs.toFixed(2)} TP=${metricsRescue.truePeak.toFixed(2)} CF=${metricsRescue.crestFactor.toFixed(2)}`);
+
+      // Substituir arquivo de entrada e métricas (preProcessMetrics mantém o TP ORIGINAL)
+      rescueDeGainTempFile = rescuePath;
+      rescueModeActive     = true;
+      rescueDeGainDB       = deGainDB;
+      config.inputPath     = rescuePath;
+      metrics              = metricsRescue;
+    }
+
     // Decision engine unificada: target + caps + mix classification + EQ plan
-    masteringPlan = buildMasteringPlan(metrics, config.mode);
+    const masteringPlanOpts = rescueModeActive ? { rescueBypass: true } : {};
+    masteringPlan = buildMasteringPlan(metrics, config.mode, masteringPlanOpts);
+
+    // RESCUE OVERRIDE: forçar target LUFS baseado no LUFS original (pré-De-Gain)
+    // O decision-engine lê métricas pós-De-Gain e gera target muito baixo — corrigir aqui
+    // Safety cap: o target não pode exceder o que o TP headroom disponível suporta.
+    // Um target excessivo força pre-gain >10 dB que corrompe o alimiter (silêncio no output).
+    if (rescueModeActive) {
+      const rawTarget = originalInputLufs + 0.5;
+      // Headroom disponível: distância do TP pós-De-Gain até o ceiling (-1.0 dBTP)
+      const tpHeadroom = Math.max(0, Math.abs(metrics.truePeak) - 1.0);
+      // Cap seguro: targetLUFS do decision-engine + headroom de TP disponível
+      const safeCap = masteringPlan.targetLUFS + tpHeadroom;
+      masteringPlan.targetLUFS = Math.min(rawTarget, safeCap);
+      console.error(`[RESCUE OVERRIDE] Target LUFS forçado para ${masteringPlan.targetLUFS.toFixed(2)} (original=${originalInputLufs.toFixed(2)}, rawTarget=${rawTarget.toFixed(2)}, safeCap=${safeCap.toFixed(2)}, tpHeadroom=${tpHeadroom.toFixed(2)})`);
+    }
+
     console.error('[MASTERING PLAN] Plano:', {
       shouldProcess: masteringPlan.shouldProcess,
       targetLUFS: masteringPlan.targetLUFS,
@@ -5957,6 +6044,8 @@ async function main() {
       capped: config.globalCapsApplied,
       cap_reason: config.capReason,
       offset_applied: config.offsetApplied,
+      rescue_mode_active: rescueModeActive,
+      degain_applied: rescueDeGainDB,
       
       // RELATÓRIO PERCEPTIVO
       perceptual_improvement: generatePerceptualImprovement(
@@ -6001,6 +6090,13 @@ async function main() {
         fs.unlinkSync(peakCorrectionTempFile);
       } catch { /* limpeza silenciosa */ }
     }
+
+    // Limpar arquivo temporário da Operação Resgate (De-Gain)
+    if (rescueDeGainTempFile && fs.existsSync(rescueDeGainTempFile)) {
+      try {
+        fs.unlinkSync(rescueDeGainTempFile);
+      } catch { /* limpeza silenciosa */ }
+    }
     
     process.exit(0);
   } catch (error) {
@@ -6023,6 +6119,12 @@ async function main() {
     
     // BUG FIX: garantir que stdout sempre receba JSON antes de sair
     process.stdout.write(JSON.stringify({ success: false, error: error.message, stack: error.stack }) + '\n');
+
+    // Limpar arquivo temporário da Operação Resgate (De-Gain)
+    if (typeof rescueDeGainTempFile !== 'undefined' && rescueDeGainTempFile && fs.existsSync(rescueDeGainTempFile)) {
+      try { fs.unlinkSync(rescueDeGainTempFile); } catch { /* silencioso */ }
+    }
+
     process.exit(1);
   }
 }
